@@ -294,7 +294,7 @@ const GAS_URL  = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQ
 const LIFF_ID  = '2010471175-mz6PBjZx';
 
 // ── 状態 ────────────────────────────────────────────────────────────────────
-const __UI_BUILD__ = 5;
+const __UI_BUILD__ = 6;
 let userId       = null;
 let isAdmin      = false;
 let isAllowed    = false;
@@ -496,12 +496,23 @@ function filterDisc(filter, btn) {
 }
 
 // ── スケジュール(照合) 描画 ───────────────────────────────────────────────────
+// 対戦相手名の類似度（0〜1）
+function _nameSim(a, b) {
+  if (!a || !b) return 0;
+  const norm = s => String(s)
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[　\s・]/g, '').toLowerCase();
+  const na = norm(a), nb = norm(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.8;
+  let common = 0;
+  for (const ch of na) if (nb.includes(ch)) common++;
+  return common / Math.max(na.length, nb.length);
+}
+
 function buildMerged() {
   const today = new Date().toISOString().split('T')[0];
-
-  // discData を id でインデックス
-  const discById = {};
-  discData.forEach(d => { discById[d.id] = d; });
 
   // disc を (normDate_catBase) でグループ化
   const discByKey = {};
@@ -510,12 +521,39 @@ function buildMerged() {
     (discByKey[key] = discByKey[key] || []).push(d);
   });
 
-  // official を (normDate_category) でインデックス
-  const offByKey = {};
+  // official を (normDate_category) でプール化（各エントリに _used フラグ）
+  // フットサルはカテゴリ変換: U-15_FUTSAL → U-15、U-14_FUTSAL → U-14 でも検索できるよう両キーで登録
+  const offPool = {};
   schedData.forEach(o => {
     const key = normDate(o.match_date) + '_' + o.category_code;
-    (offByKey[key] = offByKey[key] || []).push(o);
+    (offPool[key] = offPool[key] || []).push({ ...o, _used: false });
+    // フットサルカテゴリを基本カテゴリにもマップ
+    const base = o.category_code.replace('_FUTSAL', '');
+    if (base !== o.category_code) {
+      const altKey = normDate(o.match_date) + '_' + base;
+      (offPool[altKey] = offPool[altKey] || []).push(o); // 同オブジェクトを参照: _used 共有
+    }
   });
+
+  // 日付+カテゴリから最も名前が近い未使用公式エントリを消費する
+  function consumeOff(dateStr, cat, coachTitle) {
+    const keys = [dateStr + '_' + cat, dateStr + '_' + catBase(cat)];
+    for (const key of [...new Set(keys)]) {
+      const pool = (offPool[key] || []).filter(o => !o._used);
+      if (pool.length === 0) continue;
+      // 1件のみ: そのまま使用
+      if (pool.length === 1) { pool[0]._used = true; return pool[0]; }
+      // 複数: 名前類似度が最高のものを選択
+      let best = pool[0], bestScore = _nameSim(coachTitle, pool[0].opponent);
+      for (let i = 1; i < pool.length; i++) {
+        const s = _nameSim(coachTitle, pool[i].opponent);
+        if (s > bestScore) { bestScore = s; best = pool[i]; }
+      }
+      best._used = true;
+      return best;
+    }
+    return null;
+  }
 
   const entries = [];
   const usedDiscIds = new Set();
@@ -536,25 +574,23 @@ function buildMerged() {
     let disc = discs[0] || null;
     let official = null;
 
-    let matchedOk = false;
     if (disc) {
       usedDiscIds.add(disc.id);
       const od = safeParse(disc.official_data);
       if (od && (od.opponent || od.time)) official = od;
     } else {
-      // 差分なし = バックエンドで照合済み。フロントで独立して公式を再検索しない
-      // (複数エントリが同じ offs[0] を拾うバグを防ぐ)
-      matchedOk = true;
+      // 差分なし → 名前類似度マッチで公式エントリを1件ずつ消費（使い回し防止）
+      const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
+      if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue };
     }
 
     entries.push({
-      date:      normDate(cm.event_date),
-      category:  cm.category_code,
-      coach:     { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
+      date:     normDate(cm.event_date),
+      category: cm.category_code,
+      coach:    { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
       official,
-      matchedOk,
       disc,
-      status:    disc ? disc.status : 'ok',
+      status:   disc ? disc.status : 'ok',
     });
   }
 
@@ -620,31 +656,16 @@ function renderSchedList() {
     const c = e.coach   || {};
     const o = e.official || {};
 
-    const lineTime     = c.time  || '—';
-    const lineOpp      = c.title ? `vs ${c.title}` : '(なし)';
-    const lineVenue    = c.venue  ? `@ ${c.venue}`  : '';
+    const lineTime  = c.time  || '—';
+    const lineOpp   = c.title ? `vs ${c.title}` : '(なし)';
+    const lineVenue = c.venue ? `@ ${c.venue}`  : '';
+
+    const offTime   = o.time     || '—';
+    const offOpp    = o.opponent ? `vs ${o.opponent}` : '(なし)';
+    const offVenue  = o.venue    ? `@ ${o.venue}` : '';
 
     const noCoach    = !e.coach;
-    const noOfficial = !e.official && !e.matchedOk;
-
-    // 公式列: 照合OK(差分なし)の場合は「✅ 公式と一致」を表示
-    let offColInner;
-    if (e.matchedOk) {
-      offColInner = `<div class="col-hdr">公式</div>
-          <div style="color:var(--green);font-size:12px;margin-top:8px;">✅ 公式と一致</div>`;
-    } else if (noOfficial) {
-      offColInner = `<div class="col-hdr">公式</div>
-          <div class="col-time" style="color:#a0c4ff;">—</div>
-          <div class="col-opponent" style="color:#a0c4ff;">(なし)</div>`;
-    } else {
-      const offTime  = o.time     || '—';
-      const offOpp   = o.opponent ? `vs ${o.opponent}` : '—';
-      const offVenue = o.venue    ? `@ ${o.venue}` : '';
-      offColInner = `<div class="col-hdr">公式</div>
-          <div class="col-time" style="color:#a0c4ff;">${offTime}</div>
-          <div class="col-opponent" style="color:#a0c4ff;">${offOpp}</div>
-          ${offVenue ? `<div class="col-venue">${offVenue}</div>` : ''}`;
-    }
+    const noOfficial = !e.official;
 
     const actions = (e.disc && e.disc.status === 'open' && isAllowed)
       ? judgeButtons(e.disc.id)
@@ -658,13 +679,16 @@ function renderSchedList() {
       <div class="match-2col">
         <div class="col-line" style="${noCoach ? 'opacity:0.4' : ''}">
           <div class="col-hdr">LINE</div>
-          <div class="col-time"   style="color:var(--warn);">${noCoach ? '—' : lineTime}</div>
+          <div class="col-time"     style="color:var(--warn);">${noCoach ? '—' : lineTime}</div>
           <div class="col-opponent" style="color:var(--warn);">${noCoach ? '(なし)' : lineOpp}</div>
-          ${lineVenue ? `<div class="col-venue">${lineVenue}</div>` : ''}
+          ${!noCoach && lineVenue ? `<div class="col-venue">${lineVenue}</div>` : ''}
         </div>
         <div class="col-sep"></div>
-        <div class="col-off" style="${noOfficial && !e.matchedOk ? 'opacity:0.4' : ''}">
-          ${offColInner}
+        <div class="col-off" style="${noOfficial ? 'opacity:0.4' : ''}">
+          <div class="col-hdr">公式</div>
+          <div class="col-time"     style="color:#a0c4ff;">${noOfficial ? '—' : offTime}</div>
+          <div class="col-opponent" style="color:#a0c4ff;">${noOfficial ? '(なし)' : offOpp}</div>
+          ${!noOfficial && offVenue ? `<div class="col-venue">${offVenue}</div>` : ''}
         </div>
       </div>
       ${actions}
