@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REGALIA 試合予定照合</title>
+  <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+  <style>
+    :root {
+      --bg:       #0a0f23;
+      --surface:  #12183a;
+      --border:   #1e2d5a;
+      --blue:     #7eaaff;
+      --blue-lt:  #c8dcff;
+      --green:    #64d278;
+      --warn:     #ffcc80;
+      --danger:   #ff5252;
+      --text:     #e8eaf6;
+      --muted:    #8899aa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+    /* ── Header ─────────────────────────────────── */
+    .header {
+      background: #0d2a5e;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-title { color: var(--blue-lt); font-size: 15px; font-weight: bold; }
+    .header-version { color: var(--muted); font-size: 11px; }
+    /* ── Tabs ────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+    }
+    /* ── Summary Cards ───────────────────────────── */
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 12px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .card-num  { font-size: 28px; font-weight: bold; }
+    .card-label{ color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .card.ok   .card-num { color: var(--green); }
+    .card.warn .card-num { color: var(--danger); }
+    /* ── Section Header ──────────────────────────── */
+    .section-head {
+      padding: 8px 12px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: bold;
+      border-bottom: 1px solid var(--border);
+    }
+    /* ── Discrepancy List ────────────────────────── */
+    .disc-list { padding: 0 12px 80px; }
+    .disc-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 8px 0;
+      padding: 10px;
+    }
+    .disc-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .disc-date  { color: var(--blue-lt); font-weight: bold; font-size: 13px; }
+    .disc-cat   { color: var(--muted); font-size: 11px; }
+    .disc-row   { display: flex; gap: 4px; margin: 3px 0; align-items: flex-start; }
+    .disc-label { min-width: 34px; font-size: 11px; color: var(--muted); padding-top: 1px; }
+    .disc-val   { font-size: 12px; flex: 1; }
+    .disc-off   { color: #a0c4ff; }
+    .disc-coa   { color: var(--warn); }
+    .disc-type  { color: var(--danger); font-size: 11px; font-weight: bold; margin-top: 4px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    .badge.open     { background: #ff525233; color: var(--danger); }
+    .badge.resolved { background: #64d27833; color: var(--green); }
+    /* ── Schedule Table ──────────────────────────── */
+    .sched-list { padding: 0 12px 80px; }
+    .sched-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 8px 0;
+      padding: 10px;
+    }
+    .sched-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+    .sched-date   { color: var(--blue-lt); font-weight: bold; min-width: 90px; }
+    .sched-cat    { color: var(--muted); font-size: 11px; min-width: 48px; }
+    .sched-time   { color: #a0c4ff; min-width: 48px; font-size: 12px; }
+    .sched-title  { flex: 1; font-size: 13px; }
+    .sched-status { font-size: 10px; }
+    .status-ok   { color: var(--green); }
+    .status-warn { color: var(--danger); }
+    .status-only { color: var(--warn); }
+    /* ── Admin Panel ─────────────────────────────── */
+    .admin-panel {
+      padding: 16px 12px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .admin-btn {
+      background: #1565C0;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+    }
+    .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .admin-btn.secondary { background: var(--surface); color: var(--blue); border: 1px solid var(--border); }
+    /* ── Status bar ──────────────────────────────── */
+    .status-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 8px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    /* ── Loading / Empty ─────────────────────────── */
+    .loading, .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 40px 20px;
+    }
+    .spinner {
+      border: 3px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      width: 36px; height: 36px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* ── Filter bar ──────────────────────────────── */
+    .filter-bar {
+      padding: 8px 12px;
+      display: flex;
+      gap: 6px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-btn {
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .filter-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    /* ── page ────────────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-title">⚽ 試合予定 照合</span>
+  <span class="header-version" id="version-label">v0.1.0</span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
+  <div class="tab"        data-tab="disc"    onclick="switchTab('disc')">差分</div>
+  <div class="tab"        data-tab="sched"   onclick="switchTab('sched')">スケジュール</div>
+  <div class="tab"        data-tab="admin"   onclick="switchTab('admin')" id="admin-tab" style="display:none">管理</div>
+</div>
+
+<!-- ── サマリー ────────────────────────────────── -->
+<div id="page-summary" class="page active">
+  <div class="summary">
+    <div class="card ok">
+      <div class="card-num" id="cnt-ok">—</div>
+      <div class="card-label">一致</div>
+    </div>
+    <div class="card warn">
+      <div class="card-num" id="cnt-warn">—</div>
+      <div class="card-label">要確認</div>
+    </div>
+  </div>
+  <div class="section-head">最終照合</div>
+  <div id="last-checked" style="padding:10px 12px; color:var(--muted); font-size:12px;">読み込み中…</div>
+  <div class="section-head">カテゴリ別</div>
+  <div id="category-breakdown" style="padding:8px 12px 80px;"></div>
+</div>
+
+<!-- ── 差分リスト ──────────────────────────────── -->
+<div id="page-disc" class="page">
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterDisc('open',this)">未解決</button>
+    <button class="filter-btn"        onclick="filterDisc('resolved',this)">解決済</button>
+    <button class="filter-btn"        onclick="filterDisc('all',this)">全て</button>
+  </div>
+  <div class="disc-list" id="disc-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
+</div>
+
+<!-- ── スケジュール ────────────────────────────── -->
+<div id="page-sched" class="page">
+  <div class="filter-bar" id="cat-filter"></div>
+  <div class="sched-list" id="sched-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
+</div>
+
+<!-- ── 管理 ───────────────────────────────────── -->
+<div id="page-admin" class="page">
+  <div class="admin-panel">
+    <button class="admin-btn" id="btn-compare" onclick="adminAction('compare')">🔄 今すぐ照合</button>
+    <button class="admin-btn" id="btn-send"    onclick="adminAction('send')">📤 今すぐ配信</button>
+    <div id="admin-result" style="color:var(--muted); font-size:12px; padding:8px 0;"></div>
+    <button class="admin-btn secondary" onclick="adminAction('init')">⚙️ シート初期化（初回のみ）</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span id="status-msg">初期化中…</span>
+  <span id="status-user"></span>
+</div>
+
+<script>
+// ── 設定 ────────────────────────────────────────────────────────────────────
+const GAS_URL  = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQwAeb7U_Z2Xn-xBVRfvnv302cu_ckO-g-wyPATYuv4dPZY/exec';
+const LIFF_ID  = '2010471175-mz6PBjZx';
+
+// ── 状態 ────────────────────────────────────────────────────────────────────
+let userId    = null;
+let isAdmin   = false;
+let discData  = [];
+let schedData = [];
+let discFilter = 'open';
+let catFilter  = 'all';
+
+// ── 初期化 ──────────────────────────────────────────────────────────────────
+async function init() {
+  setStatus('LINE 認証中…');
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+
+    const profile = await liff.getProfile();
+    userId = profile.userId;
+    document.getElementById('status-user').textContent = profile.displayName;
+
+    const meRes = await gasGet('auth/me', { userId });
+    isAdmin = meRes.isAdmin || false;
+    if (isAdmin) document.getElementById('admin-tab').style.display = '';
+
+    const cfgRes = await gasGet('config');
+    if (cfgRes.version) document.getElementById('version-label').textContent = 'v' + cfgRes.version;
+
+    await Promise.all([loadDiscrepancies(), loadSchedules()]);
+    renderSummary();
+    setStatus('読み込み完了');
+  } catch (e) {
+    setStatus('エラー: ' + e.message);
+  }
+}
+
+// ── API 呼出し ───────────────────────────────────────────────────────────────
+async function gasGet(path, params = {}) {
+  const url = new URL(GAS_URL);
+  url.searchParams.set('_path', path);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const r = await fetch(url.toString());
+  return r.json();
+}
+
+async function gasPost(path, body) {
+  const url = new URL(GAS_URL);
+  url.searchParams.set('_path', path);
+  const r = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return r.json();
+}
+
+// ── データ読込 ───────────────────────────────────────────────────────────────
+async function loadDiscrepancies() {
+  const res = await gasGet('api/discrepancies');
+  discData = res.discrepancies || [];
+  renderDiscList();
+}
+
+async function loadSchedules() {
+  const res = await gasGet('api/schedules');
+  schedData = (res.schedules || []).sort((a, b) =>
+    String(a.match_date).localeCompare(String(b.match_date))
+  );
+  renderCatFilter();
+  renderSchedList();
+}
+
+// ── サマリー描画 ────────────────────────────────────────────────────────────
+function renderSummary() {
+  const open = discData.filter(d => d.status === 'open');
+  const total = schedData.length;
+  const matched = total - open.filter(d => d.type !== 'coach_only').length;
+
+  document.getElementById('cnt-ok').textContent   = Math.max(0, matched);
+  document.getElementById('cnt-warn').textContent = open.length;
+
+  // 最終照合日時
+  const dates = discData.map(d => d.detected_at).filter(Boolean).sort();
+  const lastDate = dates.length ? dates[dates.length - 1] : '—';
+  document.getElementById('last-checked').textContent = '最終照合: ' + lastDate;
+
+  // カテゴリ別内訳
+  const cats = {};
+  for (const d of open) {
+    const c = d.category_code || '不明';
+    cats[c] = (cats[c] || 0) + 1;
+  }
+  const bd = document.getElementById('category-breakdown');
+  if (Object.keys(cats).length === 0) {
+    bd.innerHTML = '<div style="color:var(--green);padding:10px;">✅ 全カテゴリ一致</div>';
+  } else {
+    bd.innerHTML = Object.entries(cats).map(([c, n]) =>
+      `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+        <span>${c}</span><span style="color:var(--danger)">${n}件 要確認</span>
+      </div>`
+    ).join('');
+  }
+}
+
+// ── 差分リスト描画 ───────────────────────────────────────────────────────────
+const TYPE_LABELS = {
+  official_only:     '【公式未掲載】',
+  coach_only:        '【公式にない】',
+  time_mismatch:     '【時刻差異】',
+  venue_mismatch:    '【会場差異】',
+  opponent_mismatch: '【相手名差異】',
+};
+
+function renderDiscList() {
+  const container = document.getElementById('disc-list');
+  let items = discData;
+  if (discFilter !== 'all') items = items.filter(d => d.status === discFilter);
+
+  if (items.length === 0) {
+    container.innerHTML = '<div class="empty">✅ 該当なし</div>';
+    return;
+  }
+
+  container.innerHTML = items.map(d => {
+    let off = {}, coa = {};
+    try { off = JSON.parse(d.official_data || '{}'); } catch {}
+    try { coa = JSON.parse(d.coach_data    || '{}'); } catch {}
+    const badge = d.status === 'open'
+      ? '<span class="badge open">未解決</span>'
+      : '<span class="badge resolved">解決済</span>';
+    return `<div class="disc-item">
+      <div class="disc-header">
+        <span class="disc-date">📅 ${d.match_date || '—'}</span>
+        <span class="disc-cat">${d.category_code || ''} ${badge}</span>
+      </div>
+      ${off.time || off.opponent ? `<div class="disc-row">
+        <span class="disc-label disc-off">公式</span>
+        <span class="disc-val disc-off">${off.time || ''} ${off.opponent || off.opponent || '—'} ${off.venue ? '@ ' + off.venue : ''}</span>
+      </div>` : ''}
+      ${coa.time || coa.title ? `<div class="disc-row">
+        <span class="disc-label disc-coa">LINE</span>
+        <span class="disc-val disc-coa">${coa.time || ''} ${coa.title || '—'} ${coa.venue ? '@ ' + coa.venue : ''}</span>
+      </div>` : ''}
+      <div class="disc-type">→ ${TYPE_LABELS[d.type] || d.type}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterDisc(filter, btn) {
+  discFilter = filter;
+  document.querySelectorAll('.filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDiscList();
+}
+
+// ── スケジュール描画 ─────────────────────────────────────────────────────────
+function renderCatFilter() {
+  const cats = [...new Set(schedData.map(s => s.category_code).filter(Boolean))].sort();
+  const bar = document.getElementById('cat-filter');
+  bar.innerHTML = ['全て', ...cats].map((c, i) => `
+    <button class="filter-btn ${i===0?'active':''}"
+      onclick="filterCat('${c}', this)">${c}</button>
+  `).join('');
+}
+
+function filterCat(c, btn) {
+  catFilter = c;
+  document.querySelectorAll('#cat-filter .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSchedList();
+}
+
+function renderSchedList() {
+  const container = document.getElementById('sched-list');
+  let items = schedData;
+  if (catFilter !== '全て') items = items.filter(s => s.category_code === catFilter);
+
+  if (items.length === 0) {
+    container.innerHTML = '<div class="empty">データなし</div>';
+    return;
+  }
+
+  const discMap = {};
+  for (const d of discData) {
+    const key = (d.match_date || '') + '_' + (d.category_code || '');
+    if (!discMap[key]) discMap[key] = [];
+    discMap[key].push(d);
+  }
+
+  container.innerHTML = items.map(s => {
+    const key  = (s.match_date || '') + '_' + (s.category_code || '');
+    const discs = discMap[key] || [];
+    let statusIcon = '<span class="sched-status status-ok">✅</span>';
+    if (discs.some(d => d.status === 'open' && d.type === 'time_mismatch'))   statusIcon = '<span class="sched-status status-warn">⏱</span>';
+    if (discs.some(d => d.status === 'open' && d.type === 'venue_mismatch'))  statusIcon = '<span class="sched-status status-warn">📍</span>';
+    if (discs.some(d => d.status === 'open' && d.type === 'official_only'))   statusIcon = '<span class="sched-status status-warn">⚠️</span>';
+    if (discs.some(d => d.status === 'open' && d.type === 'coach_only'))      statusIcon = '<span class="sched-status status-only">📋</span>';
+
+    return `<div class="sched-item">
+      <div class="sched-row">
+        <span class="sched-date">${s.match_date || '—'}</span>
+        <span class="sched-cat">${s.category_code || ''}</span>
+        <span class="sched-time">${s.kickoff_time || ''}</span>
+        <span class="sched-title">${s.opponent || '—'}</span>
+        ${statusIcon}
+      </div>
+      ${s.venue ? `<div style="color:var(--muted);font-size:11px;padding:2px 0 0 4px;">@ ${s.venue}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── 管理操作 ─────────────────────────────────────────────────────────────────
+async function adminAction(action) {
+  if (!isAdmin) return;
+  const result = document.getElementById('admin-result');
+  const btns   = document.querySelectorAll('.admin-btn');
+  btns.forEach(b => b.disabled = true);
+  result.textContent = '実行中…';
+
+  try {
+    let res;
+    if (action === 'compare') {
+      res = await gasPost('api/admin/compare-now', { token: 'regalia-chk-2026' });
+      result.textContent = `照合完了: 新規差分 ${res.newDiscrepancies || 0}件`;
+      await loadDiscrepancies();
+      renderSummary();
+    } else if (action === 'send') {
+      res = await gasPost('api/admin/send-report-now', { token: 'regalia-chk-2026' });
+      result.textContent = res.ok ? 'レポートを配信しました' : 'エラー: ' + JSON.stringify(res);
+    } else if (action === 'init') {
+      res = await gasGet('api/admin/init-sheets', { token: 'regalia-chk-2026' });
+      result.textContent = res.message || (res.ok ? '完了' : 'エラー');
+    }
+  } catch (e) {
+    result.textContent = 'エラー: ' + e.message;
+  }
+
+  btns.forEach(b => b.disabled = false);
+}
+
+// ── タブ切替 ─────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+}
+
+// ── ユーティリティ ────────────────────────────────────────────────────────────
+function setStatus(msg) {
+  document.getElementById('status-msg').textContent = msg;
+}
+
+// ── 起動 ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
