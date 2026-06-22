@@ -491,12 +491,12 @@ async function adminAction(action) {
   try {
     let res;
     if (action === 'compare') {
-      res = await gasPost('api/admin/compare-now', { token: 'regalia-chk-2026' });
+      res = await gasGet('api/admin/compare-now', { token: 'regalia-chk-2026' });
       result.textContent = `照合完了: 新規差分 ${res.newDiscrepancies || 0}件`;
       await loadDiscrepancies();
       renderSummary();
     } else if (action === 'send') {
-      res = await gasPost('api/admin/send-report-now', { token: 'regalia-chk-2026' });
+      res = await gasGet('api/admin/send-report-now', { token: 'regalia-chk-2026' });
       result.textContent = res.ok ? 'レポートを配信しました' : 'エラー: ' + JSON.stringify(res);
     } else if (action === 'init') {
       res = await gasGet('api/admin/init-sheets', { token: 'regalia-chk-2026' });
