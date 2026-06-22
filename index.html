@@ -451,7 +451,7 @@ async function judgeDisc(id, status) {
   btns.forEach(b => b.disabled = true);
   setStatus('更新中…');
   try {
-    const res = await gasPost('api/discrepancy/judge', { userId, id, status });
+    const res = await gasGet('api/discrepancy/judge', { userId, id, status });
     if (res.ok) {
       const d = discData.find(d => d.id === id);
       if (d) d.status = status;
