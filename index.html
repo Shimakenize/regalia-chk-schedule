@@ -47,11 +47,11 @@
     }
     .tab {
       flex: 1;
-      padding: 10px;
+      padding: 10px 4px;
       text-align: center;
       color: var(--muted);
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
       border-bottom: 2px solid transparent;
     }
     .tab.active {
@@ -84,9 +84,9 @@
       font-weight: bold;
       border-bottom: 1px solid var(--border);
     }
-    /* ── Discrepancy List ────────────────────────── */
-    .disc-list { padding: 0 12px 80px; }
-    .disc-item {
+    /* ── Disc / Sched items ──────────────────────── */
+    .disc-list, .sched-list { padding: 0 12px 80px; }
+    .disc-item, .sched-item {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -106,6 +106,7 @@
     .disc-off   { color: #a0c4ff; }
     .disc-coa   { color: var(--warn); }
     .disc-type  { color: var(--danger); font-size: 11px; font-weight: bold; margin-top: 4px; }
+    /* ── Badges ──────────────────────────────────── */
     .badge {
       display: inline-block;
       padding: 2px 6px;
@@ -116,6 +117,7 @@
     .badge.open     { background: #ff525233; color: var(--danger); }
     .badge.resolved { background: #64d27833; color: var(--green); }
     .badge.ng       { background: #ff8a0033; color: #ffaa44; }
+    .badge.ok       { background: #64d27818; color: var(--green); }
     /* ── Judge Buttons ───────────────────────────── */
     .disc-actions { display: flex; gap: 8px; margin-top: 8px; }
     .judge-btn {
@@ -125,24 +127,6 @@
     .judge-btn.ok     { background: #64d27820; color: var(--green);  border-color: var(--green); }
     .judge-btn.danger { background: #ff525220; color: var(--danger); border-color: var(--danger); }
     .judge-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-    /* ── Schedule Table ──────────────────────────── */
-    .sched-list { padding: 0 12px 80px; }
-    .sched-item {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      margin: 8px 0;
-      padding: 10px;
-    }
-    .sched-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
-    .sched-date   { color: var(--blue-lt); font-weight: bold; min-width: 90px; }
-    .sched-cat    { color: var(--muted); font-size: 11px; min-width: 48px; }
-    .sched-time   { color: #a0c4ff; min-width: 48px; font-size: 12px; }
-    .sched-title  { flex: 1; font-size: 13px; }
-    .sched-status { font-size: 10px; }
-    .status-ok   { color: var(--green); }
-    .status-warn { color: var(--danger); }
-    .status-only { color: var(--warn); }
     /* ── Admin Panel ─────────────────────────────── */
     .admin-panel {
       padding: 16px 12px 80px;
@@ -195,6 +179,7 @@
       padding: 8px 12px;
       display: flex;
       gap: 6px;
+      flex-wrap: wrap;
       background: var(--bg);
       border-bottom: 1px solid var(--border);
     }
@@ -211,6 +196,28 @@
     /* ── page ────────────────────────────────────── */
     .page { display: none; }
     .page.active { display: block; }
+    /* ── Schedule(照合) ──────────────────────────── */
+    .sched-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .sched-date-cat { color: var(--blue-lt); font-weight: bold; font-size: 13px; }
+    .sched-data-row {
+      display: flex;
+      gap: 6px;
+      margin: 4px 0;
+      align-items: flex-start;
+    }
+    .row-label {
+      min-width: 34px;
+      font-size: 11px;
+      font-weight: bold;
+      padding-top: 1px;
+      flex-shrink: 0;
+    }
+    .row-val { font-size: 12px; flex: 1; line-height: 1.4; }
   </style>
 </head>
 <body>
@@ -223,7 +230,7 @@
 <div class="tabs">
   <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
   <div class="tab"        data-tab="disc"    onclick="switchTab('disc')">差分</div>
-  <div class="tab"        data-tab="sched"   onclick="switchTab('sched')">スケジュール</div>
+  <div class="tab"        data-tab="sched"   onclick="switchTab('sched')">スケジュール(照合)</div>
   <div class="tab"        data-tab="admin"   onclick="switchTab('admin')" id="admin-tab" style="display:none">管理</div>
 </div>
 
@@ -232,11 +239,11 @@
   <div class="summary">
     <div class="card ok">
       <div class="card-num" id="cnt-ok">—</div>
-      <div class="card-label">一致</div>
+      <div class="card-label">照合OK</div>
     </div>
     <div class="card warn">
       <div class="card-num" id="cnt-warn">—</div>
-      <div class="card-label">要確認</div>
+      <div class="card-label">未確認+要調査</div>
     </div>
   </div>
   <div class="section-head">最終照合</div>
@@ -249,14 +256,14 @@
 <div id="page-disc" class="page">
   <div class="filter-bar">
     <button class="filter-btn active" onclick="filterDisc('open',this)">未確認</button>
-    <button class="filter-btn"        onclick="filterDisc('resolved',this)">確認済み</button>
-    <button class="filter-btn"        onclick="filterDisc('ng',this)">判定NG</button>
+    <button class="filter-btn"        onclick="filterDisc('resolved',this)">確認済</button>
+    <button class="filter-btn"        onclick="filterDisc('ng',this)">要調査</button>
     <button class="filter-btn"        onclick="filterDisc('all',this)">全て</button>
   </div>
   <div class="disc-list" id="disc-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
 </div>
 
-<!-- ── スケジュール ────────────────────────────── -->
+<!-- ── スケジュール(照合) ──────────────────────── -->
 <div id="page-sched" class="page">
   <div class="filter-bar" id="cat-filter"></div>
   <div class="sched-list" id="sched-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
@@ -283,14 +290,55 @@ const GAS_URL  = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQ
 const LIFF_ID  = '2010471175-mz6PBjZx';
 
 // ── 状態 ────────────────────────────────────────────────────────────────────
-const __UI_BUILD__ = 2;
-let userId     = null;
-let isAdmin    = false;
-let isAllowed  = false;
-let discData   = [];
-let schedData  = [];
-let discFilter = 'open';
-let catFilter  = 'all';
+const __UI_BUILD__ = 3;
+let userId       = null;
+let isAdmin      = false;
+let isAllowed    = false;
+let discData     = [];
+let schedData    = [];   // official_schedule
+let coachData    = [];   // coach_schedule (match only)
+let discFilter   = 'open';
+let catFilter    = 'all';
+
+// ── ユーティリティ ────────────────────────────────────────────────────────────
+function setStatus(msg) {
+  document.getElementById('status-msg').textContent = msg;
+}
+
+function safeParse(json) {
+  try { return JSON.parse(json); } catch { return null; }
+}
+
+function normDate(v) {
+  return String(v || '').substring(0, 10);
+}
+
+function catBase(cat) {
+  return String(cat || '').replace(/_FUTSAL$/, '');
+}
+
+function catSortKey(cat) {
+  const c = String(cat || '');
+  if (c === 'all')  return 0;
+  if (c.startsWith('U-15')) return 1;
+  if (c.startsWith('U-14')) return 2;
+  if (c.startsWith('U-13')) return 3;
+  return 4;
+}
+
+function fmtDate(ds) {
+  if (!ds || ds.length < 10) return ds || '—';
+  const [y, mo, dd] = ds.split('-').map(Number);
+  const dow = ['日','月','火','水','木','金','土'][new Date(y, mo - 1, dd).getDay()];
+  return `${mo}/${dd}(${dow})`;
+}
+
+function statusBadge(status) {
+  if (status === 'open')     return '<span class="badge open">未確認</span>';
+  if (status === 'resolved') return '<span class="badge resolved">確認済</span>';
+  if (status === 'ng')       return '<span class="badge ng">要調査</span>';
+  return '<span class="badge ok">照合OK</span>';
+}
 
 // ── 初期化 ──────────────────────────────────────────────────────────────────
 async function init() {
@@ -311,8 +359,10 @@ async function init() {
     const cfgRes = await gasGet('config');
     if (cfgRes.version) document.getElementById('version-label').textContent = 'v' + cfgRes.version;
 
-    await Promise.all([loadDiscrepancies(), loadSchedules()]);
+    await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules()]);
     renderSummary();
+    renderCatFilter();
+    renderSchedList();
     setStatus('読み込み完了');
   } catch (e) {
     setStatus('エラー: ' + e.message);
@@ -349,10 +399,13 @@ async function loadDiscrepancies() {
 async function loadSchedules() {
   const res = await gasGet('api/schedules');
   schedData = (res.schedules || []).sort((a, b) =>
-    String(a.match_date).localeCompare(String(b.match_date))
+    normDate(a.match_date).localeCompare(normDate(b.match_date))
   );
-  renderCatFilter();
-  renderSchedList();
+}
+
+async function loadCoachSchedules() {
+  const res = await gasGet('api/coach-schedules');
+  coachData = res.schedules || [];
 }
 
 // ── サマリー描画 ────────────────────────────────────────────────────────────
@@ -360,17 +413,14 @@ function renderSummary() {
   const open = discData.filter(d => d.status === 'open');
   const ng   = discData.filter(d => d.status === 'ng');
   const total = schedData.length;
-  const matched = total - open.filter(d => d.type !== 'coach_only').length - ng.filter(d => d.type !== 'coach_only').length;
-
-  document.getElementById('cnt-ok').textContent   = Math.max(0, matched);
+  const bad   = [...open, ...ng].filter(d => d.type !== 'coach_only');
+  document.getElementById('cnt-ok').textContent   = Math.max(0, total - bad.length);
   document.getElementById('cnt-warn').textContent = open.length + ng.length;
 
-  // 最終照合日時
   const dates = discData.map(d => d.detected_at).filter(Boolean).sort();
   const lastDate = dates.length ? dates[dates.length - 1] : '—';
   document.getElementById('last-checked').textContent = '最終照合: ' + lastDate;
 
-  // カテゴリ別内訳（未確認 + 判定NGを対象）
   const cats = {};
   for (const d of [...open, ...ng]) {
     const c = d.category_code || '不明';
@@ -382,7 +432,7 @@ function renderSummary() {
   } else {
     bd.innerHTML = Object.entries(cats).map(([c, n]) =>
       `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
-        <span>${c}</span><span style="color:var(--danger)">${n}件 要確認</span>
+        <span>${c}</span><span style="color:var(--danger)">${n}件</span>
       </div>`
     ).join('');
   }
@@ -408,21 +458,11 @@ function renderDiscList() {
   }
 
   container.innerHTML = items.map(d => {
-    let off = {}, coa = {};
-    try { off = JSON.parse(d.official_data || '{}'); } catch {}
-    try { coa = JSON.parse(d.coach_data    || '{}'); } catch {}
-
-    const badge = d.status === 'open'
-      ? '<span class="badge open">未確認</span>'
-      : d.status === 'ng'
-        ? '<span class="badge ng">判定NG</span>'
-        : '<span class="badge resolved">確認済み</span>';
-
+    const off = safeParse(d.official_data) || {};
+    const coa = safeParse(d.coach_data)    || {};
+    const badge = statusBadge(d.status);
     const actions = (d.status === 'open' && isAllowed)
-      ? `<div class="disc-actions" id="disc-actions-${d.id}">
-           <button onclick="judgeDisc('${d.id}','resolved')" class="judge-btn ok">✅ 確認OK</button>
-           <button onclick="judgeDisc('${d.id}','ng')" class="judge-btn danger">❌ 判定NG</button>
-         </div>`
+      ? judgeButtons(d.id)
       : '';
 
     return `<div class="disc-item">
@@ -444,6 +484,174 @@ function renderDiscList() {
   }).join('');
 }
 
+function filterDisc(filter, btn) {
+  discFilter = filter;
+  document.querySelectorAll('#page-disc .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDiscList();
+}
+
+// ── スケジュール(照合) 描画 ───────────────────────────────────────────────────
+function buildMerged() {
+  const today = new Date().toISOString().split('T')[0];
+
+  // discData を id でインデックス
+  const discById = {};
+  discData.forEach(d => { discById[d.id] = d; });
+
+  // disc を (normDate_catBase) でグループ化
+  const discByKey = {};
+  discData.forEach(d => {
+    const key = normDate(d.match_date) + '_' + catBase(d.category_code);
+    (discByKey[key] = discByKey[key] || []).push(d);
+  });
+
+  // official を (normDate_category) でインデックス
+  const offByKey = {};
+  schedData.forEach(o => {
+    const key = normDate(o.match_date) + '_' + o.category_code;
+    (offByKey[key] = offByKey[key] || []).push(o);
+  });
+
+  const entries = [];
+  const usedDiscIds = new Set();
+
+  // ① コーチLINE試合を起点に生成
+  const upcomingCoach = coachData
+    .filter(c => normDate(c.event_date) >= today)
+    .sort((a, b) => {
+      const da = normDate(a.event_date), db = normDate(b.event_date);
+      if (da !== db) return da.localeCompare(db);
+      return catSortKey(a.category_code) - catSortKey(b.category_code);
+    });
+
+  for (const cm of upcomingCoach) {
+    const key = normDate(cm.event_date) + '_' + catBase(cm.category_code);
+    const discs = (discByKey[key] || []).filter(d => !usedDiscIds.has(d.id));
+
+    let disc = discs[0] || null;
+    let official = null;
+
+    if (disc) {
+      usedDiscIds.add(disc.id);
+      const od = safeParse(disc.official_data);
+      if (od && (od.opponent || od.time)) official = od;
+    } else {
+      // 差分なし → 対応する公式試合を探す
+      const offKey = normDate(cm.event_date) + '_' + cm.category_code;
+      const offs = offByKey[offKey] || [];
+      if (offs.length > 0) {
+        const o = offs[0];
+        official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue };
+      }
+    }
+
+    entries.push({
+      date:     normDate(cm.event_date),
+      category: cm.category_code,
+      coach:    { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
+      official,
+      disc,
+      status:   disc ? disc.status : (official ? 'ok' : 'ok'),
+    });
+  }
+
+  // ② official_only の差分（コーチ側に対応なし）
+  for (const d of discData) {
+    if (usedDiscIds.has(d.id)) continue;
+    if (d.type !== 'official_only') continue;
+    const dd = normDate(d.match_date);
+    if (dd < today) continue;
+    const od = safeParse(d.official_data) || {};
+    entries.push({
+      date:     dd,
+      category: d.category_code,
+      coach:    null,
+      official: od,
+      disc:     d,
+      status:   d.status,
+    });
+    usedDiscIds.add(d.id);
+  }
+
+  // ソート: 日付 → カテゴリ
+  entries.sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return catSortKey(a.category) - catSortKey(b.category);
+  });
+
+  return entries;
+}
+
+function renderCatFilter() {
+  const merged = buildMerged();
+  const cats   = [...new Set(merged.map(e => catBase(e.category)).filter(Boolean))].sort(
+    (a, b) => catSortKey(a) - catSortKey(b)
+  );
+  const bar = document.getElementById('cat-filter');
+  bar.innerHTML = ['全て', ...cats].map((c, i) =>
+    `<button class="filter-btn ${i===0?'active':''}" onclick="filterCat('${c}',this)">${c}</button>`
+  ).join('');
+}
+
+function filterCat(c, btn) {
+  catFilter = c;
+  document.querySelectorAll('#cat-filter .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSchedList();
+}
+
+function renderSchedList() {
+  const container = document.getElementById('sched-list');
+  let entries = buildMerged();
+
+  if (catFilter !== '全て') {
+    entries = entries.filter(e => catBase(e.category) === catFilter || e.category === catFilter);
+  }
+
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="empty">データなし</div>';
+    return;
+  }
+
+  container.innerHTML = entries.map(e => {
+    const coachRow = e.coach
+      ? `${e.coach.time || '—'} vs ${e.coach.title || '—'}${e.coach.venue ? ' @ '+e.coach.venue : ''}`
+      : '(なし)';
+    const offRow = e.official
+      ? `${e.official.time || '—'} vs ${e.official.opponent || '—'}${e.official.venue ? ' @ '+e.official.venue : ''}`
+      : '(なし)';
+
+    const actions = (e.disc && e.disc.status === 'open' && isAllowed)
+      ? judgeButtons(e.disc.id)
+      : '';
+
+    return `<div class="sched-item">
+      <div class="sched-head">
+        <span class="sched-date-cat">📅 ${fmtDate(e.date)} [${e.category}]</span>
+        ${statusBadge(e.status)}
+      </div>
+      <div class="sched-data-row">
+        <span class="row-label" style="color:var(--warn);">LINE</span>
+        <span class="row-val" style="color:var(--warn);">${coachRow}</span>
+      </div>
+      <div class="sched-data-row">
+        <span class="row-label" style="color:#a0c4ff;">公式</span>
+        <span class="row-val" style="color:#a0c4ff;">${offRow}</span>
+      </div>
+      ${actions}
+    </div>`;
+  }).join('');
+}
+
+// ── 判定ボタン ────────────────────────────────────────────────────────────────
+function judgeButtons(discId) {
+  return `<div class="disc-actions" id="disc-actions-${discId}">
+    <button onclick="judgeDisc('${discId}','resolved')" class="judge-btn ok">✅ 確認済</button>
+    <button onclick="judgeDisc('${discId}','ng')" class="judge-btn danger">🔍 要調査</button>
+  </div>`;
+}
+
 async function judgeDisc(id, status) {
   const actions = document.getElementById('disc-actions-' + id);
   if (!actions) return;
@@ -456,8 +664,9 @@ async function judgeDisc(id, status) {
       const d = discData.find(d => d.id === id);
       if (d) d.status = status;
       renderDiscList();
+      renderSchedList();
       renderSummary();
-      setStatus(status === 'resolved' ? '✅ 確認OKを登録しました' : '❌ 判定NGを登録しました');
+      setStatus(status === 'resolved' ? '✅ 確認済として登録' : '🔍 要調査として登録');
     } else {
       setStatus('エラー: ' + JSON.stringify(res));
       btns.forEach(b => b.disabled = false);
@@ -466,69 +675,6 @@ async function judgeDisc(id, status) {
     setStatus('エラー: ' + e.message);
     btns.forEach(b => b.disabled = false);
   }
-}
-
-function filterDisc(filter, btn) {
-  discFilter = filter;
-  document.querySelectorAll('.filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderDiscList();
-}
-
-// ── スケジュール描画 ─────────────────────────────────────────────────────────
-function renderCatFilter() {
-  const cats = [...new Set(schedData.map(s => s.category_code).filter(Boolean))].sort();
-  const bar = document.getElementById('cat-filter');
-  bar.innerHTML = ['全て', ...cats].map((c, i) => `
-    <button class="filter-btn ${i===0?'active':''}"
-      onclick="filterCat('${c}', this)">${c}</button>
-  `).join('');
-}
-
-function filterCat(c, btn) {
-  catFilter = c;
-  document.querySelectorAll('#cat-filter .filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderSchedList();
-}
-
-function renderSchedList() {
-  const container = document.getElementById('sched-list');
-  let items = schedData;
-  if (catFilter !== '全て') items = items.filter(s => s.category_code === catFilter);
-
-  if (items.length === 0) {
-    container.innerHTML = '<div class="empty">データなし</div>';
-    return;
-  }
-
-  const discMap = {};
-  for (const d of discData) {
-    const key = (d.match_date || '') + '_' + (d.category_code || '');
-    if (!discMap[key]) discMap[key] = [];
-    discMap[key].push(d);
-  }
-
-  container.innerHTML = items.map(s => {
-    const key  = (s.match_date || '') + '_' + (s.category_code || '');
-    const discs = discMap[key] || [];
-    let statusIcon = '<span class="sched-status status-ok">✅</span>';
-    if (discs.some(d => d.status === 'open' && d.type === 'time_mismatch'))   statusIcon = '<span class="sched-status status-warn">⏱</span>';
-    if (discs.some(d => d.status === 'open' && d.type === 'venue_mismatch'))  statusIcon = '<span class="sched-status status-warn">📍</span>';
-    if (discs.some(d => d.status === 'open' && d.type === 'official_only'))   statusIcon = '<span class="sched-status status-warn">⚠️</span>';
-    if (discs.some(d => d.status === 'open' && d.type === 'coach_only'))      statusIcon = '<span class="sched-status status-only">📋</span>';
-
-    return `<div class="sched-item">
-      <div class="sched-row">
-        <span class="sched-date">${s.match_date || '—'}</span>
-        <span class="sched-cat">${s.category_code || ''}</span>
-        <span class="sched-time">${s.kickoff_time || ''}</span>
-        <span class="sched-title">${s.opponent || '—'}</span>
-        ${statusIcon}
-      </div>
-      ${s.venue ? `<div style="color:var(--muted);font-size:11px;padding:2px 0 0 4px;">@ ${s.venue}</div>` : ''}
-    </div>`;
-  }).join('');
 }
 
 // ── 管理操作 ─────────────────────────────────────────────────────────────────
@@ -546,6 +692,7 @@ async function adminAction(action) {
       result.textContent = `照合完了: 新規差分 ${res.newDiscrepancies || 0}件`;
       await loadDiscrepancies();
       renderSummary();
+      renderSchedList();
     } else if (action === 'send') {
       res = await gasGet('api/admin/send-report-now', { token: 'regalia-chk-2026' });
       result.textContent = res.ok ? 'レポートを配信しました' : 'エラー: ' + JSON.stringify(res);
@@ -566,11 +713,6 @@ function switchTab(name) {
   document.querySelector(`[data-tab="${name}"]`).classList.add('active');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
-}
-
-// ── ユーティリティ ────────────────────────────────────────────────────────────
-function setStatus(msg) {
-  document.getElementById('status-msg').textContent = msg;
 }
 
 // ── 起動 ─────────────────────────────────────────────────────────────────────
