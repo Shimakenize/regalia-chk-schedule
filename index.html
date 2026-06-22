@@ -115,6 +115,16 @@
     }
     .badge.open     { background: #ff525233; color: var(--danger); }
     .badge.resolved { background: #64d27833; color: var(--green); }
+    .badge.ng       { background: #ff8a0033; color: #ffaa44; }
+    /* ── Judge Buttons ───────────────────────────── */
+    .disc-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .judge-btn {
+      flex: 1; padding: 8px; border-radius: 6px;
+      font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid;
+    }
+    .judge-btn.ok     { background: #64d27820; color: var(--green);  border-color: var(--green); }
+    .judge-btn.danger { background: #ff525220; color: var(--danger); border-color: var(--danger); }
+    .judge-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     /* ── Schedule Table ──────────────────────────── */
     .sched-list { padding: 0 12px 80px; }
     .sched-item {
@@ -238,8 +248,9 @@
 <!-- ── 差分リスト ──────────────────────────────── -->
 <div id="page-disc" class="page">
   <div class="filter-bar">
-    <button class="filter-btn active" onclick="filterDisc('open',this)">未解決</button>
-    <button class="filter-btn"        onclick="filterDisc('resolved',this)">解決済</button>
+    <button class="filter-btn active" onclick="filterDisc('open',this)">未確認</button>
+    <button class="filter-btn"        onclick="filterDisc('resolved',this)">確認済み</button>
+    <button class="filter-btn"        onclick="filterDisc('ng',this)">判定NG</button>
     <button class="filter-btn"        onclick="filterDisc('all',this)">全て</button>
   </div>
   <div class="disc-list" id="disc-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
@@ -272,10 +283,12 @@ const GAS_URL  = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQ
 const LIFF_ID  = '2010471175-mz6PBjZx';
 
 // ── 状態 ────────────────────────────────────────────────────────────────────
-let userId    = null;
-let isAdmin   = false;
-let discData  = [];
-let schedData = [];
+const __UI_BUILD__ = 2;
+let userId     = null;
+let isAdmin    = false;
+let isAllowed  = false;
+let discData   = [];
+let schedData  = [];
 let discFilter = 'open';
 let catFilter  = 'all';
 
@@ -291,7 +304,8 @@ async function init() {
     document.getElementById('status-user').textContent = profile.displayName;
 
     const meRes = await gasGet('auth/me', { userId });
-    isAdmin = meRes.isAdmin || false;
+    isAdmin   = meRes.isAdmin   || false;
+    isAllowed = meRes.isAllowed || false;
     if (isAdmin) document.getElementById('admin-tab').style.display = '';
 
     const cfgRes = await gasGet('config');
@@ -344,20 +358,21 @@ async function loadSchedules() {
 // ── サマリー描画 ────────────────────────────────────────────────────────────
 function renderSummary() {
   const open = discData.filter(d => d.status === 'open');
+  const ng   = discData.filter(d => d.status === 'ng');
   const total = schedData.length;
-  const matched = total - open.filter(d => d.type !== 'coach_only').length;
+  const matched = total - open.filter(d => d.type !== 'coach_only').length - ng.filter(d => d.type !== 'coach_only').length;
 
   document.getElementById('cnt-ok').textContent   = Math.max(0, matched);
-  document.getElementById('cnt-warn').textContent = open.length;
+  document.getElementById('cnt-warn').textContent = open.length + ng.length;
 
   // 最終照合日時
   const dates = discData.map(d => d.detected_at).filter(Boolean).sort();
   const lastDate = dates.length ? dates[dates.length - 1] : '—';
   document.getElementById('last-checked').textContent = '最終照合: ' + lastDate;
 
-  // カテゴリ別内訳
+  // カテゴリ別内訳（未確認 + 判定NGを対象）
   const cats = {};
-  for (const d of open) {
+  for (const d of [...open, ...ng]) {
     const c = d.category_code || '不明';
     cats[c] = (cats[c] || 0) + 1;
   }
@@ -396,9 +411,20 @@ function renderDiscList() {
     let off = {}, coa = {};
     try { off = JSON.parse(d.official_data || '{}'); } catch {}
     try { coa = JSON.parse(d.coach_data    || '{}'); } catch {}
+
     const badge = d.status === 'open'
-      ? '<span class="badge open">未解決</span>'
-      : '<span class="badge resolved">解決済</span>';
+      ? '<span class="badge open">未確認</span>'
+      : d.status === 'ng'
+        ? '<span class="badge ng">判定NG</span>'
+        : '<span class="badge resolved">確認済み</span>';
+
+    const actions = (d.status === 'open' && isAllowed)
+      ? `<div class="disc-actions" id="disc-actions-${d.id}">
+           <button onclick="judgeDisc('${d.id}','resolved')" class="judge-btn ok">✅ 確認OK</button>
+           <button onclick="judgeDisc('${d.id}','ng')" class="judge-btn danger">❌ 判定NG</button>
+         </div>`
+      : '';
+
     return `<div class="disc-item">
       <div class="disc-header">
         <span class="disc-date">📅 ${d.match_date || '—'}</span>
@@ -406,15 +432,40 @@ function renderDiscList() {
       </div>
       ${off.time || off.opponent ? `<div class="disc-row">
         <span class="disc-label disc-off">公式</span>
-        <span class="disc-val disc-off">${off.time || ''} ${off.opponent || off.opponent || '—'} ${off.venue ? '@ ' + off.venue : ''}</span>
+        <span class="disc-val disc-off">${off.time || ''} ${off.opponent || '—'} ${off.venue ? '@ '+off.venue : ''}</span>
       </div>` : ''}
       ${coa.time || coa.title ? `<div class="disc-row">
         <span class="disc-label disc-coa">LINE</span>
-        <span class="disc-val disc-coa">${coa.time || ''} ${coa.title || '—'} ${coa.venue ? '@ ' + coa.venue : ''}</span>
+        <span class="disc-val disc-coa">${coa.time || ''} ${coa.title || '—'} ${coa.venue ? '@ '+coa.venue : ''}</span>
       </div>` : ''}
       <div class="disc-type">→ ${TYPE_LABELS[d.type] || d.type}</div>
+      ${actions}
     </div>`;
   }).join('');
+}
+
+async function judgeDisc(id, status) {
+  const actions = document.getElementById('disc-actions-' + id);
+  if (!actions) return;
+  const btns = actions.querySelectorAll('button');
+  btns.forEach(b => b.disabled = true);
+  setStatus('更新中…');
+  try {
+    const res = await gasPost('api/discrepancy/judge', { userId, id, status });
+    if (res.ok) {
+      const d = discData.find(d => d.id === id);
+      if (d) d.status = status;
+      renderDiscList();
+      renderSummary();
+      setStatus(status === 'resolved' ? '✅ 確認OKを登録しました' : '❌ 判定NGを登録しました');
+    } else {
+      setStatus('エラー: ' + JSON.stringify(res));
+      btns.forEach(b => b.disabled = false);
+    }
+  } catch (e) {
+    setStatus('エラー: ' + e.message);
+    btns.forEach(b => b.disabled = false);
+  }
 }
 
 function filterDisc(filter, btn) {
