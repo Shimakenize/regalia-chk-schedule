@@ -403,7 +403,7 @@ const LIFF_ID = '2010471175-mz6PBjZx';
 const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 
 // ── 状態 ────────────────────────────────────────────────────────────────────
-const __UI_BUILD__ = 9;
+const __UI_BUILD__ = 10;
 let userId        = null;
 let displayName   = null;
 let isAdmin       = false;
@@ -601,7 +601,8 @@ function buildMerged() {
       coach:    { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
       official,
       disc,
-      status:   disc ? disc.status : 'ok',
+      // 公式なし + disc なし = 照合OKではなく未確認
+      status:   disc ? disc.status : (official ? 'ok' : 'open'),
     });
   }
 
