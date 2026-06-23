@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>REGALIA 試合予定照合</title>
+  <title>F.C. REGALIA match check</title>
   <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
   <style>
     :root {
@@ -29,16 +29,19 @@
     /* ── Header ─────────────────────────────────── */
     .header {
       background: #0d2a5e;
-      padding: 12px 16px;
+      padding: 8px 12px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 8px;
       position: sticky;
       top: 0;
       z-index: 10;
     }
-    .header-title { color: var(--blue-lt); font-size: 15px; font-weight: bold; }
-    .header-version { color: var(--muted); font-size: 11px; }
+    .header-logo { height: 32px; width: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .header-title-block { flex: 1; min-width: 0; }
+    .header-title { color: var(--blue-lt); font-size: 13px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-version { color: var(--muted); font-size: 10px; }
+    .header-user { color: var(--muted); font-size: 11px; text-align: right; flex-shrink: 0; max-width: 90px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     /* ── Tabs ────────────────────────────────────── */
     .tabs {
       display: flex;
@@ -54,29 +57,16 @@
       font-size: 12px;
       border-bottom: 2px solid transparent;
     }
-    .tab.active {
-      color: var(--blue);
-      border-bottom-color: var(--blue);
-    }
+    .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
     /* ── Summary Stat Cards ──────────────────────── */
-    .stat-cards {
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    .stat-cards { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
     .stat-row { display: grid; gap: 8px; }
     .stat-row.cols-1 { grid-template-columns: 1fr; }
     .stat-row.cols-2 { grid-template-columns: 1fr 1fr; }
     .stat-card {
-      background: var(--surface);
-      border: 2px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 6px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-      user-select: none;
+      background: var(--surface); border: 2px solid var(--border);
+      border-radius: 10px; padding: 10px 6px; text-align: center;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s; user-select: none;
     }
     .stat-card.active { background: #182045; }
     .stat-card.type-all.active   { border-color: var(--blue); }
@@ -93,23 +83,14 @@
     .stat-card.type-manok .stat-num { color: #a0c4ff; }
     /* ── Summary list ────────────────────────────── */
     .sum-section-head {
-      padding: 6px 12px;
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: bold;
-      letter-spacing: 0.05em;
-      background: var(--bg);
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
+      padding: 6px 12px; color: var(--muted); font-size: 11px; font-weight: bold;
+      letter-spacing: 0.05em; background: var(--bg);
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
     }
     .sum-list { padding: 0 12px 80px; }
     .sum-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 9px 2px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 2px; border-bottom: 1px solid var(--border); cursor: pointer;
     }
     .sum-item:active { background: var(--surface); }
     .sum-date { color: var(--blue-lt); font-size: 12px; min-width: 58px; flex-shrink: 0; }
@@ -117,11 +98,8 @@
     .sum-opp  { font-size: 12px; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     /* ── Badges ──────────────────────────────────── */
     .badge {
-      display: inline-block;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: bold;
+      display: inline-block; padding: 2px 6px;
+      border-radius: 4px; font-size: 10px; font-weight: bold;
     }
     .badge.open     { background: #ff525233; color: var(--danger); }
     .badge.resolved { background: #64d27833; color: var(--green); }
@@ -137,102 +115,71 @@
     .judge-btn.danger { background: #ff525220; color: var(--danger); border-color: var(--danger); }
     .judge-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     /* ── Admin Panel ─────────────────────────────── */
-    .admin-panel {
-      padding: 16px 12px 80px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+    .admin-panel { padding: 16px 12px 80px; display: flex; flex-direction: column; gap: 12px; }
     .admin-section {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px;
     }
     .admin-section-title { color: var(--blue-lt); font-size: 13px; font-weight: bold; margin-bottom: 5px; }
     .admin-section-desc  { color: var(--muted); font-size: 11px; line-height: 1.6; margin-bottom: 10px; }
     .admin-btn {
-      background: #1565C0;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 12px;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      width: 100%;
+      background: #1565C0; color: #fff; border: none;
+      border-radius: 8px; padding: 12px; font-size: 14px;
+      font-weight: bold; cursor: pointer; width: 100%;
     }
     .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .admin-btn.sm { padding: 8px; font-size: 12px; }
+    /* ── Members table ───────────────────────────── */
+    .members-meta { color: var(--muted); font-size: 11px; margin: 6px 0; }
+    .members-table-wrap { overflow-x: auto; margin-top: 8px; }
+    .members-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .members-table th {
+      text-align: left; padding: 6px 8px;
+      border-bottom: 1px solid var(--border); color: var(--muted); white-space: nowrap;
+    }
+    .members-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .del-btn {
+      padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold;
+      background: #7f1d1d; color: #fca5a5; border: none; cursor: pointer;
+    }
     /* ── Status bar ──────────────────────────────── */
     .status-bar {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      padding: 8px 12px;
-      font-size: 11px;
-      color: var(--muted);
-      display: flex;
-      justify-content: space-between;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 8px 12px; font-size: 11px; color: var(--muted);
+      display: flex; justify-content: space-between;
     }
     /* ── Loading / Empty ─────────────────────────── */
-    .loading, .empty {
-      text-align: center;
-      color: var(--muted);
-      padding: 40px 20px;
-    }
+    .loading, .empty { text-align: center; color: var(--muted); padding: 40px 20px; }
     .spinner {
-      border: 3px solid var(--border);
-      border-top-color: var(--blue);
-      border-radius: 50%;
-      width: 36px; height: 36px;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 12px;
+      border: 3px solid var(--border); border-top-color: var(--blue);
+      border-radius: 50%; width: 36px; height: 36px;
+      animation: spin 0.8s linear infinite; margin: 0 auto 12px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     /* ── Filter bar ──────────────────────────────── */
     .filter-bar {
-      padding: 8px 12px;
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
+      padding: 8px 12px; display: flex; gap: 6px; flex-wrap: wrap;
+      background: var(--bg); border-bottom: 1px solid var(--border);
     }
     .filter-btn {
-      padding: 4px 10px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--muted);
-      font-size: 11px;
-      cursor: pointer;
+      padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--muted); font-size: 11px; cursor: pointer;
     }
     .filter-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
     /* ── page ────────────────────────────────────── */
     .page { display: none; }
     .page.active { display: block; }
-    /* ── 比較表示 カード ──────────────────────────── */
+    /* ── 比較表示カード ──────────────────────────── */
     .sched-list { padding: 0 12px 80px; }
     .sched-item {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      margin: 8px 0;
-      padding: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; margin: 8px 0; padding: 10px;
     }
-    .sched-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
+    .sched-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .sched-date-cat { color: var(--blue-lt); font-weight: bold; font-size: 13px; }
     .match-2col {
-      display: grid;
-      grid-template-columns: 1fr 1px 1fr;
-      gap: 8px;
-      margin-bottom: 6px;
+      display: grid; grid-template-columns: 1fr 1px 1fr; gap: 8px; margin-bottom: 6px;
     }
     .col-sep { background: var(--border); }
     .col-hdr { font-size: 10px; font-weight: bold; margin-bottom: 4px; letter-spacing: 0.05em; }
@@ -246,98 +193,165 @@
     .diff-info.resolved { color: var(--muted); }
     .diff-info.ok-match { color: var(--green); }
     .resolved-by { font-size: 10px; color: var(--muted); margin-top: 3px; }
+    /* ── 登録オーバーレイ ──────────────────────────── */
+    #register-overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 20px;
+    }
+    .reg-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 24px 20px; width: 100%; max-width: 360px;
+      text-align: center;
+    }
+    .reg-logo { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; margin-bottom: 12px; }
+    .reg-title { color: var(--blue-lt); font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+    .reg-subtitle { color: var(--muted); font-size: 12px; margin-bottom: 20px; }
+    .reg-prompt { color: var(--text); font-size: 13px; font-weight: bold; margin-bottom: 12px; }
+    .coach-badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px; }
+    .coach-badge {
+      padding: 8px 16px; border-radius: 20px; border: 2px solid var(--border);
+      background: var(--bg); color: var(--muted); font-size: 13px; font-weight: bold;
+      cursor: pointer; transition: all 0.15s; user-select: none;
+    }
+    .coach-badge.selected { background: #1565C0; color: #fff; border-color: var(--blue); }
+    .reg-error { color: var(--danger); font-size: 12px; margin-top: 8px; min-height: 16px; }
+    .reg-submit {
+      background: #1565C0; color: #fff; border: none; border-radius: 8px;
+      padding: 13px; font-size: 15px; font-weight: bold; cursor: pointer;
+      width: 100%; margin-top: 8px;
+    }
+    .reg-submit:disabled { opacity: 0.4; cursor: not-allowed; }
   </style>
 </head>
 <body>
 
-<div class="header">
-  <span class="header-title">⚽ 試合予定 照合</span>
-  <span class="header-version" id="version-label">v0.1.0</span>
-</div>
-
-<div class="tabs">
-  <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
-  <div class="tab"        data-tab="sched"   onclick="switchTab('sched')">比較表示</div>
-  <div class="tab"        data-tab="admin"   onclick="switchTab('admin')" id="admin-tab" style="display:none">管理</div>
-</div>
-
-<!-- ── サマリー ────────────────────────────────── -->
-<div id="page-summary" class="page active">
-  <div class="stat-cards">
-    <div class="stat-row cols-1">
-      <div class="stat-card type-all active" data-filter="all" onclick="filterSummary('all',this)">
-        <div class="stat-num" id="cnt-all">—</div>
-        <div class="stat-label">全試合</div>
-      </div>
-    </div>
-    <div class="stat-row cols-2">
-      <div class="stat-card type-ok" data-filter="ok" onclick="filterSummary('ok',this)">
-        <div class="stat-num" id="cnt-ok">—</div>
-        <div class="stat-label">照合OK</div>
-      </div>
-      <div class="stat-card type-ng" data-filter="ng" onclick="filterSummary('ng',this)">
-        <div class="stat-num" id="cnt-ng">—</div>
-        <div class="stat-label">照合NG</div>
-      </div>
-    </div>
-    <div class="stat-row cols-2">
-      <div class="stat-card type-open" data-filter="open" onclick="filterSummary('open',this)">
-        <div class="stat-num" id="cnt-open">—</div>
-        <div class="stat-label">未確認</div>
-      </div>
-      <div class="stat-card type-manok" data-filter="resolved" onclick="filterSummary('resolved',this)">
-        <div class="stat-num" id="cnt-manok">—</div>
-        <div class="stat-label">マニュアル確認済</div>
-      </div>
-    </div>
+<!-- ── 登録オーバーレイ（初回のみ表示） ──────────── -->
+<div id="register-overlay" style="display:none;">
+  <div class="reg-card">
+    <img src="./app_logo.png" alt="REGALIA" class="reg-logo">
+    <div class="reg-title">F.C. REGALIA match check</div>
+    <div class="reg-subtitle">初回登録が必要です</div>
+    <div class="reg-prompt">あなたのコーチ名を選んでください</div>
+    <div class="coach-badges" id="coach-badges"></div>
+    <div class="reg-error" id="reg-error"></div>
+    <button class="reg-submit" id="reg-submit" onclick="submitRegistration()" disabled>登録する</button>
   </div>
-  <div class="sum-section-head" id="sum-filter-label">全試合 一覧</div>
-  <div class="sum-list" id="sum-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
 </div>
 
-<!-- ── 比較表示 ────────────────────────────────── -->
-<div id="page-sched" class="page">
-  <div class="filter-bar" id="cat-filter"></div>
-  <div class="filter-bar" id="status-filter"></div>
-  <div class="sched-list" id="sched-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
-</div>
+<!-- ── メインアプリ ──────────────────────────────── -->
+<div id="main-app" style="display:none;">
+  <div class="header">
+    <img src="./app_logo.png" alt="REGALIA" class="header-logo">
+    <div class="header-title-block">
+      <div class="header-title">F.C. REGALIA match check</div>
+      <div class="header-version" id="header-version">—</div>
+    </div>
+    <div class="header-user" id="header-user"></div>
+  </div>
 
-<!-- ── 管理 ───────────────────────────────────── -->
-<div id="page-admin" class="page">
-  <div class="admin-panel">
-    <div class="admin-section">
-      <div class="admin-section-title">🔄 今すぐ照合</div>
-      <div class="admin-section-desc">
-        公式HPとLINEの試合予定を照合し、差分をスプレッドシートに書き込みます。<br>
-        通常は毎週木曜17:50に自動実行されます。
+  <div class="tabs">
+    <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
+    <div class="tab"        data-tab="sched"   onclick="switchTab('sched')">比較表示</div>
+    <div class="tab"        data-tab="admin"   onclick="switchTab('admin')" id="admin-tab" style="display:none">管理</div>
+  </div>
+
+  <!-- ── サマリー ────────────────────────────────── -->
+  <div id="page-summary" class="page active">
+    <div class="stat-cards">
+      <div class="stat-row cols-1">
+        <div class="stat-card type-all active" data-filter="all" onclick="filterSummary('all',this)">
+          <div class="stat-num" id="cnt-all">—</div>
+          <div class="stat-label">全試合</div>
+        </div>
       </div>
-      <button class="admin-btn" id="btn-compare" onclick="adminAction('compare')">🔄 今すぐ照合</button>
-    </div>
-    <div class="admin-section">
-      <div class="admin-section-title">📤 今すぐ配信</div>
-      <div class="admin-section-desc">
-        照合レポート（Flexメッセージ）をLINEグループへ今すぐ送信します。<br>
-        通常は毎週木曜18:00に自動配信されます。
+      <div class="stat-row cols-2">
+        <div class="stat-card type-ok" data-filter="ok" onclick="filterSummary('ok',this)">
+          <div class="stat-num" id="cnt-ok">—</div>
+          <div class="stat-label">照合OK</div>
+        </div>
+        <div class="stat-card type-ng" data-filter="ng" onclick="filterSummary('ng',this)">
+          <div class="stat-num" id="cnt-ng">—</div>
+          <div class="stat-label">照合NG</div>
+        </div>
       </div>
-      <button class="admin-btn" id="btn-send" onclick="adminAction('send')">📤 今すぐ配信</button>
+      <div class="stat-row cols-2">
+        <div class="stat-card type-open" data-filter="open" onclick="filterSummary('open',this)">
+          <div class="stat-num" id="cnt-open">—</div>
+          <div class="stat-label">未確認</div>
+        </div>
+        <div class="stat-card type-manok" data-filter="resolved" onclick="filterSummary('resolved',this)">
+          <div class="stat-num" id="cnt-manok">—</div>
+          <div class="stat-label">マニュアル確認済</div>
+        </div>
+      </div>
     </div>
-    <div id="admin-result" style="color:var(--muted); font-size:12px; padding:2px 0;"></div>
+    <div class="sum-section-head" id="sum-filter-label">全試合 一覧</div>
+    <div class="sum-list" id="sum-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
+  </div>
+
+  <!-- ── 比較表示 ────────────────────────────────── -->
+  <div id="page-sched" class="page">
+    <div class="filter-bar" id="cat-filter"></div>
+    <div class="filter-bar" id="status-filter"></div>
+    <div class="sched-list" id="sched-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
+  </div>
+
+  <!-- ── 管理 ───────────────────────────────────── -->
+  <div id="page-admin" class="page">
+    <div class="admin-panel">
+      <div class="admin-section">
+        <div class="admin-section-title">🔄 今すぐ照合</div>
+        <div class="admin-section-desc">
+          公式HPとLINEの試合予定を照合し、差分をスプレッドシートに書き込みます。<br>
+          通常は毎週木曜17:50に自動実行されます。
+        </div>
+        <button class="admin-btn" id="btn-compare" onclick="adminAction('compare')">🔄 今すぐ照合</button>
+      </div>
+      <div class="admin-section">
+        <div class="admin-section-title">📤 今すぐ配信</div>
+        <div class="admin-section-desc">
+          照合レポート（Flexメッセージ）をLINEグループへ今すぐ送信します。<br>
+          通常は毎週木曜18:00に自動配信されます。
+        </div>
+        <button class="admin-btn" id="btn-send" onclick="adminAction('send')">📤 今すぐ配信</button>
+      </div>
+      <div id="admin-result" style="color:var(--muted); font-size:12px; padding:2px 0;"></div>
+
+      <!-- 登録メンバーリスト（管理者のみ） -->
+      <div class="admin-section" id="members-section" style="display:none;">
+        <div class="admin-section-title">👥 登録メンバーリスト</div>
+        <div class="members-meta" id="members-meta">読み込み中…</div>
+        <div class="members-table-wrap">
+          <table class="members-table">
+            <thead>
+              <tr>
+                <th>背番号</th><th>氏名</th><th>表示名</th><th>関係</th><th>登録日</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="members-body"></tbody>
+          </table>
+        </div>
+        <button class="admin-btn sm" onclick="refreshMembers()" style="margin-top:10px;">🔄 更新</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <div class="status-bar">
   <span id="status-msg">初期化中…</span>
-  <span id="status-user"></span>
+  <span id="status-right"></span>
 </div>
 
 <script>
 // ── 設定 ────────────────────────────────────────────────────────────────────
-const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQwAeb7U_Z2Xn-xBVRfvnv302cu_ckO-g-wyPATYuv4dPZY/exec';
-const LIFF_ID    = '2010471175-mz6PBjZx';
+const GAS_URL     = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQwAeb7U_Z2Xn-xBVRfvnv302cu_ckO-g-wyPATYuv4dPZY/exec';
+const LIFF_ID     = '2010471175-mz6PBjZx';
 const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
+const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ────────────────────────────────────────────────────────────────────
-const __UI_BUILD__ = 12;
+const __UI_BUILD__  = 13;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -349,6 +363,7 @@ let catFilter       = '全て';
 let schedStatusFilter = 'all';
 let summaryFilter   = 'all';
 let judging         = false;
+let selectedCoach   = null;
 
 // ── ユーティリティ ────────────────────────────────────────────────────────────
 function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
@@ -380,6 +395,14 @@ function fmtDatetime(dt) {
   return s.substring(0, 16);
 }
 
+function fmtDateShort(dt) {
+  if (!dt) return '—';
+  const s = String(dt);
+  const m = s.match(/(\d{1,4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) return `${Number(m[2])}/${Number(m[3])}`;
+  return s.substring(0, 10);
+}
+
 function statusBadge(status) {
   if (status === 'open')     return '<span class="badge open">未確認</span>';
   if (status === 'resolved') return '<span class="badge resolved">マニュアル確認済</span>';
@@ -387,12 +410,60 @@ function statusBadge(status) {
   return '<span class="badge ok">照合OK</span>';
 }
 
+// ── API 呼出し ───────────────────────────────────────────────────────────────
+async function gasGet(path, params = {}) {
+  const url = new URL(GAS_URL);
+  url.searchParams.set('_path', path);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const r = await fetch(url.toString());
+  return r.json();
+}
+
+// ── 登録フロー ───────────────────────────────────────────────────────────────
+function buildCoachBadges() {
+  const wrap = document.getElementById('coach-badges');
+  wrap.innerHTML = COACHES.map(name =>
+    `<div class="coach-badge" onclick="selectCoach('${name}')">${name}</div>`
+  ).join('');
+}
+
+function selectCoach(name) {
+  selectedCoach = name;
+  document.querySelectorAll('.coach-badge').forEach(b => {
+    b.classList.toggle('selected', b.textContent === name);
+  });
+  document.getElementById('reg-submit').disabled = false;
+  document.getElementById('reg-error').textContent = '';
+}
+
+async function submitRegistration() {
+  if (!selectedCoach) return;
+  const btn = document.getElementById('reg-submit');
+  btn.disabled = true;
+  btn.textContent = '登録中…';
+  document.getElementById('reg-error').textContent = '';
+  try {
+    const relation = selectedCoach === 'その他' ? 'その他' : 'コーチ';
+    const res = await gasGet('auth/register', { userId, displayName, coachName: selectedCoach, relation });
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      document.getElementById('reg-error').textContent = 'エラー: ' + (res.error || '登録失敗');
+      btn.disabled = false;
+      btn.textContent = '登録する';
+    }
+  } catch (e) {
+    document.getElementById('reg-error').textContent = 'エラー: ' + e.message;
+    btn.disabled = false;
+    btn.textContent = '登録する';
+  }
+}
+
 // ── 初期化 ──────────────────────────────────────────────────────────────────
 async function init() {
-  // URL パラメータからサマリーフィルタを読み込む（LINE deep link）
   const urlParams  = new URLSearchParams(window.location.search);
   const initFilter = urlParams.get('filter');
-  if (initFilter && ['ok', 'ng', 'open', 'resolved'].includes(initFilter)) {
+  if (initFilter && ['ok','ng','open','resolved'].includes(initFilter)) {
     summaryFilter = initFilter;
   }
 
@@ -404,34 +475,55 @@ async function init() {
     const profile = await liff.getProfile();
     userId      = profile.userId;
     displayName = profile.displayName;
-    document.getElementById('status-user').textContent = displayName;
 
     const meRes = await gasGet('auth/me', { userId });
     isAdmin   = meRes.isAdmin   || false;
     isAllowed = meRes.isAllowed || false;
-    if (isAdmin) document.getElementById('admin-tab').style.display = '';
 
-    const cfgRes = await gasGet('config');
-    if (cfgRes.version) document.getElementById('version-label').textContent = 'v' + cfgRes.version;
+    if (!meRes.registered) {
+      // 初回登録画面を表示
+      buildCoachBadges();
+      document.getElementById('register-overlay').style.display = 'flex';
+      setStatus('初回登録が必要です');
+      return;
+    }
 
-    await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules()]);
-    renderSummary();
-    renderCatFilter();
-    renderSchedStatusFilter();
-    renderSchedList();
-    setStatus('読み込み完了');
+    // メインアプリ起動
+    await startMainApp(meRes);
   } catch (e) {
     setStatus('エラー: ' + e.message);
   }
 }
 
-// ── API 呼出し ───────────────────────────────────────────────────────────────
-async function gasGet(path, params = {}) {
-  const url = new URL(GAS_URL);
-  url.searchParams.set('_path', path);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const r = await fetch(url.toString());
-  return r.json();
+async function startMainApp(meRes) {
+  document.getElementById('main-app').style.display = '';
+
+  if (isAdmin) document.getElementById('admin-tab').style.display = '';
+
+  document.getElementById('header-user').textContent = displayName || '';
+
+  const cfgRes = await gasGet('config');
+  if (cfgRes.version) {
+    const verText = `v${cfgRes.version} (${__UI_BUILD__})`;
+    document.getElementById('header-version').textContent = verText;
+    document.title = 'F.C. REGALIA match check ' + verText;
+  }
+
+  const coachLabel = meRes.coachName ? `${meRes.coachName}` : displayName;
+  document.getElementById('status-right').textContent = coachLabel;
+
+  await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules()]);
+  renderSummary();
+  renderCatFilter();
+  renderSchedStatusFilter();
+  renderSchedList();
+
+  if (isAdmin) {
+    document.getElementById('members-section').style.display = '';
+    refreshMembers();
+  }
+
+  setStatus('読み込み完了');
 }
 
 // ── データ読込 ───────────────────────────────────────────────────────────────
@@ -469,46 +561,37 @@ function _nameSim(a, b) {
 
 function buildMerged() {
   const today = new Date().toISOString().split('T')[0];
-
   const discByKey = {};
   discData.forEach(d => {
     const key = normDate(d.match_date) + '_' + catBase(d.category_code);
     (discByKey[key] = discByKey[key] || []).push(d);
   });
-
   const offPool = {};
   for (const o of schedData) {
     const key = normDate(o.match_date) + '_' + o.category_code;
     (offPool[key] = offPool[key] || []).push(o);
     const base = o.category_code.replace(/_FUTSAL$/, '');
     if (base !== o.category_code) {
-      const altKey = normDate(o.match_date) + '_' + base;
-      (offPool[altKey] = offPool[altKey] || []).push(o);
+      (offPool[normDate(o.match_date) + '_' + base] = offPool[normDate(o.match_date) + '_' + base] || []).push(o);
     }
   }
-
   const usedOffIds = new Set();
-
   function consumeOff(dateStr, cat, coachTitle) {
     const keys = [...new Set([dateStr + '_' + cat, dateStr + '_' + catBase(cat)])];
     for (const key of keys) {
       const avail = (offPool[key] || []).filter(o => !usedOffIds.has(o.id));
-      if (avail.length === 0) continue;
+      if (!avail.length) continue;
       if (avail.length === 1) { usedOffIds.add(avail[0].id); return avail[0]; }
       let best = avail[0], bestScore = _nameSim(coachTitle, avail[0].opponent || '');
       for (let i = 1; i < avail.length; i++) {
         const s = _nameSim(coachTitle, avail[i].opponent || '');
         if (s > bestScore) { bestScore = s; best = avail[i]; }
       }
-      usedOffIds.add(best.id);
-      return best;
+      usedOffIds.add(best.id); return best;
     }
     return null;
   }
-
-  const entries = [];
-  const usedDiscIds = new Set();
-
+  const entries = [], usedDiscIds = new Set();
   const upcomingCoach = coachData
     .filter(c => normDate(c.event_date) >= today)
     .sort((a, b) => {
@@ -516,14 +599,10 @@ function buildMerged() {
       if (da !== db) return da.localeCompare(db);
       return catSortKey(a.category_code) - catSortKey(b.category_code);
     });
-
   for (const cm of upcomingCoach) {
     const key = normDate(cm.event_date) + '_' + catBase(cm.category_code);
     const discs = (discByKey[key] || []).filter(d => !usedDiscIds.has(d.id));
-
-    let disc = discs[0] || null;
-    let official = null;
-
+    let disc = discs[0] || null, official = null;
     if (disc) {
       usedDiscIds.add(disc.id);
       const od = safeParse(disc.official_data);
@@ -532,45 +611,27 @@ function buildMerged() {
       const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
       if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue };
     }
-
     entries.push({
-      date:     normDate(cm.event_date),
-      category: cm.category_code,
-      coach:    { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
-      official,
-      disc,
-      status:   disc ? disc.status : (official ? 'ok' : 'open'),
+      date: normDate(cm.event_date), category: cm.category_code,
+      coach: { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
+      official, disc,
+      status: disc ? disc.status : (official ? 'ok' : 'open'),
     });
   }
-
   for (const d of discData) {
-    if (usedDiscIds.has(d.id)) continue;
-    if (d.type !== 'official_only') continue;
+    if (usedDiscIds.has(d.id) || d.type !== 'official_only') continue;
     const dd = normDate(d.match_date);
     if (dd < today) continue;
     const od = safeParse(d.official_data) || {};
-    entries.push({
-      date:     dd,
-      category: d.category_code,
-      coach:    null,
-      official: od,
-      disc:     d,
-      status:   d.status,
-    });
+    entries.push({ date: dd, category: d.category_code, coach: null, official: od, disc: d, status: d.status });
     usedDiscIds.add(d.id);
   }
-
-  entries.sort((a, b) => {
-    if (a.date !== b.date) return a.date.localeCompare(b.date);
-    return catSortKey(a.category) - catSortKey(b.category);
-  });
-
+  entries.sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : catSortKey(a.category) - catSortKey(b.category));
   return entries;
 }
 
-// ── サマリー描画 ─────────────────────────────────────────────────────────────
+// ── サマリー ─────────────────────────────────────────────────────────────────
 const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', open:'未確認', resolved:'マニュアル確認済' };
-
 const TYPE_LABELS = {
   official_only:     'LINEのみ（公式に未掲載）',
   coach_only:        '公式のみ（LINEに未登録）',
@@ -607,12 +668,7 @@ function renderSumList(merged) {
   const container = document.getElementById('sum-list');
   let entries = merged;
   if (summaryFilter !== 'all') entries = entries.filter(e => e.status === summaryFilter);
-
-  if (entries.length === 0) {
-    container.innerHTML = '<div class="empty">✅ 該当なし</div>';
-    return;
-  }
-
+  if (!entries.length) { container.innerHTML = '<div class="empty">✅ 該当なし</div>'; return; }
   container.innerHTML = entries.map(e => {
     const opp = e.coach ? (e.coach.title || '—') : (e.official ? (e.official.opponent || '—') : '—');
     const catLabel = e.category.replace('_FUTSAL', ' FS');
@@ -637,25 +693,21 @@ function jumpToSched(cat) {
 // ── 比較表示 フィルタ ─────────────────────────────────────────────────────────
 function renderCatFilter() {
   const merged = buildMerged();
-  const cats = [...new Set(merged.map(e => catBase(e.category)).filter(Boolean))].sort(
-    (a, b) => catSortKey(a) - catSortKey(b)
-  );
-  const bar = document.getElementById('cat-filter');
-  bar.innerHTML = ['全て', ...cats].map((c, i) =>
+  const cats = [...new Set(merged.map(e => catBase(e.category)).filter(Boolean))].sort((a,b) => catSortKey(a)-catSortKey(b));
+  document.getElementById('cat-filter').innerHTML = ['全て', ...cats].map((c, i) =>
     `<button class="filter-btn ${i===0?'active':''}" onclick="filterCat('${c}',this)">${c}</button>`
   ).join('');
 }
 
 function renderSchedStatusFilter() {
   const statuses = [
-    { label: '全て',           val: 'all' },
-    { label: '照合OK',         val: 'ok' },
-    { label: '照合NG',         val: 'ng' },
-    { label: '未確認',         val: 'open' },
-    { label: 'マニュアル確認済', val: 'resolved' },
+    {label:'全て',            val:'all'},
+    {label:'照合OK',          val:'ok'},
+    {label:'照合NG',          val:'ng'},
+    {label:'未確認',          val:'open'},
+    {label:'マニュアル確認済', val:'resolved'},
   ];
-  const bar = document.getElementById('status-filter');
-  bar.innerHTML = statuses.map(s =>
+  document.getElementById('status-filter').innerHTML = statuses.map(s =>
     `<button class="filter-btn ${s.val==='all'?'active':''}" onclick="filterSchedStatus('${s.val}',this)">${s.label}</button>`
   ).join('');
 }
@@ -678,73 +730,53 @@ function filterSchedStatus(val, btn) {
 function renderSchedList() {
   const container = document.getElementById('sched-list');
   let entries = buildMerged();
-
-  if (catFilter !== '全て') {
-    entries = entries.filter(e => catBase(e.category) === catFilter || e.category === catFilter);
-  }
-  if (schedStatusFilter !== 'all') {
-    entries = entries.filter(e => e.status === schedStatusFilter);
-  }
-
-  if (entries.length === 0) {
-    container.innerHTML = '<div class="empty">データなし</div>';
-    return;
-  }
+  if (catFilter !== '全て') entries = entries.filter(e => catBase(e.category)===catFilter||e.category===catFilter);
+  if (schedStatusFilter !== 'all') entries = entries.filter(e => e.status === schedStatusFilter);
+  if (!entries.length) { container.innerHTML = '<div class="empty">データなし</div>'; return; }
 
   container.innerHTML = entries.map(e => {
-    const c = e.coach    || {};
-    const o = e.official || {};
-
+    const c = e.coach || {}, o = e.official || {};
     const lineTime  = c.time  || '—';
     const lineOpp   = c.title ? `vs ${c.title}` : '(なし)';
     const lineVenue = c.venue ? `@ ${c.venue}`  : '';
     const offTime   = o.time     || '—';
     const offOpp    = o.opponent ? `vs ${o.opponent}` : '(なし)';
     const offVenue  = o.venue    ? `@ ${o.venue}` : '';
-
     const noCoach    = !e.coach;
     const noOfficial = !e.official;
-
-    // 差分情報
     let diffHtml;
     if (!e.disc) {
       diffHtml = `<div class="diff-info ok-match">差分無し</div>`;
     } else {
       const typeText = TYPE_LABELS[e.disc.type] || e.disc.type;
-      const cls = (e.disc.status === 'resolved') ? 'resolved' : 'ng-open';
+      const cls = e.disc.status === 'resolved' ? 'resolved' : 'ng-open';
       diffHtml = `<div class="diff-info ${cls}">▶ ${typeText}</div>`;
     }
-
-    // マニュアル確認済の履歴
     const resolvedHtml = (e.disc && e.disc.status === 'resolved' && e.disc.resolved_by)
       ? `<div class="resolved-by">✅ ${e.disc.resolved_by} が確認 · ${fmtDatetime(e.disc.resolved_at)}</div>`
       : '';
-
     const actions = (e.disc && e.disc.status === 'open' && isAllowed) ? judgeButtons(e.disc.id) : '';
-
     return `<div class="sched-item">
       <div class="sched-head">
         <span class="sched-date-cat">📅 ${fmtDate(e.date)} [${e.category}]</span>
         ${statusBadge(e.status)}
       </div>
       <div class="match-2col">
-        <div class="col-line" style="${noCoach ? 'opacity:0.4' : ''}">
+        <div class="col-line" style="${noCoach?'opacity:0.4':''}">
           <div class="col-hdr">LINE</div>
-          <div class="col-time"     style="color:var(--warn);">${noCoach ? '—' : lineTime}</div>
-          <div class="col-opponent" style="color:var(--warn);">${noCoach ? '(なし)' : lineOpp}</div>
-          ${!noCoach && lineVenue ? `<div class="col-venue">${lineVenue}</div>` : ''}
+          <div class="col-time" style="color:var(--warn);">${noCoach?'—':lineTime}</div>
+          <div class="col-opponent" style="color:var(--warn);">${noCoach?'(なし)':lineOpp}</div>
+          ${!noCoach&&lineVenue?`<div class="col-venue">${lineVenue}</div>`:''}
         </div>
         <div class="col-sep"></div>
-        <div class="col-off" style="${noOfficial ? 'opacity:0.4' : ''}">
+        <div class="col-off" style="${noOfficial?'opacity:0.4':''}">
           <div class="col-hdr">公式</div>
-          <div class="col-time"     style="color:#a0c4ff;">${noOfficial ? '—' : offTime}</div>
-          <div class="col-opponent" style="color:#a0c4ff;">${noOfficial ? '(なし)' : offOpp}</div>
-          ${!noOfficial && offVenue ? `<div class="col-venue">${offVenue}</div>` : ''}
+          <div class="col-time" style="color:#a0c4ff;">${noOfficial?'—':offTime}</div>
+          <div class="col-opponent" style="color:#a0c4ff;">${noOfficial?'(なし)':offOpp}</div>
+          ${!noOfficial&&offVenue?`<div class="col-venue">${offVenue}</div>`:''}
         </div>
       </div>
-      ${diffHtml}
-      ${resolvedHtml}
-      ${actions}
+      ${diffHtml}${resolvedHtml}${actions}
     </div>`;
   }).join('');
 }
@@ -760,35 +792,25 @@ function judgeButtons(discId) {
 async function judgeDisc(id, status) {
   if (judging) return;
   judging = true;
-
   const allJudgeBtns = document.querySelectorAll('.judge-btn');
   allJudgeBtns.forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
   setStatus('登録中…');
-
   try {
     const res = await gasGet('api/discrepancy/judge', { userId, displayName, id, status });
     if (res.ok) {
       const d = discData.find(d => d.id === id);
-      if (d) {
-        d.status = status;
-        if (status === 'resolved') {
-          d.resolved_by = displayName;
-          d.resolved_at = new Date().toLocaleString('ja-JP');
-        }
-      }
+      if (d) { d.status = status; if (status==='resolved') { d.resolved_by=displayName; d.resolved_at=new Date().toLocaleString('ja-JP'); } }
       renderSchedList();
       renderSummary();
-      setStatus(status === 'resolved' ? '✅ マニュアル確認済として登録' : '🔍 要調査として登録');
+      setStatus(status==='resolved' ? '✅ マニュアル確認済として登録' : '🔍 要調査として登録');
     } else {
       setStatus('エラー: ' + JSON.stringify(res));
-      allJudgeBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
+      allJudgeBtns.forEach(b => { b.disabled=false; b.style.opacity=''; });
     }
-  } catch (e) {
+  } catch(e) {
     setStatus('エラー: ' + e.message);
-    allJudgeBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
-  } finally {
-    judging = false;
-  }
+    allJudgeBtns.forEach(b => { b.disabled=false; b.style.opacity=''; });
+  } finally { judging = false; }
 }
 
 // ── 管理操作 ─────────────────────────────────────────────────────────────────
@@ -798,7 +820,6 @@ async function adminAction(action) {
   const btns   = document.querySelectorAll('.admin-btn');
   btns.forEach(b => b.disabled = true);
   result.textContent = '実行中…';
-
   try {
     let res;
     if (action === 'compare') {
@@ -806,17 +827,57 @@ async function adminAction(action) {
       result.textContent = `照合完了: 新規差分 ${res.newDiscrepancies || 0}件`;
       const dr = await gasGet('api/discrepancies');
       discData = dr.discrepancies || [];
-      renderSummary();
-      renderSchedList();
+      renderSummary(); renderSchedList();
     } else if (action === 'send') {
       res = await gasGet('api/admin/send-report-now', { token: ADMIN_TOKEN });
       result.textContent = res.ok ? 'レポートを配信しました' : 'エラー: ' + JSON.stringify(res);
     }
-  } catch (e) {
-    result.textContent = 'エラー: ' + e.message;
-  }
-
+  } catch(e) { result.textContent = 'エラー: ' + e.message; }
   btns.forEach(b => b.disabled = false);
+}
+
+// ── 登録メンバー管理 ─────────────────────────────────────────────────────────
+async function refreshMembers() {
+  const meta = document.getElementById('members-meta');
+  const body = document.getElementById('members-body');
+  meta.textContent = '読み込み中…';
+  body.innerHTML = '';
+  try {
+    const res = await gasGet('admin/registered-members', { userId });
+    if (!res.ok) { meta.textContent = 'エラー: ' + (res.error || ''); return; }
+    const members = res.members || [];
+    meta.textContent = `登録済み ${members.length} 件`;
+    if (!members.length) {
+      body.innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:12px;text-align:center;">登録メンバーなし</td></tr>';
+      return;
+    }
+    body.innerHTML = members.map(m => {
+      const safeId = m.line_user_id.replace(/'/g, '');
+      const safeName = (m.coach_name || '').replace(/'/g, '');
+      return `<tr>
+        <td>0</td>
+        <td>${m.coach_name || '—'}</td>
+        <td>${m.display_name || '—'}</td>
+        <td>${m.relation || '—'}</td>
+        <td>${fmtDateShort(m.registered_at)}</td>
+        <td><button class="del-btn" onclick="deleteUser('${safeId}','${safeName}')">削除</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) { meta.textContent = 'エラー: ' + e.message; }
+}
+
+async function deleteUser(lineUserId, coachName) {
+  if (!confirm(`「${coachName}」を登録リストから削除しますか？\nこの操作は取り消せません。`)) return;
+  setStatus('削除中…');
+  try {
+    const res = await gasGet('admin/delete-user', { userId, targetUserId: lineUserId });
+    if (res.ok) {
+      setStatus('削除しました');
+      await refreshMembers();
+    } else {
+      setStatus('削除失敗: ' + (res.error || ''));
+    }
+  } catch(e) { setStatus('削除エラー: ' + e.message); }
 }
 
 // ── タブ切替 ─────────────────────────────────────────────────────────────────
