@@ -4,354 +4,417 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>F.C. REGALIA match check</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
   <style>
     :root {
-      --bg:       #0a0f23;
-      --surface:  #12183a;
-      --border:   #1e2d5a;
-      --blue:     #7eaaff;
-      --blue-lt:  #c8dcff;
-      --green:    #64d278;
-      --warn:     #ffcc80;
-      --danger:   #ff5252;
-      --text:     #e8eaf6;
-      --muted:    #8899aa;
+      --bg:      #070c16;
+      --surface: #0d1a30;
+      --border:  rgba(255,255,255,.08);
+      --gold:    #c9a24b;
+      --gold-lt: #e0c074;
+      --text:    #ffffff;
+      --sub:     #dde4ef;
+      --muted:   #9aa6bd;
+      --dim:     #5f6e86;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing:border-box; margin:0; padding:0; }
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      font-family: 'Noto Sans JP', system-ui, sans-serif;
       font-size: 14px;
       min-height: 100vh;
+      padding-bottom: 48px;
     }
-    /* ── Header ─────────────────────────────────── */
+
+    /* ── Header ───────────────────────────────────────── */
     .header {
-      background: #0d2a5e;
-      padding: 8px 12px;
+      background: linear-gradient(110deg,#0e2a4f 0%,#102845 60%,#0c1e38 100%);
+      border-top: 2px solid var(--gold);
+      padding: 14px 18px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 13px;
       position: sticky;
       top: 0;
       z-index: 10;
     }
-    .header-logo { height: 32px; width: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; mix-blend-mode: multiply; }
-    .header-title-block { flex: 1; min-width: 0; }
-    .header-title { color: var(--blue-lt); font-size: 13px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .header-version { color: var(--muted); font-size: 10px; }
-    .header-user { color: var(--muted); font-size: 11px; text-align: right; flex-shrink: 0; max-width: 90px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    /* ── Tabs ────────────────────────────────────── */
+    .header-logo-wrap {
+      width: 48px; height: 48px;
+      border-radius: 11px;
+      border: 1.5px solid var(--gold);
+      background: radial-gradient(circle at 50% 30%,#16335c,#0a1830);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; overflow: hidden;
+    }
+    .header-logo { width:100%; height:100%; object-fit:cover; mix-blend-mode:multiply; border-radius:9px; }
+    .header-wordmark { font-family:'Cormorant Garamond',serif; font-size:23px; font-weight:700; color:#fff; line-height:1; letter-spacing:.02em; }
+    .header-sub { font-size:11px; color:#a9c0e0; margin-top:5px; }
+    .header-sub-ver { color: var(--gold); }
+    .header-right { margin-left:auto; font-size:11px; color:var(--muted); text-align:right; max-width:80px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; flex-shrink:0; }
+
+    /* ── Tabs ─────────────────────────────────────────── */
     .tabs {
       display: flex;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
+      gap: 6px;
+      padding: 12px 16px;
+      background: #0a1322;
     }
     .tab {
-      flex: 1;
-      padding: 10px 4px;
-      text-align: center;
-      color: var(--muted);
+      flex: 1; text-align: center;
+      padding: 11px 0;
+      border-radius: 8px;
+      font-size: 13px; font-weight: 700;
       cursor: pointer;
-      font-size: 12px;
-      border-bottom: 2px solid transparent;
+      border: 1px solid rgba(255,255,255,.07);
+      color: #a9c0e0;
+      background: rgba(255,255,255,.04);
+      transition: all .15s;
+      user-select: none;
     }
-    .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
-    /* ── Summary Stat Cards ──────────────────────── */
-    .stat-cards { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .stat-row { display: grid; gap: 8px; }
-    .stat-row.cols-1 { grid-template-columns: 1fr; }
-    .stat-row.cols-2 { grid-template-columns: 1fr 1fr; }
-    .stat-card {
-      background: var(--surface); border: 2px solid var(--border);
-      border-radius: 10px; padding: 10px 6px; text-align: center;
-      cursor: pointer; transition: border-color 0.15s, background 0.15s; user-select: none;
-    }
-    .stat-card.active { background: #182045; }
-    .stat-card.type-all.active   { border-color: var(--blue); }
-    .stat-card.type-ok.active    { border-color: var(--green); }
-    .stat-card.type-ng.active    { border-color: var(--danger); }
-    .stat-card.type-open.active  { border-color: var(--warn); }
-    .stat-card.type-manok.active { border-color: #a0c4ff; }
-    .stat-num   { font-size: 26px; font-weight: bold; line-height: 1.1; }
-    .stat-label { color: var(--muted); font-size: 10px; margin-top: 3px; }
-    .stat-card.type-all   .stat-num { color: var(--blue); }
-    .stat-card.type-ok    .stat-num { color: var(--green); }
-    .stat-card.type-ng    .stat-num { color: var(--danger); }
-    .stat-card.type-open  .stat-num { color: var(--warn); }
-    .stat-card.type-manok .stat-num { color: #a0c4ff; }
-    /* ── Summary list ────────────────────────────── */
-    .sum-section-head {
-      padding: 6px 12px; color: var(--muted); font-size: 11px; font-weight: bold;
-      letter-spacing: 0.05em; background: var(--bg);
-      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
-    }
-    .sum-list { padding: 0 12px 80px; }
-    .sum-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 9px 2px; border-bottom: 1px solid var(--border); cursor: pointer;
-    }
-    .sum-item:active { background: var(--surface); }
-    .sum-date { color: var(--blue-lt); font-size: 12px; min-width: 58px; flex-shrink: 0; }
-    .sum-cat  { color: var(--muted); font-size: 10px; min-width: 44px; flex-shrink: 0; }
-    .sum-opp  { font-size: 12px; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    /* ── Badges ──────────────────────────────────── */
-    .badge {
-      display: inline-block; padding: 2px 6px;
-      border-radius: 4px; font-size: 10px; font-weight: bold;
-    }
-    .badge.open     { background: #ff525233; color: var(--danger); }
-    .badge.resolved { background: #a0c4ff33; color: #a0c4ff; }
-    .badge.ng       { background: #ff8a0033; color: #ffaa44; }
-    .badge.ok       { background: #64d27818; color: var(--green); }
-    /* ── Judge Buttons ───────────────────────────── */
-    .disc-actions { display: flex; gap: 8px; margin-top: 8px; }
-    .judge-btn {
-      flex: 1; padding: 8px; border-radius: 6px;
-      font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid;
-    }
-    .judge-btn.ok     { background: #64d27820; color: var(--green);  border-color: var(--green); }
-    .judge-btn.danger { background: #ff525220; color: var(--danger); border-color: var(--danger); }
-    .judge-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-    /* ── Admin Panel ─────────────────────────────── */
-    .admin-panel { padding: 16px 12px 80px; display: flex; flex-direction: column; gap: 12px; }
-    .admin-section {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; padding: 12px;
-    }
-    .admin-section-title { color: var(--blue-lt); font-size: 13px; font-weight: bold; margin-bottom: 5px; }
-    .admin-section-desc  { color: var(--muted); font-size: 11px; line-height: 1.6; margin-bottom: 10px; }
-    .admin-btn {
-      background: #1565C0; color: #fff; border: none;
-      border-radius: 8px; padding: 12px; font-size: 14px;
-      font-weight: bold; cursor: pointer; width: 100%;
-    }
-    .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .admin-btn.sm { padding: 8px; font-size: 12px; }
-    /* ── Members table ───────────────────────────── */
-    .members-meta { color: var(--muted); font-size: 11px; margin: 6px 0; }
-    .members-table-wrap { overflow-x: auto; margin-top: 8px; }
-    .members-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    .members-table th {
-      text-align: left; padding: 6px 8px;
-      border-bottom: 1px solid var(--border); color: var(--muted); white-space: nowrap;
-    }
-    .members-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-    .del-btn {
-      padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold;
-      background: #7f1d1d; color: #fca5a5; border: none; cursor: pointer;
-    }
-    /* ── Status bar ──────────────────────────────── */
-    .status-bar {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: var(--surface); border-top: 1px solid var(--border);
-      padding: 8px 12px; font-size: 11px; color: var(--muted);
-      display: flex; justify-content: space-between;
-    }
-    /* ── Loading / Empty ─────────────────────────── */
-    .loading, .empty { text-align: center; color: var(--muted); padding: 40px 20px; }
-    .spinner {
-      border: 3px solid var(--border); border-top-color: var(--blue);
-      border-radius: 50%; width: 36px; height: 36px;
-      animation: spin 0.8s linear infinite; margin: 0 auto 12px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    /* ── Filter bar ──────────────────────────────── */
-    .filter-bar {
-      padding: 8px 12px; display: flex; gap: 6px; flex-wrap: wrap;
-      background: var(--bg); border-bottom: 1px solid var(--border);
-    }
-    .filter-btn {
-      padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border);
-      background: var(--surface); color: var(--muted); font-size: 11px; cursor: pointer;
-    }
-    .filter-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
-    /* ── page ────────────────────────────────────── */
+    .tab.active { background: var(--gold); color: #0a1830; border-color: var(--gold); }
+
+    /* ── Pages ────────────────────────────────────────── */
     .page { display: none; }
     .page.active { display: block; }
-    /* ── 比較表示カード ──────────────────────────── */
-    .sched-list { padding: 0 12px 80px; }
-    .sched-item {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; margin: 8px 0; padding: 10px;
+
+    /* ── Summary: Hero ────────────────────────────────── */
+    .sum-hero {
+      margin: 18px 16px 12px;
+      border-radius: 16px;
+      padding: 24px 20px;
+      background: linear-gradient(135deg,#13335f,#0c1f3c);
+      border: 1px solid rgba(201,162,75,.35);
+      position: relative; overflow: hidden;
+      cursor: pointer;
+      transition: box-shadow .15s;
     }
-    .sched-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .sched-date-cat { color: var(--blue-lt); font-weight: bold; font-size: 13px; }
-    .match-2col {
-      display: grid; grid-template-columns: 1fr 1px 1fr; gap: 8px; margin-bottom: 6px;
+    .sum-hero.active { box-shadow: 0 0 0 2px var(--gold); }
+    .sum-hero-bar { position:absolute; top:0; left:0; width:5px; height:100%; background:var(--gold); }
+    .sum-hero-inner { display:flex; align-items:baseline; gap:14px; }
+    .sum-hero-num { font-family:'Cormorant Garamond',serif; font-size:68px; font-weight:700; color:#fff; line-height:.85; }
+    .sum-hero-label { font-size:13px; color:var(--gold); font-weight:700; letter-spacing:.1em; }
+
+    /* ── Summary: 2×2 grid ────────────────────────────── */
+    .sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 16px 20px; }
+    .sum-grid-card {
+      border-radius: 14px;
+      padding: 18px 16px;
+      cursor: pointer;
+      transition: box-shadow .15s;
+      border: 1px solid;
     }
-    .col-sep { background: var(--border); }
-    .col-hdr { font-size: 10px; font-weight: bold; margin-bottom: 4px; letter-spacing: 0.05em; }
-    .col-line .col-hdr { color: var(--warn); }
-    .col-off  .col-hdr { color: #a0c4ff; }
-    .col-time     { font-size: 13px; font-weight: bold; }
-    .col-opponent { font-size: 12px; margin-top: 2px; }
-    .col-venue    { font-size: 11px; color: var(--muted); margin-top: 1px; }
-    .diff-info { font-size: 11px; margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--border); }
-    .diff-info.ng-open  { color: var(--danger); font-weight: bold; }
-    .diff-info.resolved { color: #a0c4ff; }
-    .diff-info.ok-match { color: var(--green); }
-    .resolved-by { font-size: 10px; color: var(--muted); margin-top: 3px; }
-    /* ── 登録オーバーレイ ──────────────────────────── */
+    .sum-grid-card.active { box-shadow: 0 0 0 2px var(--gold); }
+    .sum-grid-card.ok       { background:rgba(67,184,115,.08);  border-color:rgba(67,184,115,.3); }
+    .sum-grid-card.ng       { background:rgba(224,85,95,.08);   border-color:rgba(224,85,95,.3); }
+    .sum-grid-card.open     { background:rgba(210,166,73,.08);  border-color:rgba(210,166,73,.3); }
+    .sum-grid-card.resolved { background:rgba(143,166,200,.08); border-color:rgba(143,166,200,.3); }
+    .sum-grid-num { font-family:'Cormorant Garamond',serif; font-size:40px; font-weight:700; line-height:1; }
+    .sum-grid-card.ok       .sum-grid-num { color:#43b873; }
+    .sum-grid-card.ng       .sum-grid-num { color:#e0555f; }
+    .sum-grid-card.open     .sum-grid-num { color:#d2a649; }
+    .sum-grid-card.resolved .sum-grid-num { color:#8fa6c8; }
+    .sum-grid-label { font-size:12px; color:#c4cfe0; margin-top:6px; font-weight:500; }
+
+    /* ── Summary: list ────────────────────────────────── */
+    .sum-list-hdr { font-size:15px; color:#fff; font-weight:700; }
+    .sum-list-hdr-wrap { padding:0 16px 8px; display:flex; align-items:baseline; gap:8px; }
+    .sum-filter-label { font-size:10px; color:var(--gold); }
+    .sum-list-wrap { border-radius:14px; overflow:hidden; border:1px solid var(--border); margin:0 16px 30px; }
+    .sum-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 15px;
+      background: var(--surface);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      cursor: pointer;
+    }
+    .sum-row:last-child { border-bottom: none; }
+    .sum-row-left { flex: none; width: 56px; }
+    .sum-row-date { font-size:12px; color:#fff; font-weight:600; }
+    .sum-row-cat { display:inline-block; font-size:9px; color:#0a1830; background:var(--gold); padding:1px 5px; border-radius:4px; margin-top:4px; font-weight:700; }
+    .sum-row-opp { flex:1; font-size:13px; color:#dde4ef; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    /* ── Compare: filter chips ────────────────────────── */
+    .cmp-filters { padding: 14px 16px 4px; }
+    .chip-row { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:10px; }
+    .chip-btn {
+      font-size: 12px; font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,.09);
+      color: #a9c0e0;
+      background: rgba(255,255,255,.04);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .chip-btn.active { background: var(--gold); color: #1a1206; border-color: var(--gold); }
+
+    /* ── Compare: cards ───────────────────────────────── */
+    .cmp-list { padding: 4px 16px 30px; }
+    .cmp-card {
+      border-radius: 16px;
+      margin-bottom: 14px;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .cmp-card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px;
+      background: linear-gradient(110deg,#11305a,#0d2142);
+    }
+    .cmp-card-title { font-size:15px; color:#fff; font-weight:700; }
+    .cmp-card-cat { color: var(--gold); }
+    .cmp-cols { display: flex; }
+    .cmp-col { flex: 1; padding: 14px 15px; }
+    .cmp-col.line-col { background: rgba(201,162,75,.05); }
+    .cmp-col-sep { width:1px; background:var(--border); flex-shrink:0; }
+    .cmp-col-lbl { font-size:11px; font-weight:700; margin-bottom:8px; }
+    .cmp-col.line-col .cmp-col-lbl { color: var(--gold); }
+    .cmp-col.off-col  .cmp-col-lbl { color: #6f86a8; }
+    .cmp-col-time { font-size:18px; color:#fff; font-weight:700; line-height:1.2; }
+    .cmp-col.off-col .cmp-col-time { color: #dde4ef; }
+    .cmp-col-opp  { font-size:13px; color:#dde4ef; margin-top:6px; font-weight:500; }
+    .cmp-col-venue { font-size:11px; color:#8aa0c0; margin-top:4px; }
+    .cmp-col.muted .cmp-col-time,
+    .cmp-col.muted .cmp-col-opp  { color: var(--dim); }
+    .card-diff { padding:11px 16px; border-top:1px solid rgba(255,255,255,.07); font-size:12px; font-weight:600; }
+    .card-diff.ok-match  { color:#43b873; }
+    .card-diff.resolved  { color:#8fa6c8; }
+    .card-diff.ng-open   { color:#d2a649; }
+    .card-note { padding:0 16px 12px; font-size:11px; color:#8a96ac; display:flex; align-items:center; gap:6px; }
+    .note-check { color:#43b873; }
+
+    /* ── Judge buttons ────────────────────────────────── */
+    .disc-actions { display:flex; gap:8px; padding:10px 16px 14px; }
+    .judge-btn { flex:1; padding:11px; border-radius:9px; font-size:13px; font-weight:700; border:none; cursor:pointer; }
+    .judge-btn.ok     { background:linear-gradient(110deg,var(--gold),var(--gold-lt)); color:#1a1206; }
+    .judge-btn.danger { background:rgba(224,85,95,.18); color:#e0555f; border:1px solid rgba(224,85,95,.4); }
+
+    /* ── Admin ────────────────────────────────────────── */
+    .admin-cards { padding: 16px 16px 0; }
+    .admin-card { border-radius:16px; padding:20px; margin-bottom:14px; background:var(--surface); border:1px solid var(--border); }
+    .admin-card-title { font-size:16px; color:#fff; font-weight:700; margin-bottom:8px; }
+    .admin-card-desc  { font-size:12px; color:var(--muted); line-height:1.7; margin-bottom:16px; }
+    .admin-btn-gold {
+      width:100%; padding:15px; border-radius:11px;
+      background: linear-gradient(110deg,var(--gold),var(--gold-lt));
+      color: #1a1206; font-size:14px; font-weight:700; letter-spacing:.06em;
+      border: none; cursor: pointer;
+    }
+    .admin-btn-gold:disabled { opacity:.4; cursor:not-allowed; }
+    .admin-result { font-size:12px; color:var(--muted); padding:8px 0; text-align:center; min-height:28px; }
+    .members-card { border-radius:16px; padding:20px; margin:0 16px 24px; background:var(--surface); border:1px solid var(--border); }
+    .members-title { font-size:16px; color:#fff; font-weight:700; }
+    .members-meta  { font-size:11px; color:var(--muted); margin:5px 0 14px; }
+    .member-row {
+      display: flex; align-items: center; gap:12px;
+      padding: 14px;
+      background: rgba(201,162,75,.06);
+      border-radius: 11px;
+      margin-bottom: 10px;
+    }
+    .member-num  { font-family:'Cormorant Garamond',serif; font-size:26px; color:var(--gold); font-weight:700; width:26px; flex-shrink:0; text-align:center; }
+    .member-name { font-size:13px; color:#fff; font-weight:600; }
+    .member-meta-txt { font-size:10px; color:#8aa0c0; margin-top:3px; }
+    .del-btn { font-size:11px; font-weight:700; color:#fff; background:#c0414a; border-radius:7px; padding:7px 12px; cursor:pointer; border:none; flex-shrink:0; }
+    .members-refresh-btn {
+      width:100%; padding:14px; border-radius:11px;
+      background: linear-gradient(110deg,#1c4d8a,#15396a);
+      color:#fff; font-size:13px; font-weight:700; letter-spacing:.06em;
+      border:none; cursor:pointer; margin-top:14px;
+    }
+
+    /* ── Registration overlay ─────────────────────────── */
     #register-overlay {
-      position: fixed; inset: 0; background: var(--bg);
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.85);
       display: flex; align-items: center; justify-content: center;
-      z-index: 100; padding: 20px;
+      z-index: 100;
     }
     .reg-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 16px; padding: 24px 20px; width: 100%; max-width: 360px;
+      background: var(--surface);
+      border: 1px solid rgba(201,162,75,.3);
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: calc(100% - 48px); max-width: 360px;
       text-align: center;
     }
-    .reg-logo { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; margin-bottom: 12px; mix-blend-mode: multiply; }
-    .reg-title { color: var(--blue-lt); font-size: 16px; font-weight: bold; margin-bottom: 4px; }
-    .reg-subtitle { color: var(--muted); font-size: 12px; margin-bottom: 20px; }
-    .reg-prompt { color: var(--text); font-size: 13px; font-weight: bold; margin-bottom: 12px; }
-    .coach-badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px; }
+    .reg-logo-wrap {
+      width: 64px; height: 64px;
+      border-radius: 14px;
+      border: 1.5px solid var(--gold);
+      background: radial-gradient(circle at 50% 30%,#16335c,#0a1830);
+      margin: 0 auto 16px;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .reg-logo { width:100%; height:100%; object-fit:cover; mix-blend-mode:multiply; border-radius:12px; }
+    .reg-title    { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:700; color:#fff; margin-bottom:4px; }
+    .reg-subtitle { font-size:12px; color:var(--muted); margin-bottom:20px; }
+    .reg-prompt   { font-size:13px; font-weight:700; color:#fff; margin-bottom:12px; }
+    .coach-badges { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px; }
     .coach-badge {
-      padding: 8px 16px; border-radius: 20px; border: 2px solid var(--border);
-      background: var(--bg); color: var(--muted); font-size: 13px; font-weight: bold;
-      cursor: pointer; transition: all 0.15s; user-select: none;
+      padding: 9px 16px; border-radius: 20px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.04);
+      color: #a9c0e0; font-size:13px; font-weight:600;
+      cursor: pointer; transition: all .15s; user-select:none;
     }
-    .coach-badge.selected { background: #1565C0; color: #fff; border-color: var(--blue); }
-    .reg-error { color: var(--danger); font-size: 12px; margin-top: 8px; min-height: 16px; }
+    .coach-badge.selected { background:var(--gold); color:#1a1206; border-color:var(--gold); }
+    .reg-error  { color:#e0555f; font-size:12px; margin-top:8px; min-height:16px; }
     .reg-submit {
-      background: #1565C0; color: #fff; border: none; border-radius: 8px;
-      padding: 13px; font-size: 15px; font-weight: bold; cursor: pointer;
-      width: 100%; margin-top: 8px;
+      width:100%; padding:15px; border-radius:11px;
+      background: linear-gradient(110deg,var(--gold),var(--gold-lt));
+      color:#1a1206; font-size:15px; font-weight:700;
+      border:none; cursor:pointer; margin-top:8px;
     }
-    .reg-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+    .reg-submit:disabled { opacity:.4; cursor:not-allowed; }
+
+    /* ── Status bar ───────────────────────────────────── */
+    .status-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #0a1322;
+      border-top: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; z-index: 10;
+    }
+    .status-msg   { color: var(--muted); }
+    .status-right { color: var(--gold); }
+
+    .empty-msg { text-align:center; padding:32px 16px; color:var(--muted); font-size:13px; }
   </style>
 </head>
 <body>
 
-<!-- ── 登録オーバーレイ（初回のみ表示） ──────────── -->
+<!-- ── 登録オーバーレイ（初回のみ） ──────────────────── -->
 <div id="register-overlay" style="display:none;">
   <div class="reg-card">
-    <img src="/regalia-chk-schedule/app_logo.png" alt="REGALIA" class="reg-logo">
-    <div class="reg-title">F.C. REGALIA match check</div>
-    <div class="reg-subtitle">初回登録が必要です</div>
-    <div class="reg-prompt">あなたのコーチ名を選んでください</div>
+    <div class="reg-logo-wrap">
+      <img src="/regalia-chk-schedule/app_logo.png" alt="REGALIA" class="reg-logo">
+    </div>
+    <div class="reg-title">F.C. REGALIA</div>
+    <div class="reg-subtitle">match check — 初回登録</div>
+    <div class="reg-prompt">コーチ名を選択してください</div>
     <div class="coach-badges" id="coach-badges"></div>
     <div class="reg-error" id="reg-error"></div>
     <button class="reg-submit" id="reg-submit" onclick="submitRegistration()" disabled>登録する</button>
   </div>
 </div>
 
-<!-- ── メインアプリ ──────────────────────────────── -->
+<!-- ── メインアプリ ─────────────────────────────────── -->
 <div id="main-app" style="display:none;">
+
+  <!-- Header -->
   <div class="header">
-    <img src="/regalia-chk-schedule/app_logo.png" alt="REGALIA" class="header-logo">
-    <div class="header-title-block">
-      <div class="header-title">F.C. REGALIA match check</div>
-      <div class="header-version" id="header-version">—</div>
+    <div class="header-logo-wrap">
+      <img src="/regalia-chk-schedule/app_logo.png" alt="REGALIA" class="header-logo">
     </div>
-    <div class="header-user" id="header-user"></div>
+    <div style="flex:1;min-width:0;">
+      <div class="header-wordmark">F.C. REGALIA</div>
+      <div class="header-sub">match check <span class="header-sub-ver" id="header-version"></span></div>
+    </div>
+    <div class="header-right" id="header-user"></div>
   </div>
 
+  <!-- Tabs -->
   <div class="tabs">
     <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
-    <div class="tab"        data-tab="sched"   onclick="switchTab('sched')">比較表示</div>
-    <div class="tab"        data-tab="admin"   onclick="switchTab('admin')" id="admin-tab" style="display:none">管理</div>
+    <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較表示</div>
+    <div class="tab" id="admin-tab" data-tab="admin" onclick="switchTab('admin')" style="display:none;">管理</div>
   </div>
 
-  <!-- ── サマリー ────────────────────────────────── -->
+  <!-- ── サマリー ── -->
   <div id="page-summary" class="page active">
-    <div class="stat-cards">
-      <div class="stat-row cols-1">
-        <div class="stat-card type-all active" data-filter="all" onclick="filterSummary('all',this)">
-          <div class="stat-num" id="cnt-all">—</div>
-          <div class="stat-label">全試合</div>
-        </div>
-      </div>
-      <div class="stat-row cols-2">
-        <div class="stat-card type-ok" data-filter="ok" onclick="filterSummary('ok',this)">
-          <div class="stat-num" id="cnt-ok">—</div>
-          <div class="stat-label">照合OK</div>
-        </div>
-        <div class="stat-card type-ng" data-filter="ng" onclick="filterSummary('ng',this)">
-          <div class="stat-num" id="cnt-ng">—</div>
-          <div class="stat-label">照合NG</div>
-        </div>
-      </div>
-      <div class="stat-row cols-2">
-        <div class="stat-card type-open" data-filter="open" onclick="filterSummary('open',this)">
-          <div class="stat-num" id="cnt-open">—</div>
-          <div class="stat-label">未確認</div>
-        </div>
-        <div class="stat-card type-manok" data-filter="resolved" onclick="filterSummary('resolved',this)">
-          <div class="stat-num" id="cnt-manok">—</div>
-          <div class="stat-label">マニュアル確認済</div>
-        </div>
+    <div class="sum-hero active" data-filter="all" onclick="filterSummary('all',this)">
+      <div class="sum-hero-bar"></div>
+      <div class="sum-hero-inner">
+        <div class="sum-hero-num" id="cnt-all">—</div>
+        <div class="sum-hero-label">全試合</div>
       </div>
     </div>
-    <div class="sum-section-head" id="sum-filter-label">全試合 一覧</div>
-    <div class="sum-list" id="sum-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
+    <div class="sum-grid">
+      <div class="sum-grid-card ok" data-filter="ok" onclick="filterSummary('ok',this)">
+        <div class="sum-grid-num" id="cnt-ok">—</div>
+        <div class="sum-grid-label">照合OK</div>
+      </div>
+      <div class="sum-grid-card ng" data-filter="ng" onclick="filterSummary('ng',this)">
+        <div class="sum-grid-num" id="cnt-ng">—</div>
+        <div class="sum-grid-label">照合NG</div>
+      </div>
+      <div class="sum-grid-card open" data-filter="open" onclick="filterSummary('open',this)">
+        <div class="sum-grid-num" id="cnt-open">—</div>
+        <div class="sum-grid-label">未確認</div>
+      </div>
+      <div class="sum-grid-card resolved" data-filter="resolved" onclick="filterSummary('resolved',this)">
+        <div class="sum-grid-num" id="cnt-manok">—</div>
+        <div class="sum-grid-label">マニュアル確認済</div>
+      </div>
+    </div>
+    <div class="sum-list-hdr-wrap">
+      <div class="sum-list-hdr" id="sum-list-hdr">全試合 一覧</div>
+      <div class="sum-filter-label" id="sum-filter-label"></div>
+    </div>
+    <div class="sum-list-wrap" id="sum-list">
+      <div class="empty-msg">読み込み中…</div>
+    </div>
   </div>
 
-  <!-- ── 比較表示 ────────────────────────────────── -->
+  <!-- ── 比較表示 ── -->
   <div id="page-sched" class="page">
-    <div class="filter-bar" id="cat-filter"></div>
-    <div class="filter-bar" id="status-filter"></div>
-    <div class="sched-list" id="sched-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
-  </div>
-
-  <!-- ── 管理 ───────────────────────────────────── -->
-  <div id="page-admin" class="page">
-    <div class="admin-panel">
-      <div class="admin-section">
-        <div class="admin-section-title">🔄 今すぐ照合</div>
-        <div class="admin-section-desc">
-          公式HPとLINEの試合予定を照合し、差分をスプレッドシートに書き込みます。<br>
-          通常は毎週木曜17:50に自動実行されます。
-        </div>
-        <button class="admin-btn" id="btn-compare" onclick="adminAction('compare')">🔄 今すぐ照合</button>
-      </div>
-      <div class="admin-section">
-        <div class="admin-section-title">📤 今すぐ配信</div>
-        <div class="admin-section-desc">
-          照合レポート（Flexメッセージ）をLINEグループへ今すぐ送信します。<br>
-          通常は毎週木曜18:00に自動配信されます。
-        </div>
-        <button class="admin-btn" id="btn-send" onclick="adminAction('send')">📤 今すぐ配信</button>
-      </div>
-      <div id="admin-result" style="color:var(--muted); font-size:12px; padding:2px 0;"></div>
-
-      <!-- 登録メンバーリスト（管理者のみ） -->
-      <div class="admin-section" id="members-section" style="display:none;">
-        <div class="admin-section-title">👥 登録メンバーリスト</div>
-        <div class="members-meta" id="members-meta">読み込み中…</div>
-        <div class="members-table-wrap">
-          <table class="members-table">
-            <thead>
-              <tr>
-                <th>背番号</th><th>氏名</th><th>表示名</th><th>関係</th><th>登録日</th><th></th>
-              </tr>
-            </thead>
-            <tbody id="members-body"></tbody>
-          </table>
-        </div>
-        <button class="admin-btn sm" onclick="refreshMembers()" style="margin-top:10px;">🔄 更新</button>
-      </div>
+    <div class="cmp-filters">
+      <div class="chip-row" id="cat-filter"></div>
+      <div class="chip-row" id="status-filter"></div>
+    </div>
+    <div class="cmp-list" id="sched-list">
+      <div class="empty-msg">読み込み中…</div>
     </div>
   </div>
+
+  <!-- ── 管理 ── -->
+  <div id="page-admin" class="page">
+    <div class="admin-cards">
+      <div class="admin-card">
+        <div class="admin-card-title">今すぐ照合</div>
+        <div class="admin-card-desc">公式HPとLINEの試合予定を照合し、差分をスプレッドシートに書き込みます。通常は毎週木曜17:50に自動実行されます。</div>
+        <button class="admin-btn-gold admin-btn" onclick="adminAction('compare')">今すぐ照合</button>
+      </div>
+      <div class="admin-card">
+        <div class="admin-card-title">今すぐ配信</div>
+        <div class="admin-card-desc">照合レポート（Flexメッセージ）をLINEグループへ今すぐ送信します。通常は毎週木曜18:00に自動配信されます。</div>
+        <button class="admin-btn-gold admin-btn" onclick="adminAction('send')">今すぐ配信</button>
+      </div>
+      <div id="admin-result" class="admin-result"></div>
+    </div>
+    <div id="members-section" class="members-card" style="display:none;">
+      <div class="members-title">登録メンバーリスト</div>
+      <div class="members-meta" id="members-meta">読み込み中…</div>
+      <div id="members-body"></div>
+      <button class="members-refresh-btn" onclick="refreshMembers()">更新</button>
+    </div>
+  </div>
+
 </div>
 
+<!-- ── Status bar ────────────────────────────────────── -->
 <div class="status-bar">
-  <span id="status-msg">初期化中…</span>
-  <span id="status-right"></span>
+  <span class="status-msg"  id="status-msg">起動中…</span>
+  <span class="status-right" id="status-right"></span>
 </div>
 
 <script>
-// ── 設定 ────────────────────────────────────────────────────────────────────
-const GAS_URL     = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQwAeb7U_Z2Xn-xBVRfvnv302cu_ckO-g-wyPATYuv4dPZY/exec';
-const LIFF_ID     = '2010471175-mz6PBjZx';
+// ── 設定 ─────────────────────────────────────────────────────────────────────
+const LIFF_ID    = '2010471175-mz6PBjZx';
+const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQwAeb7U_Z2Xn-xBVRfvnv302cu_ckO-g-wyPATYuv4dPZY/exec';
 const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
-// ── 状態 ────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 16;
+// ── 状態 ─────────────────────────────────────────────────────────────────────
+const __UI_BUILD__  = 17;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -403,11 +466,15 @@ function fmtDateShort(dt) {
   return s.substring(0, 10);
 }
 
-function statusBadge(status) {
-  if (status === 'open')     return '<span class="badge open">未確認</span>';
-  if (status === 'resolved') return '<span class="badge resolved">マニュアル確認済</span>';
-  if (status === 'ng')       return '<span class="badge ng">要調査</span>';
-  return '<span class="badge ok">照合OK</span>';
+function statusChip(status) {
+  const cfg = {
+    ok:       { text:'照合OK',         c:'#43b873', bg:'rgba(67,184,115,.14)',   b:'rgba(67,184,115,.45)' },
+    ng:       { text:'要調査',         c:'#e0555f', bg:'rgba(224,85,95,.14)',    b:'rgba(224,85,95,.45)' },
+    open:     { text:'未確認',         c:'#d2a649', bg:'rgba(210,166,73,.14)',   b:'rgba(210,166,73,.45)' },
+    resolved: { text:'確認済',         c:'#8fa6c8', bg:'rgba(143,166,200,.16)',  b:'rgba(143,166,200,.45)' },
+  };
+  const s = cfg[status] || { text:status, c:'#9aa6bd', bg:'rgba(154,166,189,.14)', b:'rgba(154,166,189,.45)' };
+  return `<span style="flex-shrink:0;font-size:11px;font-weight:700;color:${s.c};background:${s.bg};border:1px solid ${s.b};padding:5px 9px;border-radius:7px;">${s.text}</span>`;
 }
 
 // ── API 呼出し ───────────────────────────────────────────────────────────────
@@ -481,14 +548,12 @@ async function init() {
     isAllowed = meRes.isAllowed || false;
 
     if (!meRes.registered) {
-      // 初回登録画面を表示
       buildCoachBadges();
       document.getElementById('register-overlay').style.display = 'flex';
       setStatus('初回登録が必要です');
       return;
     }
 
-    // メインアプリ起動
     await startMainApp(meRes);
   } catch (e) {
     setStatus('エラー: ' + e.message);
@@ -505,11 +570,11 @@ async function startMainApp(meRes) {
   const cfgRes = await gasGet('config');
   if (cfgRes.version) {
     const verText = `v${cfgRes.version} (${__UI_BUILD__})`;
-    document.getElementById('header-version').textContent = verText;
+    document.getElementById('header-version').textContent = '· ' + verText;
     document.title = 'F.C. REGALIA match check ' + verText;
   }
 
-  const coachLabel = meRes.coachName ? `${meRes.coachName}` : displayName;
+  const coachLabel = meRes.coachName ? meRes.coachName : (displayName || '');
   document.getElementById('status-right').textContent = coachLabel;
 
   await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules()]);
@@ -652,10 +717,11 @@ function renderSummary() {
 }
 
 function activateSummaryCard(filter) {
-  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
-  const card = document.querySelector(`.stat-card[data-filter="${filter}"]`);
+  document.querySelectorAll('[data-filter]').forEach(c => c.classList.remove('active'));
+  const card = document.querySelector(`[data-filter="${filter}"]`);
   if (card) card.classList.add('active');
-  document.getElementById('sum-filter-label').textContent = (SUMMARY_LABELS[filter] || '全試合') + ' 一覧';
+  const lbl = document.getElementById('sum-filter-label');
+  if (lbl) lbl.textContent = filter !== 'all' ? `[${SUMMARY_LABELS[filter] || filter}] フィルタ中` : '';
 }
 
 function filterSummary(filter, cardEl) {
@@ -668,15 +734,17 @@ function renderSumList(merged) {
   const container = document.getElementById('sum-list');
   let entries = merged;
   if (summaryFilter !== 'all') entries = entries.filter(e => e.status === summaryFilter);
-  if (!entries.length) { container.innerHTML = '<div class="empty">✅ 該当なし</div>'; return; }
+  if (!entries.length) { container.innerHTML = '<div class="empty-msg">該当なし</div>'; return; }
   container.innerHTML = entries.map(e => {
     const opp = e.coach ? (e.coach.title || '—') : (e.official ? (e.official.opponent || '—') : '—');
     const catLabel = e.category.replace('_FUTSAL', ' FS');
-    return `<div class="sum-item" onclick="jumpToSched('${catBase(e.category)}')">
-      <span class="sum-date">${fmtDate(e.date)}</span>
-      <span class="sum-cat">${catLabel}</span>
-      <span class="sum-opp">vs ${opp}</span>
-      ${statusBadge(e.status)}
+    return `<div class="sum-row" onclick="jumpToSched('${catBase(e.category)}')">
+      <div class="sum-row-left">
+        <div class="sum-row-date">${fmtDate(e.date)}</div>
+        <div class="sum-row-cat">${catLabel}</div>
+      </div>
+      <div class="sum-row-opp">vs ${opp}</div>
+      ${statusChip(e.status)}
     </div>`;
   }).join('');
 }
@@ -684,7 +752,7 @@ function renderSumList(merged) {
 function jumpToSched(cat) {
   catFilter = cat;
   switchTab('sched');
-  document.querySelectorAll('#cat-filter .filter-btn').forEach(b => {
+  document.querySelectorAll('#cat-filter .chip-btn').forEach(b => {
     b.classList.toggle('active', b.textContent.trim() === cat);
   });
   renderSchedList();
@@ -695,7 +763,7 @@ function renderCatFilter() {
   const merged = buildMerged();
   const cats = [...new Set(merged.map(e => catBase(e.category)).filter(Boolean))].sort((a,b) => catSortKey(a)-catSortKey(b));
   document.getElementById('cat-filter').innerHTML = ['全て', ...cats].map((c, i) =>
-    `<button class="filter-btn ${i===0?'active':''}" onclick="filterCat('${c}',this)">${c}</button>`
+    `<button class="chip-btn ${i===0?'active':''}" onclick="filterCat('${c}',this)">${c}</button>`
   ).join('');
 }
 
@@ -705,23 +773,23 @@ function renderSchedStatusFilter() {
     {label:'照合OK',          val:'ok'},
     {label:'照合NG',          val:'ng'},
     {label:'未確認',          val:'open'},
-    {label:'マニュアル確認済', val:'resolved'},
+    {label:'確認済',          val:'resolved'},
   ];
   document.getElementById('status-filter').innerHTML = statuses.map(s =>
-    `<button class="filter-btn ${s.val==='all'?'active':''}" onclick="filterSchedStatus('${s.val}',this)">${s.label}</button>`
+    `<button class="chip-btn ${s.val==='all'?'active':''}" onclick="filterSchedStatus('${s.val}',this)">${s.label}</button>`
   ).join('');
 }
 
 function filterCat(c, btn) {
   catFilter = c;
-  document.querySelectorAll('#cat-filter .filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#cat-filter .chip-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderSchedList();
 }
 
 function filterSchedStatus(val, btn) {
   schedStatusFilter = val;
-  document.querySelectorAll('#status-filter .filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#status-filter .chip-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderSchedList();
 }
@@ -732,48 +800,51 @@ function renderSchedList() {
   let entries = buildMerged();
   if (catFilter !== '全て') entries = entries.filter(e => catBase(e.category)===catFilter||e.category===catFilter);
   if (schedStatusFilter !== 'all') entries = entries.filter(e => e.status === schedStatusFilter);
-  if (!entries.length) { container.innerHTML = '<div class="empty">データなし</div>'; return; }
+  if (!entries.length) { container.innerHTML = '<div class="empty-msg">データなし</div>'; return; }
 
   container.innerHTML = entries.map(e => {
     const c = e.coach || {}, o = e.official || {};
     const lineTime  = c.time  || '—';
     const lineOpp   = c.title ? `vs ${c.title}` : '(なし)';
-    const lineVenue = c.venue ? `@ ${c.venue}`  : '';
+    const lineVenue = c.venue || '';
     const offTime   = o.time     || '—';
     const offOpp    = o.opponent ? `vs ${o.opponent}` : '(なし)';
-    const offVenue  = o.venue    ? `@ ${o.venue}` : '';
+    const offVenue  = o.venue    || '';
     const noCoach    = !e.coach;
     const noOfficial = !e.official;
+    const catLabel = e.category.replace('_FUTSAL', ' FS');
+
     let diffHtml;
     if (!e.disc) {
-      diffHtml = `<div class="diff-info ok-match">差分無し</div>`;
+      diffHtml = `<div class="card-diff ok-match">差分無し</div>`;
     } else {
       const typeText = TYPE_LABELS[e.disc.type] || e.disc.type;
       const cls = e.disc.status === 'resolved' ? 'resolved' : 'ng-open';
-      diffHtml = `<div class="diff-info ${cls}">▶ ${typeText}</div>`;
+      diffHtml = `<div class="card-diff ${cls}">▶ ${typeText}</div>`;
     }
     const resolvedHtml = (e.disc && e.disc.status === 'resolved' && e.disc.resolved_by)
-      ? `<div class="resolved-by">✅ ${e.disc.resolved_by} が確認 · ${fmtDatetime(e.disc.resolved_at)}</div>`
+      ? `<div class="card-note"><span class="note-check">✓</span> ${e.disc.resolved_by} が確認 · ${fmtDatetime(e.disc.resolved_at)}</div>`
       : '';
     const actions = (e.disc && e.disc.status === 'open' && isAllowed) ? judgeButtons(e.disc.id) : '';
-    return `<div class="sched-item">
-      <div class="sched-head">
-        <span class="sched-date-cat">📅 ${fmtDate(e.date)} [${e.category}]</span>
-        ${statusBadge(e.status)}
+
+    return `<div class="cmp-card">
+      <div class="cmp-card-head">
+        <span class="cmp-card-title">${fmtDate(e.date)} <span class="cmp-card-cat">[${catLabel}]</span></span>
+        ${statusChip(e.status)}
       </div>
-      <div class="match-2col">
-        <div class="col-line" style="${noCoach?'opacity:0.4':''}">
-          <div class="col-hdr">LINE</div>
-          <div class="col-time" style="color:var(--warn);">${noCoach?'—':lineTime}</div>
-          <div class="col-opponent" style="color:var(--warn);">${noCoach?'(なし)':lineOpp}</div>
-          ${!noCoach&&lineVenue?`<div class="col-venue">${lineVenue}</div>`:''}
+      <div class="cmp-cols">
+        <div class="cmp-col line-col${noCoach?' muted':''}">
+          <div class="cmp-col-lbl">LINE</div>
+          <div class="cmp-col-time">${noCoach ? '—' : lineTime}</div>
+          <div class="cmp-col-opp">${noCoach ? '(なし)' : lineOpp}</div>
+          ${!noCoach && lineVenue ? `<div class="cmp-col-venue">@ ${lineVenue}</div>` : ''}
         </div>
-        <div class="col-sep"></div>
-        <div class="col-off" style="${noOfficial?'opacity:0.4':''}">
-          <div class="col-hdr">公式</div>
-          <div class="col-time" style="color:#a0c4ff;">${noOfficial?'—':offTime}</div>
-          <div class="col-opponent" style="color:#a0c4ff;">${noOfficial?'(なし)':offOpp}</div>
-          ${!noOfficial&&offVenue?`<div class="col-venue">${offVenue}</div>`:''}
+        <div class="cmp-col-sep"></div>
+        <div class="cmp-col off-col${noOfficial?' muted':''}">
+          <div class="cmp-col-lbl">公式</div>
+          <div class="cmp-col-time">${noOfficial ? '—' : offTime}</div>
+          <div class="cmp-col-opp">${noOfficial ? '(なし)' : offOpp}</div>
+          ${!noOfficial && offVenue ? `<div class="cmp-col-venue">@ ${offVenue}</div>` : ''}
         </div>
       </div>
       ${diffHtml}${resolvedHtml}${actions}
@@ -784,8 +855,8 @@ function renderSchedList() {
 // ── 判定ボタン ────────────────────────────────────────────────────────────────
 function judgeButtons(discId) {
   return `<div class="disc-actions">
-    <button onclick="judgeDisc('${discId}','resolved')" class="judge-btn ok">✅ 確認済</button>
-    <button onclick="judgeDisc('${discId}','ng')" class="judge-btn danger">🔍 要調査</button>
+    <button onclick="judgeDisc('${discId}','resolved')" class="judge-btn ok">確認済</button>
+    <button onclick="judgeDisc('${discId}','ng')"       class="judge-btn danger">要調査</button>
   </div>`;
 }
 
@@ -802,7 +873,7 @@ async function judgeDisc(id, status) {
       if (d) { d.status = status; if (status==='resolved') { d.resolved_by=displayName; d.resolved_at=new Date().toLocaleString('ja-JP'); } }
       renderSchedList();
       renderSummary();
-      setStatus(status==='resolved' ? '✅ マニュアル確認済として登録' : '🔍 要調査として登録');
+      setStatus(status==='resolved' ? '確認済として登録しました' : '要調査として登録しました');
     } else {
       setStatus('エラー: ' + JSON.stringify(res));
       allJudgeBtns.forEach(b => { b.disabled=false; b.style.opacity=''; });
@@ -848,20 +919,21 @@ async function refreshMembers() {
     const members = res.members || [];
     meta.textContent = `登録済み ${members.length} 件`;
     if (!members.length) {
-      body.innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:12px;text-align:center;">登録メンバーなし</td></tr>';
+      body.innerHTML = '<div class="empty-msg" style="padding:16px 0;">登録メンバーなし</div>';
       return;
     }
     body.innerHTML = members.map(m => {
-      const safeId = m.line_user_id.replace(/'/g, '');
+      const safeId  = m.line_user_id.replace(/'/g, '');
       const safeName = (m.coach_name || '').replace(/'/g, '');
-      return `<tr>
-        <td>0</td>
-        <td>${m.display_name || '—'}</td>
-        <td>${m.coach_name || '—'}</td>
-        <td>${m.relation || '—'}</td>
-        <td>${fmtDateShort(m.registered_at)}</td>
-        <td><button class="del-btn" onclick="deleteUser('${safeId}','${safeName}')">削除</button></td>
-      </tr>`;
+      const metaTxt = [m.coach_name || '—', m.relation || '—', fmtDateShort(m.registered_at)].join(' · ');
+      return `<div class="member-row">
+        <span class="member-num">0</span>
+        <div style="flex:1;min-width:0;">
+          <div class="member-name">${m.display_name || '—'}</div>
+          <div class="member-meta-txt">${metaTxt}</div>
+        </div>
+        <button class="del-btn" onclick="deleteUser('${safeId}','${safeName}')">削除</button>
+      </div>`;
     }).join('');
   } catch(e) { meta.textContent = 'エラー: ' + e.message; }
 }
