@@ -37,7 +37,7 @@
       top: 0;
       z-index: 10;
     }
-    .header-logo { height: 32px; width: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .header-logo { height: 32px; width: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; mix-blend-mode: multiply; }
     .header-title-block { flex: 1; min-width: 0; }
     .header-title { color: var(--blue-lt); font-size: 13px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .header-version { color: var(--muted); font-size: 10px; }
@@ -204,7 +204,7 @@
       border-radius: 16px; padding: 24px 20px; width: 100%; max-width: 360px;
       text-align: center;
     }
-    .reg-logo { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; margin-bottom: 12px; }
+    .reg-logo { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; margin-bottom: 12px; mix-blend-mode: multiply; }
     .reg-title { color: var(--blue-lt); font-size: 16px; font-weight: bold; margin-bottom: 4px; }
     .reg-subtitle { color: var(--muted); font-size: 12px; margin-bottom: 20px; }
     .reg-prompt { color: var(--text); font-size: 13px; font-weight: bold; margin-bottom: 12px; }
@@ -351,7 +351,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 15;
+const __UI_BUILD__  = 16;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
