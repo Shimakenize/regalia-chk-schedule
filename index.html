@@ -102,7 +102,7 @@
       border-radius: 4px; font-size: 10px; font-weight: bold;
     }
     .badge.open     { background: #ff525233; color: var(--danger); }
-    .badge.resolved { background: #64d27833; color: var(--green); }
+    .badge.resolved { background: #a0c4ff33; color: #a0c4ff; }
     .badge.ng       { background: #ff8a0033; color: #ffaa44; }
     .badge.ok       { background: #64d27818; color: var(--green); }
     /* ── Judge Buttons ───────────────────────────── */
@@ -190,7 +190,7 @@
     .col-venue    { font-size: 11px; color: var(--muted); margin-top: 1px; }
     .diff-info { font-size: 11px; margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--border); }
     .diff-info.ng-open  { color: var(--danger); font-weight: bold; }
-    .diff-info.resolved { color: var(--muted); }
+    .diff-info.resolved { color: #a0c4ff; }
     .diff-info.ok-match { color: var(--green); }
     .resolved-by { font-size: 10px; color: var(--muted); margin-top: 3px; }
     /* ── 登録オーバーレイ ──────────────────────────── */
@@ -229,7 +229,7 @@
 <!-- ── 登録オーバーレイ（初回のみ表示） ──────────── -->
 <div id="register-overlay" style="display:none;">
   <div class="reg-card">
-    <img src="/REGALIA_ChkMatchSchedule/app_logo.png" alt="REGALIA" class="reg-logo">
+    <img src="/regalia-chk-schedule/app_logo.png" alt="REGALIA" class="reg-logo">
     <div class="reg-title">F.C. REGALIA match check</div>
     <div class="reg-subtitle">初回登録が必要です</div>
     <div class="reg-prompt">あなたのコーチ名を選んでください</div>
@@ -242,7 +242,7 @@
 <!-- ── メインアプリ ──────────────────────────────── -->
 <div id="main-app" style="display:none;">
   <div class="header">
-    <img src="/REGALIA_ChkMatchSchedule/app_logo.png" alt="REGALIA" class="header-logo">
+    <img src="/regalia-chk-schedule/app_logo.png" alt="REGALIA" class="header-logo">
     <div class="header-title-block">
       <div class="header-title">F.C. REGALIA match check</div>
       <div class="header-version" id="header-version">—</div>
@@ -351,7 +351,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 14;
+const __UI_BUILD__  = 15;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
