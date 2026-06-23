@@ -403,7 +403,7 @@ const LIFF_ID = '2010471175-mz6PBjZx';
 const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 
 // ── 状態 ────────────────────────────────────────────────────────────────────
-const __UI_BUILD__ = 10;
+const __UI_BUILD__ = 11;
 let userId        = null;
 let displayName   = null;
 let isAdmin       = false;
@@ -414,6 +414,7 @@ let coachData     = [];
 let discFilter    = 'open';
 let catFilter     = '全て';
 let summaryFilter = 'all';
+let judging       = false;
 
 // ── ユーティリティ ────────────────────────────────────────────────────────────
 function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
@@ -847,27 +848,32 @@ function judgeButtons(discId) {
 }
 
 async function judgeDisc(id, status) {
-  const actions = document.getElementById('disc-actions-' + id);
-  if (!actions) return;
-  const btns = actions.querySelectorAll('button');
-  btns.forEach(b => b.disabled = true);
-  setStatus('更新中…');
+  if (judging) return;
+  judging = true;
+
+  // 全judge-btnを一括ブロック（タブ跨ぎの重複ID問題も解消）
+  const allJudgeBtns = document.querySelectorAll('.judge-btn');
+  allJudgeBtns.forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
+  setStatus('登録中…');
+
   try {
     const res = await gasGet('api/discrepancy/judge', { userId, displayName, id, status });
     if (res.ok) {
       const d = discData.find(d => d.id === id);
-      if (d) d.status = status;
+      if (d) { d.status = status; if (status === 'resolved') { d.resolved_by = displayName; d.resolved_at = new Date().toLocaleString('ja-JP'); } }
       renderDiscList();
       renderSchedList();
       renderSummary();
-      setStatus(status === 'resolved' ? '✅ 確認済として登録' : '🔍 要調査として登録');
+      setStatus(status === 'resolved' ? '✅ マニュアル確認済として登録' : '🔍 要調査として登録');
     } else {
       setStatus('エラー: ' + JSON.stringify(res));
-      btns.forEach(b => b.disabled = false);
+      allJudgeBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
     }
   } catch (e) {
     setStatus('エラー: ' + e.message);
-    btns.forEach(b => b.disabled = false);
+    allJudgeBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
+  } finally {
+    judging = false;
   }
 }
 
