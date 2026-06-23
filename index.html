@@ -388,14 +388,6 @@
       <button class="admin-btn" id="btn-send" onclick="adminAction('send')">📤 今すぐ配信</button>
     </div>
     <div id="admin-result" style="color:var(--muted); font-size:12px; padding:2px 0;"></div>
-    <div class="admin-section">
-      <div class="admin-section-title">⚙️ シート初期化</div>
-      <div class="admin-section-desc">
-        Googleスプレッドシートの全シートを作成・ヘッダー初期化します。<br>
-        ⚠️ 初回セットアップ時のみ実行してください。既存データが消えます。
-      </div>
-      <button class="admin-btn danger-btn" onclick="adminAction('init')">⚙️ シート初期化（初回のみ）</button>
-    </div>
   </div>
 </div>
 
@@ -411,8 +403,9 @@ const LIFF_ID = '2010471175-mz6PBjZx';
 const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 
 // ── 状態 ────────────────────────────────────────────────────────────────────
-const __UI_BUILD__ = 8;
+const __UI_BUILD__ = 9;
 let userId        = null;
+let displayName   = null;
 let isAdmin       = false;
 let isAllowed     = false;
 let discData      = [];
@@ -447,9 +440,18 @@ function fmtDate(ds) {
   return `${mo}/${dd}(${dow})`;
 }
 
+function fmtDatetime(dt) {
+  if (!dt) return '—';
+  const s = String(dt);
+  // "2026/06/23 18:05:00" or ISO format → "6/23 18:05"
+  const m = s.match(/(\d{1,4})[\/\-](\d{1,2})[\/\-](\d{1,2})[\sT](\d{2}):(\d{2})/);
+  if (m) return `${Number(m[2])}/${Number(m[3])} ${m[4]}:${m[5]}`;
+  return s.substring(0, 16);
+}
+
 function statusBadge(status) {
   if (status === 'open')     return '<span class="badge open">未確認</span>';
-  if (status === 'resolved') return '<span class="badge resolved">確認済</span>';
+  if (status === 'resolved') return '<span class="badge resolved">マニュアル確認済</span>';
   if (status === 'ng')       return '<span class="badge ng">要調査</span>';
   return '<span class="badge ok">照合OK</span>';
 }
@@ -462,8 +464,9 @@ async function init() {
     if (!liff.isLoggedIn()) { liff.login(); return; }
 
     const profile = await liff.getProfile();
-    userId = profile.userId;
-    document.getElementById('status-user').textContent = profile.displayName;
+    userId      = profile.userId;
+    displayName = profile.displayName;
+    document.getElementById('status-user').textContent = displayName;
 
     const meRes = await gasGet('auth/me', { userId });
     isAdmin   = meRes.isAdmin   || false;
@@ -720,6 +723,9 @@ function renderDiscList() {
     const coaVenue = coa.venue    ? `@ ${coa.venue}` : '';
 
     const actions = (d.status === 'open' && isAllowed) ? judgeButtons(d.id) : '';
+    const resolvedInfo = (d.status === 'resolved' && d.resolved_by)
+      ? `<div style="font-size:10px;color:var(--muted);margin-top:4px;">✅ ${d.resolved_by} が確認 · ${fmtDatetime(d.resolved_at)}</div>`
+      : '';
 
     return `<div class="disc-item ${d.status}">
       <div class="disc-header">
@@ -742,6 +748,7 @@ function renderDiscList() {
         </div>
       </div>
       <div class="diff-type">▶ ${TYPE_LABELS[d.type] || d.type}</div>
+      ${resolvedInfo}
       ${actions}
     </div>`;
   }).join('');
@@ -800,12 +807,16 @@ function renderSchedList() {
     const noCoach    = !e.coach;
     const noOfficial = !e.official;
     const actions = (e.disc && e.disc.status === 'open' && isAllowed) ? judgeButtons(e.disc.id) : '';
+    const resolvedInfo = (e.disc && e.disc.status === 'resolved' && e.disc.resolved_by)
+      ? `<div style="font-size:10px;color:var(--muted);margin-top:4px;">✅ ${e.disc.resolved_by} が確認 · ${fmtDatetime(e.disc.resolved_at)}</div>`
+      : '';
 
     return `<div class="sched-item">
       <div class="sched-head">
         <span class="sched-date-cat">📅 ${fmtDate(e.date)} [${e.category}]</span>
         ${statusBadge(e.status)}
       </div>
+      ${resolvedInfo}
       <div class="match-2col">
         <div class="col-line" style="${noCoach ? 'opacity:0.4' : ''}">
           <div class="col-hdr">LINE</div>
@@ -841,7 +852,7 @@ async function judgeDisc(id, status) {
   btns.forEach(b => b.disabled = true);
   setStatus('更新中…');
   try {
-    const res = await gasGet('api/discrepancy/judge', { userId, id, status });
+    const res = await gasGet('api/discrepancy/judge', { userId, displayName, id, status });
     if (res.ok) {
       const d = discData.find(d => d.id === id);
       if (d) d.status = status;
