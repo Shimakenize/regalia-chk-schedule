@@ -478,7 +478,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 22;
+const __UI_BUILD__  = 23;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -713,7 +713,7 @@ function renderOfficialHp() {
       if (cnt === 0) {
         resultHtml = '<span class="sc-none">HP更新（REGALIA試合なし）</span>';
       } else {
-        const cntStr = cnt > 0 ? ` ${cnt}件` : '';
+        const cntStr = cnt > 0 ? ` ${cnt}件追加` : '';
         resultHtml = `<span class="sc-changed">変更検知${cntStr}</span>`;
         showDetails = cnt > 0;
       }
