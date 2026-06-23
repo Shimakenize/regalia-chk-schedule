@@ -290,6 +290,13 @@
 
     /* ── Official HP table ───────────────────────────── */
     .official-wrap { padding: 16px 16px 30px; }
+    .official-hint {
+      font-size: 11px; color: var(--dim); margin-bottom: 10px; padding: 0 2px;
+    }
+    .official-note {
+      font-size: 11px; color: var(--muted); margin-top: 10px; padding: 0 2px;
+      line-height: 1.6;
+    }
     .official-table { width:100%; border-collapse:collapse; border-radius:14px; overflow:hidden; border:1px solid var(--border); }
     .official-table th {
       background: linear-gradient(110deg,#11305a,#0d2142);
@@ -302,6 +309,18 @@
       background: var(--surface); vertical-align:middle;
     }
     .official-table tr:hover td { background: rgba(201,162,75,.04); }
+    .official-detail-row td {
+      padding: 2px 13px 10px;
+      border-top: none !important;
+    }
+    .official-matches { display:flex; flex-direction:column; gap:4px; }
+    .official-match-item {
+      font-size: 11px; color: var(--sub);
+      padding: 4px 10px;
+      background: rgba(255,255,255,.04);
+      border-radius: 5px;
+      border-left: 2px solid var(--gold);
+    }
     .official-link { color: var(--gold); text-decoration:none; font-weight:600; }
     .official-link:hover { text-decoration:underline; }
     .official-tbd { color: var(--dim); font-style:italic; }
@@ -400,18 +419,23 @@
   <!-- ── 公式HP ── -->
   <div id="page-official" class="page">
     <div class="official-wrap">
+      <p class="official-hint">大会名をタップすると公式HPを開きます</p>
       <table class="official-table">
         <thead>
           <tr>
             <th>大会名</th>
-            <th>最終確認</th>
-            <th>確認結果</th>
+            <th>最終確認 (JST)</th>
+            <th>スクレイプ結果</th>
           </tr>
         </thead>
         <tbody id="official-tbody">
           <tr><td colspan="3" class="empty-msg">読み込み中…</td></tr>
         </tbody>
       </table>
+      <p class="official-note">
+        ※「変更検知」= 公式HPのHTML変化をスクレイパーが検知。件数はREGALIA試合数。<br>
+        ※ LINE通知は公式HP↔コーチLINEの照合に差分が生じた場合のみ送信されます。
+      </p>
     </div>
   </div>
 
@@ -454,7 +478,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 21;
+const __UI_BUILD__  = 22;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -669,31 +693,58 @@ async function loadScrapeLog() {
 function renderOfficialHp() {
   const tbody = document.getElementById('official-tbody');
   if (!tbody) return;
-  const rows = OFFICIAL_SOURCES.map(src => {
+  const today = new Date().toISOString().split('T')[0];
+  const rows = [];
+
+  OFFICIAL_SOURCES.forEach(src => {
     const log = scrapeLogData.find(r => r.category_code === src.id);
     const lastChecked = log ? String(log.last_checked || '') : '';
     const lastChanged = log ? String(log.last_changed || '') : '';
     const checkedFmt  = lastChecked ? fmtDatetime(lastChecked) : '—';
+    const cnt = log && log.regalia_match_count != null ? Number(log.regalia_match_count) : -1;
 
     let resultHtml;
+    let showDetails = false;
     if (!lastChecked) {
       resultHtml = '<span class="sc-none">未記録</span>';
     } else if (!lastChanged) {
       resultHtml = '<span class="sc-none">変更なし</span>';
     } else if (lastChecked.substring(0, 16) === lastChanged.substring(0, 16)) {
-      const cnt = log.regalia_match_count != null ? log.regalia_match_count : '';
-      const cntStr = cnt !== '' ? `${cnt}件` : '';
-      resultHtml = `<span class="sc-changed">変更検知${cntStr ? ' ' + cntStr : ''}</span>`;
+      if (cnt === 0) {
+        resultHtml = '<span class="sc-none">HP更新（REGALIA試合なし）</span>';
+      } else {
+        const cntStr = cnt > 0 ? ` ${cnt}件` : '';
+        resultHtml = `<span class="sc-changed">変更検知${cntStr}</span>`;
+        showDetails = cnt > 0;
+      }
     } else {
       resultHtml = '<span class="sc-ok">変更なし</span>';
     }
 
     const nameHtml = src.url
-      ? `<a class="official-link" href="${src.url}" target="_blank">${src.label}</a>`
+      ? `<a class="official-link" href="${src.url}" target="_blank">${src.label} ↗</a>`
       : `<span class="official-tbd">${src.label} (TBD)</span>`;
 
-    return `<tr><td>${nameHtml}</td><td>${checkedFmt}</td><td>${resultHtml}</td></tr>`;
+    rows.push(`<tr><td>${nameHtml}</td><td>${checkedFmt}</td><td>${resultHtml}</td></tr>`);
+
+    if (showDetails) {
+      const matches = schedData
+        .filter(m => m.category_code === src.id && normDate(m.match_date) >= today)
+        .sort((a, b) => normDate(a.match_date).localeCompare(normDate(b.match_date)))
+        .slice(0, 5);
+      if (matches.length > 0) {
+        const items = matches.map(m => {
+          const d = fmtDate(normDate(m.match_date));
+          const t = m.kickoff_time ? ` ${m.kickoff_time}` : '';
+          const opp = m.opponent || '—';
+          const v = m.venue ? ` @${m.venue}` : '';
+          return `<div class="official-match-item">▸ ${d}${t} vs ${opp}${v}</div>`;
+        }).join('');
+        rows.push(`<tr class="official-detail-row"><td colspan="3"><div class="official-matches">${items}</div></td></tr>`);
+      }
+    }
   });
+
   tbody.innerHTML = rows.join('');
 }
 
