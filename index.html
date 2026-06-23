@@ -229,7 +229,7 @@
 <!-- ── 登録オーバーレイ（初回のみ表示） ──────────── -->
 <div id="register-overlay" style="display:none;">
   <div class="reg-card">
-    <img src="./app_logo.png" alt="REGALIA" class="reg-logo">
+    <img src="/REGALIA_ChkMatchSchedule/app_logo.png" alt="REGALIA" class="reg-logo">
     <div class="reg-title">F.C. REGALIA match check</div>
     <div class="reg-subtitle">初回登録が必要です</div>
     <div class="reg-prompt">あなたのコーチ名を選んでください</div>
@@ -242,7 +242,7 @@
 <!-- ── メインアプリ ──────────────────────────────── -->
 <div id="main-app" style="display:none;">
   <div class="header">
-    <img src="./app_logo.png" alt="REGALIA" class="header-logo">
+    <img src="/REGALIA_ChkMatchSchedule/app_logo.png" alt="REGALIA" class="header-logo">
     <div class="header-title-block">
       <div class="header-title">F.C. REGALIA match check</div>
       <div class="header-version" id="header-version">—</div>
@@ -633,8 +633,8 @@ function buildMerged() {
 // ── サマリー ─────────────────────────────────────────────────────────────────
 const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', open:'未確認', resolved:'マニュアル確認済' };
 const TYPE_LABELS = {
-  official_only:     'LINEのみ（公式に未掲載）',
-  coach_only:        '公式のみ（LINEに未登録）',
+  official_only:     '公式のみ（LINE未登録）',
+  coach_only:        'LINEのみ（公式未掲載）',
   time_mismatch:     '時刻が異なる',
   venue_mismatch:    '会場が異なる',
   opponent_mismatch: '対戦相手名が異なる',
@@ -856,8 +856,8 @@ async function refreshMembers() {
       const safeName = (m.coach_name || '').replace(/'/g, '');
       return `<tr>
         <td>0</td>
-        <td>${m.coach_name || '—'}</td>
         <td>${m.display_name || '—'}</td>
+        <td>${m.coach_name || '—'}</td>
         <td>${m.relation || '—'}</td>
         <td>${fmtDateShort(m.registered_at)}</td>
         <td><button class="del-btn" onclick="deleteUser('${safeId}','${safeName}')">削除</button></td>
