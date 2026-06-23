@@ -478,7 +478,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 23;
+const __UI_BUILD__  = 24;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -558,7 +558,12 @@ async function gasGet(path, params = {}) {
   url.searchParams.set('_path', path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const r = await fetch(url.toString());
-  return r.json();
+  const text = await r.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('[' + path + '] ' + text.slice(0, 120).replace(/\n/g, ' '));
+  }
 }
 
 // ── 登録フロー ───────────────────────────────────────────────────────────────
@@ -686,8 +691,12 @@ async function loadCoachSchedules() {
 }
 
 async function loadScrapeLog() {
-  const res = await gasGet('api/scrape-log');
-  scrapeLogData = res.logs || [];
+  try {
+    const res = await gasGet('api/scrape-log');
+    scrapeLogData = res.logs || [];
+  } catch {
+    scrapeLogData = [];
+  }
 }
 
 function renderOfficialHp() {
