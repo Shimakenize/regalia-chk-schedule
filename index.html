@@ -287,6 +287,27 @@
     .status-right { color: var(--gold); }
 
     .empty-msg { text-align:center; padding:32px 16px; color:var(--muted); font-size:13px; }
+
+    /* ── Official HP table ───────────────────────────── */
+    .official-wrap { padding: 16px 16px 30px; }
+    .official-table { width:100%; border-collapse:collapse; border-radius:14px; overflow:hidden; border:1px solid var(--border); }
+    .official-table th {
+      background: linear-gradient(110deg,#11305a,#0d2142);
+      color: var(--gold); font-size:11px; font-weight:700;
+      padding: 11px 13px; text-align:left; letter-spacing:.05em;
+    }
+    .official-table td {
+      padding: 13px 13px; font-size:12px; color:var(--sub);
+      border-top: 1px solid rgba(255,255,255,.06);
+      background: var(--surface); vertical-align:middle;
+    }
+    .official-table tr:hover td { background: rgba(201,162,75,.04); }
+    .official-link { color: var(--gold); text-decoration:none; font-weight:600; }
+    .official-link:hover { text-decoration:underline; }
+    .official-tbd { color: var(--dim); font-style:italic; }
+    .sc-ok      { color:#43b873; font-weight:600; }
+    .sc-changed { color:#d2a649; font-weight:600; }
+    .sc-none    { color:var(--dim); }
   </style>
 </head>
 <body>
@@ -325,6 +346,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
     <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較表示</div>
+    <div class="tab" data-tab="official" onclick="switchTab('official')">公式HP</div>
     <div class="tab" id="admin-tab" data-tab="admin" onclick="switchTab('admin')" style="display:none;">管理</div>
   </div>
 
@@ -375,6 +397,24 @@
     </div>
   </div>
 
+  <!-- ── 公式HP ── -->
+  <div id="page-official" class="page">
+    <div class="official-wrap">
+      <table class="official-table">
+        <thead>
+          <tr>
+            <th>大会名</th>
+            <th>最終確認</th>
+            <th>確認結果</th>
+          </tr>
+        </thead>
+        <tbody id="official-tbody">
+          <tr><td colspan="3" class="empty-msg">読み込み中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- ── 管理 ── -->
   <div id="page-admin" class="page">
     <div class="admin-cards">
@@ -414,7 +454,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 20;
+const __UI_BUILD__  = 21;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -427,6 +467,17 @@ let schedStatusFilter = 'all';
 let summaryFilter   = 'all';
 let judging         = false;
 let selectedCoach   = null;
+let scrapeLogData   = [];
+
+const OFFICIAL_SOURCES = [
+  { id: 'U-15',        label: 'U-15リーグ',          url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-2b-2026/' },
+  { id: 'U-14',        label: 'U-14リーグ',          url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/' },
+  { id: 'U-13L',       label: 'U-13リーグ',          url: null },
+  { id: 'U-15_FUTSAL', label: 'U-15フットサル 3部B',  url: 'https://matchday-live.com/race/zZGrc4ta' },
+  { id: 'U-14_FUTSAL', label: 'U-14フットサル 3部A',  url: 'https://matchday-live.com/race/EoDjcuJe' },
+  { id: 'U-13_FUTSAL', label: 'U-13フットサル 3部B',  url: 'https://matchday-live.com/race/zZGrc4ta' },
+  { id: 'U-13',        label: 'S.M.A.L.L. CUP',     url: 'https://smallcup-u13.web.app/schedule' },
+];
 
 // ── ユーティリティ ────────────────────────────────────────────────────────────
 function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
@@ -577,11 +628,12 @@ async function startMainApp(meRes) {
   const coachLabel = meRes.coachName ? meRes.coachName : (displayName || '');
   document.getElementById('status-right').textContent = coachLabel;
 
-  await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules()]);
+  await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules(), loadScrapeLog()]);
   renderSummary();
   renderCatFilter();
   renderSchedStatusFilter();
   renderSchedList();
+  renderOfficialHp();
 
   if (isAdmin) {
     document.getElementById('members-section').style.display = '';
@@ -607,6 +659,42 @@ async function loadSchedules() {
 async function loadCoachSchedules() {
   const res = await gasGet('api/coach-schedules');
   coachData = res.schedules || [];
+}
+
+async function loadScrapeLog() {
+  const res = await gasGet('api/scrape-log');
+  scrapeLogData = res.logs || [];
+}
+
+function renderOfficialHp() {
+  const tbody = document.getElementById('official-tbody');
+  if (!tbody) return;
+  const rows = OFFICIAL_SOURCES.map(src => {
+    const log = scrapeLogData.find(r => r.category_code === src.id);
+    const lastChecked = log ? String(log.last_checked || '') : '';
+    const lastChanged = log ? String(log.last_changed || '') : '';
+    const checkedFmt  = lastChecked ? fmtDatetime(lastChecked) : '—';
+
+    let resultHtml;
+    if (!lastChecked) {
+      resultHtml = '<span class="sc-none">未記録</span>';
+    } else if (!lastChanged) {
+      resultHtml = '<span class="sc-none">変更なし</span>';
+    } else if (lastChecked.substring(0, 16) === lastChanged.substring(0, 16)) {
+      const cnt = log.regalia_match_count != null ? log.regalia_match_count : '';
+      const cntStr = cnt !== '' ? `${cnt}件` : '';
+      resultHtml = `<span class="sc-changed">変更検知${cntStr ? ' ' + cntStr : ''}</span>`;
+    } else {
+      resultHtml = '<span class="sc-ok">変更なし</span>';
+    }
+
+    const nameHtml = src.url
+      ? `<a class="official-link" href="${src.url}" target="_blank">${src.label}</a>`
+      : `<span class="official-tbd">${src.label} (TBD)</span>`;
+
+    return `<tr><td>${nameHtml}</td><td>${checkedFmt}</td><td>${resultHtml}</td></tr>`;
+  });
+  tbody.innerHTML = rows.join('');
 }
 
 // ── buildMerged ──────────────────────────────────────────────────────────────
