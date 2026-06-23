@@ -58,54 +58,112 @@
       color: var(--blue);
       border-bottom-color: var(--blue);
     }
-    /* ── Summary Cards ───────────────────────────── */
-    .summary {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+    /* ── Summary Stat Cards ──────────────────────── */
+    .stat-cards {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
       gap: 8px;
-      padding: 12px;
     }
-    .card {
+    .stat-row {
+      display: grid;
+      gap: 8px;
+    }
+    .stat-row.cols-1 { grid-template-columns: 1fr; }
+    .stat-row.cols-2 { grid-template-columns: 1fr 1fr; }
+    .stat-card {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 6px;
       text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
     }
-    .card-num  { font-size: 28px; font-weight: bold; }
-    .card-label{ color: var(--muted); font-size: 11px; margin-top: 2px; }
-    .card.ok   .card-num { color: var(--green); }
-    .card.warn .card-num { color: var(--danger); }
-    /* ── Section Header ──────────────────────────── */
-    .section-head {
-      padding: 8px 12px;
-      color: var(--blue);
-      font-size: 12px;
+    .stat-card.active { background: #182045; }
+    .stat-card.type-all   { }
+    .stat-card.type-ok    { }
+    .stat-card.type-ng    { }
+    .stat-card.type-open  { }
+    .stat-card.type-manok { }
+    .stat-card.type-all.active   { border-color: var(--blue); }
+    .stat-card.type-ok.active    { border-color: var(--green); }
+    .stat-card.type-ng.active    { border-color: var(--danger); }
+    .stat-card.type-open.active  { border-color: var(--warn); }
+    .stat-card.type-manok.active { border-color: #a0c4ff; }
+    .stat-num   { font-size: 26px; font-weight: bold; line-height: 1.1; }
+    .stat-label { color: var(--muted); font-size: 10px; margin-top: 3px; }
+    .stat-card.type-all   .stat-num { color: var(--blue); }
+    .stat-card.type-ok    .stat-num { color: var(--green); }
+    .stat-card.type-ng    .stat-num { color: var(--danger); }
+    .stat-card.type-open  .stat-num { color: var(--warn); }
+    .stat-card.type-manok .stat-num { color: #a0c4ff; }
+    /* ── Summary list ────────────────────────────── */
+    .sum-section-head {
+      padding: 6px 12px;
+      color: var(--muted);
+      font-size: 11px;
       font-weight: bold;
+      letter-spacing: 0.05em;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
     }
-    /* ── Disc / Sched items ──────────────────────── */
-    .disc-list, .sched-list { padding: 0 12px 80px; }
-    .disc-item, .sched-item {
+    .sum-list { padding: 0 12px 80px; }
+    .sum-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 2px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .sum-item:active { background: var(--surface); }
+    .sum-date { color: var(--blue-lt); font-size: 12px; min-width: 58px; flex-shrink: 0; }
+    .sum-cat  { color: var(--muted); font-size: 10px; min-width: 44px; flex-shrink: 0; }
+    .sum-opp  { font-size: 12px; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    /* ── Disc items ──────────────────────────────── */
+    .disc-list { padding: 0 12px 80px; }
+    .disc-item {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
       margin: 8px 0;
       padding: 10px;
     }
+    .disc-item.ng   { border-color: #ff525266; }
+    .disc-item.open { border-color: #ffcc8044; }
     .disc-header {
       display: flex;
       justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .disc-date { color: var(--blue-lt); font-weight: bold; font-size: 13px; }
+    .disc-cat  { color: var(--muted); font-size: 11px; text-align: right; }
+    /* ── Diff 2-col ──────────────────────────────── */
+    .diff-2col {
+      display: grid;
+      grid-template-columns: 1fr 1px 1fr;
+      gap: 6px;
       margin-bottom: 6px;
     }
-    .disc-date  { color: var(--blue-lt); font-weight: bold; font-size: 13px; }
-    .disc-cat   { color: var(--muted); font-size: 11px; }
-    .disc-row   { display: flex; gap: 4px; margin: 3px 0; align-items: flex-start; }
-    .disc-label { min-width: 34px; font-size: 11px; color: var(--muted); padding-top: 1px; }
-    .disc-val   { font-size: 12px; flex: 1; }
-    .disc-off   { color: #a0c4ff; }
-    .disc-coa   { color: var(--warn); }
-    .disc-type  { color: var(--danger); font-size: 11px; font-weight: bold; margin-top: 4px; }
+    .diff-sep { background: var(--border); }
+    .diff-col-hdr { font-size: 10px; font-weight: bold; margin-bottom: 4px; }
+    .diff-col.official .diff-col-hdr { color: #a0c4ff; }
+    .diff-col.coach    .diff-col-hdr { color: var(--warn); }
+    .diff-field { font-size: 12px; padding: 1px 0; color: var(--text); }
+    .diff-field.hl { color: var(--danger); font-weight: bold; }
+    .diff-field.muted { color: var(--muted); }
+    .diff-type {
+      margin-top: 6px;
+      padding-top: 5px;
+      border-top: 1px solid var(--border);
+      color: var(--danger);
+      font-size: 11px;
+      font-weight: bold;
+    }
     /* ── Badges ──────────────────────────────────── */
     .badge {
       display: inline-block;
@@ -132,21 +190,39 @@
       padding: 16px 12px 80px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
+    }
+    .admin-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .admin-section-title {
+      color: var(--blue-lt);
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .admin-section-desc {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.6;
+      margin-bottom: 10px;
     }
     .admin-btn {
       background: #1565C0;
       color: #fff;
       border: none;
       border-radius: 8px;
-      padding: 14px;
+      padding: 12px;
       font-size: 14px;
       font-weight: bold;
       cursor: pointer;
       width: 100%;
     }
     .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .admin-btn.secondary { background: var(--surface); color: var(--blue); border: 1px solid var(--border); }
+    .admin-btn.danger-btn { background: #7f1d1d; color: #fca5a5; }
     /* ── Status bar ──────────────────────────────── */
     .status-bar {
       position: fixed;
@@ -196,7 +272,15 @@
     /* ── page ────────────────────────────────────── */
     .page { display: none; }
     .page.active { display: block; }
-    /* ── Schedule(照合) 2列レイアウト ───────────── */
+    /* ── 比較表示 2列レイアウト ──────────────────── */
+    .sched-list { padding: 0 12px 80px; }
+    .sched-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 8px 0;
+      padding: 10px;
+    }
     .sched-head {
       display: flex;
       justify-content: space-between;
@@ -211,12 +295,7 @@
       margin-bottom: 6px;
     }
     .col-sep { background: var(--border); }
-    .col-hdr {
-      font-size: 10px;
-      font-weight: bold;
-      margin-bottom: 4px;
-      letter-spacing: 0.05em;
-    }
+    .col-hdr { font-size: 10px; font-weight: bold; margin-bottom: 4px; letter-spacing: 0.05em; }
     .col-line .col-hdr { color: var(--warn); }
     .col-off  .col-hdr { color: #a0c4ff; }
     .col-time     { font-size: 13px; font-weight: bold; }
@@ -234,40 +313,56 @@
 <div class="tabs">
   <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
   <div class="tab"        data-tab="disc"    onclick="switchTab('disc')">差分</div>
-  <div class="tab"        data-tab="sched"   onclick="switchTab('sched')">スケジュール(照合)</div>
+  <div class="tab"        data-tab="sched"   onclick="switchTab('sched')">比較表示</div>
   <div class="tab"        data-tab="admin"   onclick="switchTab('admin')" id="admin-tab" style="display:none">管理</div>
 </div>
 
 <!-- ── サマリー ────────────────────────────────── -->
 <div id="page-summary" class="page active">
-  <div class="summary">
-    <div class="card ok">
-      <div class="card-num" id="cnt-ok">—</div>
-      <div class="card-label">照合OK</div>
+  <div class="stat-cards">
+    <div class="stat-row cols-1">
+      <div class="stat-card type-all active" onclick="filterSummary('all',this)">
+        <div class="stat-num" id="cnt-all">—</div>
+        <div class="stat-label">全試合</div>
+      </div>
     </div>
-    <div class="card warn">
-      <div class="card-num" id="cnt-warn">—</div>
-      <div class="card-label">未確認+要調査</div>
+    <div class="stat-row cols-2">
+      <div class="stat-card type-ok" onclick="filterSummary('ok',this)">
+        <div class="stat-num" id="cnt-ok">—</div>
+        <div class="stat-label">照合OK</div>
+      </div>
+      <div class="stat-card type-ng" onclick="filterSummary('ng',this)">
+        <div class="stat-num" id="cnt-ng">—</div>
+        <div class="stat-label">照合NG</div>
+      </div>
+    </div>
+    <div class="stat-row cols-2">
+      <div class="stat-card type-open" onclick="filterSummary('open',this)">
+        <div class="stat-num" id="cnt-open">—</div>
+        <div class="stat-label">未確認</div>
+      </div>
+      <div class="stat-card type-manok" onclick="filterSummary('resolved',this)">
+        <div class="stat-num" id="cnt-manok">—</div>
+        <div class="stat-label">マニュアル確認OK</div>
+      </div>
     </div>
   </div>
-  <div class="section-head">最終照合</div>
-  <div id="last-checked" style="padding:10px 12px; color:var(--muted); font-size:12px;">読み込み中…</div>
-  <div class="section-head">カテゴリ別</div>
-  <div id="category-breakdown" style="padding:8px 12px 80px;"></div>
+  <div class="sum-section-head" id="sum-filter-label">全試合 一覧</div>
+  <div class="sum-list" id="sum-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
 </div>
 
 <!-- ── 差分リスト ──────────────────────────────── -->
 <div id="page-disc" class="page">
   <div class="filter-bar">
+    <button class="filter-btn"        onclick="filterDisc('ng',this)">照合NG</button>
     <button class="filter-btn active" onclick="filterDisc('open',this)">未確認</button>
     <button class="filter-btn"        onclick="filterDisc('resolved',this)">確認済</button>
-    <button class="filter-btn"        onclick="filterDisc('ng',this)">要調査</button>
     <button class="filter-btn"        onclick="filterDisc('all',this)">全て</button>
   </div>
   <div class="disc-list" id="disc-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
 </div>
 
-<!-- ── スケジュール(照合) ──────────────────────── -->
+<!-- ── 比較表示 ────────────────────────────────── -->
 <div id="page-sched" class="page">
   <div class="filter-bar" id="cat-filter"></div>
   <div class="sched-list" id="sched-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
@@ -276,10 +371,31 @@
 <!-- ── 管理 ───────────────────────────────────── -->
 <div id="page-admin" class="page">
   <div class="admin-panel">
-    <button class="admin-btn" id="btn-compare" onclick="adminAction('compare')">🔄 今すぐ照合</button>
-    <button class="admin-btn" id="btn-send"    onclick="adminAction('send')">📤 今すぐ配信</button>
-    <div id="admin-result" style="color:var(--muted); font-size:12px; padding:8px 0;"></div>
-    <button class="admin-btn secondary" onclick="adminAction('init')">⚙️ シート初期化（初回のみ）</button>
+    <div class="admin-section">
+      <div class="admin-section-title">🔄 今すぐ照合</div>
+      <div class="admin-section-desc">
+        公式HPとLINEの試合予定を照合し、差分をスプレッドシートに書き込みます。<br>
+        通常は毎週木曜17:50に自動実行されます。
+      </div>
+      <button class="admin-btn" id="btn-compare" onclick="adminAction('compare')">🔄 今すぐ照合</button>
+    </div>
+    <div class="admin-section">
+      <div class="admin-section-title">📤 今すぐ配信</div>
+      <div class="admin-section-desc">
+        照合レポート（Flexメッセージ）をLINEグループへ今すぐ送信します。<br>
+        通常は毎週木曜18:00に自動配信されます。
+      </div>
+      <button class="admin-btn" id="btn-send" onclick="adminAction('send')">📤 今すぐ配信</button>
+    </div>
+    <div id="admin-result" style="color:var(--muted); font-size:12px; padding:2px 0;"></div>
+    <div class="admin-section">
+      <div class="admin-section-title">⚙️ シート初期化</div>
+      <div class="admin-section-desc">
+        Googleスプレッドシートの全シートを作成・ヘッダー初期化します。<br>
+        ⚠️ 初回セットアップ時のみ実行してください。既存データが消えます。
+      </div>
+      <button class="admin-btn danger-btn" onclick="adminAction('init')">⚙️ シート初期化（初回のみ）</button>
+    </div>
   </div>
 </div>
 
@@ -290,40 +406,34 @@
 
 <script>
 // ── 設定 ────────────────────────────────────────────────────────────────────
-const GAS_URL  = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQwAeb7U_Z2Xn-xBVRfvnv302cu_ckO-g-wyPATYuv4dPZY/exec';
-const LIFF_ID  = '2010471175-mz6PBjZx';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQwAeb7U_Z2Xn-xBVRfvnv302cu_ckO-g-wyPATYuv4dPZY/exec';
+const LIFF_ID = '2010471175-mz6PBjZx';
+const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 
 // ── 状態 ────────────────────────────────────────────────────────────────────
-const __UI_BUILD__ = 7;
-let userId       = null;
-let isAdmin      = false;
-let isAllowed    = false;
-let discData     = [];
-let schedData    = [];   // official_schedule
-let coachData    = [];   // coach_schedule (match only)
-let discFilter   = 'open';
-let catFilter    = '全て';
+const __UI_BUILD__ = 8;
+let userId        = null;
+let isAdmin       = false;
+let isAllowed     = false;
+let discData      = [];
+let schedData     = [];
+let coachData     = [];
+let discFilter    = 'open';
+let catFilter     = '全て';
+let summaryFilter = 'all';
 
 // ── ユーティリティ ────────────────────────────────────────────────────────────
-function setStatus(msg) {
-  document.getElementById('status-msg').textContent = msg;
-}
+function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
 
-function safeParse(json) {
-  try { return JSON.parse(json); } catch { return null; }
-}
+function safeParse(json) { try { return JSON.parse(json); } catch { return null; } }
 
-function normDate(v) {
-  return String(v || '').substring(0, 10);
-}
+function normDate(v) { return String(v || '').substring(0, 10); }
 
-function catBase(cat) {
-  return String(cat || '').replace(/_FUTSAL$/, '');
-}
+function catBase(cat) { return String(cat || '').replace(/_FUTSAL$/, ''); }
 
 function catSortKey(cat) {
   const c = String(cat || '');
-  if (c === 'all')  return 0;
+  if (c === 'all')          return 0;
   if (c.startsWith('U-15')) return 1;
   if (c.startsWith('U-14')) return 2;
   if (c.startsWith('U-13')) return 3;
@@ -382,17 +492,6 @@ async function gasGet(path, params = {}) {
   return r.json();
 }
 
-async function gasPost(path, body) {
-  const url = new URL(GAS_URL);
-  url.searchParams.set('_path', path);
-  const r = await fetch(url.toString(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return r.json();
-}
-
 // ── データ読込 ───────────────────────────────────────────────────────────────
 async function loadDiscrepancies() {
   const res = await gasGet('api/discrepancies');
@@ -412,91 +511,7 @@ async function loadCoachSchedules() {
   coachData = res.schedules || [];
 }
 
-// ── サマリー描画 ────────────────────────────────────────────────────────────
-function renderSummary() {
-  const open = discData.filter(d => d.status === 'open');
-  const ng   = discData.filter(d => d.status === 'ng');
-  const total = schedData.length;
-  const bad   = [...open, ...ng].filter(d => d.type !== 'coach_only');
-  document.getElementById('cnt-ok').textContent   = Math.max(0, total - bad.length);
-  document.getElementById('cnt-warn').textContent = open.length + ng.length;
-
-  const dates = discData.map(d => d.detected_at).filter(Boolean).sort();
-  const lastDate = dates.length ? dates[dates.length - 1] : '—';
-  document.getElementById('last-checked').textContent = '最終照合: ' + lastDate;
-
-  const cats = {};
-  for (const d of [...open, ...ng]) {
-    const c = d.category_code || '不明';
-    cats[c] = (cats[c] || 0) + 1;
-  }
-  const bd = document.getElementById('category-breakdown');
-  if (Object.keys(cats).length === 0) {
-    bd.innerHTML = '<div style="color:var(--green);padding:10px;">✅ 全カテゴリ一致</div>';
-  } else {
-    bd.innerHTML = Object.entries(cats).map(([c, n]) =>
-      `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
-        <span>${c}</span><span style="color:var(--danger)">${n}件</span>
-      </div>`
-    ).join('');
-  }
-}
-
-// ── 差分リスト描画 ───────────────────────────────────────────────────────────
-const TYPE_LABELS = {
-  official_only:     '【公式未掲載】',
-  coach_only:        '【公式にない】',
-  time_mismatch:     '【時刻差異】',
-  venue_mismatch:    '【会場差異】',
-  opponent_mismatch: '【相手名差異】',
-};
-
-function renderDiscList() {
-  const container = document.getElementById('disc-list');
-  let items = discData;
-  if (discFilter !== 'all') items = items.filter(d => d.status === discFilter);
-
-  if (items.length === 0) {
-    container.innerHTML = '<div class="empty">✅ 該当なし</div>';
-    return;
-  }
-
-  container.innerHTML = items.map(d => {
-    const off = safeParse(d.official_data) || {};
-    const coa = safeParse(d.coach_data)    || {};
-    const badge = statusBadge(d.status);
-    const actions = (d.status === 'open' && isAllowed)
-      ? judgeButtons(d.id)
-      : '';
-
-    return `<div class="disc-item">
-      <div class="disc-header">
-        <span class="disc-date">📅 ${d.match_date || '—'}</span>
-        <span class="disc-cat">${d.category_code || ''} ${badge}</span>
-      </div>
-      ${off.time || off.opponent ? `<div class="disc-row">
-        <span class="disc-label disc-off">公式</span>
-        <span class="disc-val disc-off">${off.time || ''} ${off.opponent || '—'} ${off.venue ? '@ '+off.venue : ''}</span>
-      </div>` : ''}
-      ${coa.time || coa.title ? `<div class="disc-row">
-        <span class="disc-label disc-coa">LINE</span>
-        <span class="disc-val disc-coa">${coa.time || ''} ${coa.title || '—'} ${coa.venue ? '@ '+coa.venue : ''}</span>
-      </div>` : ''}
-      <div class="disc-type">→ ${TYPE_LABELS[d.type] || d.type}</div>
-      ${actions}
-    </div>`;
-  }).join('');
-}
-
-function filterDisc(filter, btn) {
-  discFilter = filter;
-  document.querySelectorAll('#page-disc .filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderDiscList();
-}
-
-// ── スケジュール(照合) 描画 ───────────────────────────────────────────────────
-// 対戦相手名の類似度（0〜1）
+// ── buildMerged ──────────────────────────────────────────────────────────────
 function _nameSim(a, b) {
   if (!a || !b) return 0;
   const norm = s => String(s)
@@ -514,15 +529,12 @@ function _nameSim(a, b) {
 function buildMerged() {
   const today = new Date().toISOString().split('T')[0];
 
-  // disc を (normDate_catBase) でグループ化
   const discByKey = {};
   discData.forEach(d => {
     const key = normDate(d.match_date) + '_' + catBase(d.category_code);
     (discByKey[key] = discByKey[key] || []).push(d);
   });
 
-  // official を (normDate_category) でプール化
-  // U-15_FUTSAL → U-15、U-14_FUTSAL → U-14 にも登録（カテゴリ跨ぎ検索用）
   const offPool = {};
   for (const o of schedData) {
     const key = normDate(o.match_date) + '_' + o.category_code;
@@ -534,18 +546,14 @@ function buildMerged() {
     }
   }
 
-  // 消費済みエントリを id で管理（オブジェクト変異を避ける）
   const usedOffIds = new Set();
 
-  // 日付+カテゴリから最も名前が近い未使用公式エントリを1件消費する
   function consumeOff(dateStr, cat, coachTitle) {
     const keys = [...new Set([dateStr + '_' + cat, dateStr + '_' + catBase(cat)])];
     for (const key of keys) {
       const avail = (offPool[key] || []).filter(o => !usedOffIds.has(o.id));
       if (avail.length === 0) continue;
-      // 1件のみ: そのまま確定
       if (avail.length === 1) { usedOffIds.add(avail[0].id); return avail[0]; }
-      // 複数: 対戦相手名の類似度が最高のものを選択
       let best = avail[0], bestScore = _nameSim(coachTitle, avail[0].opponent || '');
       for (let i = 1; i < avail.length; i++) {
         const s = _nameSim(coachTitle, avail[i].opponent || '');
@@ -560,7 +568,6 @@ function buildMerged() {
   const entries = [];
   const usedDiscIds = new Set();
 
-  // ① コーチLINE試合を起点に生成
   const upcomingCoach = coachData
     .filter(c => normDate(c.event_date) >= today)
     .sort((a, b) => {
@@ -581,7 +588,6 @@ function buildMerged() {
       const od = safeParse(disc.official_data);
       if (od && (od.opponent || od.time)) official = od;
     } else {
-      // 差分なし → 名前類似度マッチで公式エントリを1件ずつ消費（使い回し防止）
       const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
       if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue };
     }
@@ -596,7 +602,6 @@ function buildMerged() {
     });
   }
 
-  // ② official_only の差分（コーチ側に対応なし）
   for (const d of discData) {
     if (usedDiscIds.has(d.id)) continue;
     if (d.type !== 'official_only') continue;
@@ -614,7 +619,6 @@ function buildMerged() {
     usedDiscIds.add(d.id);
   }
 
-  // ソート: 日付 → カテゴリ
   entries.sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date);
     return catSortKey(a.category) - catSortKey(b.category);
@@ -623,9 +627,137 @@ function buildMerged() {
   return entries;
 }
 
+// ── サマリー描画 ─────────────────────────────────────────────────────────────
+function renderSummary() {
+  const merged = buildMerged();
+  document.getElementById('cnt-all').textContent   = merged.length;
+  document.getElementById('cnt-ok').textContent    = merged.filter(e => e.status === 'ok').length;
+  document.getElementById('cnt-ng').textContent    = merged.filter(e => e.status === 'ng').length;
+  document.getElementById('cnt-open').textContent  = merged.filter(e => e.status === 'open').length;
+  document.getElementById('cnt-manok').textContent = merged.filter(e => e.status === 'resolved').length;
+  renderSumList(merged);
+}
+
+const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', open:'未確認', resolved:'マニュアル確認OK' };
+
+function filterSummary(filter, cardEl) {
+  summaryFilter = filter;
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+  cardEl.classList.add('active');
+  document.getElementById('sum-filter-label').textContent = (SUMMARY_LABELS[filter] || '全試合') + ' 一覧';
+  renderSumList(buildMerged());
+}
+
+function renderSumList(merged) {
+  const container = document.getElementById('sum-list');
+  let entries = merged;
+  if (summaryFilter !== 'all') entries = entries.filter(e => e.status === summaryFilter);
+
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="empty">✅ 該当なし</div>';
+    return;
+  }
+
+  container.innerHTML = entries.map(e => {
+    const opp = e.coach
+      ? (e.coach.title || '—')
+      : (e.official ? (e.official.opponent || '—') : '—');
+    const catLabel = e.category.replace('_FUTSAL', ' FS');
+    return `<div class="sum-item" onclick="jumpToSched('${e.date}','${catBase(e.category)}')">
+      <span class="sum-date">${fmtDate(e.date)}</span>
+      <span class="sum-cat">${catLabel}</span>
+      <span class="sum-opp">vs ${opp}</span>
+      ${statusBadge(e.status)}
+    </div>`;
+  }).join('');
+}
+
+function jumpToSched(date, cat) {
+  catFilter = cat;
+  switchTab('sched');
+  document.querySelectorAll('#cat-filter .filter-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === cat);
+  });
+  renderSchedList();
+}
+
+// ── 差分リスト描画 ───────────────────────────────────────────────────────────
+const TYPE_LABELS = {
+  official_only:     '公式のみ掲載（LINEに未登録）',
+  coach_only:        'LINEのみ（公式に未掲載）',
+  time_mismatch:     '⏰ 時刻が異なる',
+  venue_mismatch:    '📍 会場が異なる',
+  opponent_mismatch: '🆚 対戦相手名が異なる',
+};
+
+function renderDiscList() {
+  const container = document.getElementById('disc-list');
+  let items = [...discData];
+  if (discFilter !== 'all') items = items.filter(d => d.status === discFilter);
+
+  const ORDER = { ng: 0, open: 1, resolved: 2 };
+  items.sort((a, b) => (ORDER[a.status] ?? 3) - (ORDER[b.status] ?? 3)
+    || normDate(a.match_date).localeCompare(normDate(b.match_date)));
+
+  if (items.length === 0) {
+    container.innerHTML = '<div class="empty">✅ 該当なし</div>';
+    return;
+  }
+
+  container.innerHTML = items.map(d => {
+    const off = safeParse(d.official_data) || {};
+    const coa = safeParse(d.coach_data)    || {};
+
+    const isTime  = d.type === 'time_mismatch';
+    const isVenue = d.type === 'venue_mismatch';
+    const isOpp   = d.type === 'opponent_mismatch';
+
+    const offTime  = off.time     || '—';
+    const offOpp   = off.opponent ? `vs ${off.opponent}` : '—';
+    const offVenue = off.venue    ? `@ ${off.venue}` : '';
+    const coaTime  = coa.time     || '—';
+    const coaOpp   = coa.title    ? `vs ${coa.title}` : (coa.opponent ? `vs ${coa.opponent}` : '—');
+    const coaVenue = coa.venue    ? `@ ${coa.venue}` : '';
+
+    const actions = (d.status === 'open' && isAllowed) ? judgeButtons(d.id) : '';
+
+    return `<div class="disc-item ${d.status}">
+      <div class="disc-header">
+        <span class="disc-date">📅 ${fmtDate(d.match_date)}</span>
+        <span class="disc-cat">${d.category_code || ''}<br>${statusBadge(d.status)}</span>
+      </div>
+      <div class="diff-2col">
+        <div class="diff-col official">
+          <div class="diff-col-hdr">公式HP</div>
+          <div class="diff-field ${isTime  ? 'hl' : ''}">${offTime}</div>
+          <div class="diff-field ${isOpp   ? 'hl' : ''}">${offOpp}</div>
+          ${offVenue ? `<div class="diff-field ${isVenue ? 'hl' : 'muted'}">${offVenue}</div>` : ''}
+        </div>
+        <div class="diff-sep"></div>
+        <div class="diff-col coach">
+          <div class="diff-col-hdr">LINEメッセージ</div>
+          <div class="diff-field ${isTime  ? 'hl' : ''}">${coaTime}</div>
+          <div class="diff-field ${isOpp   ? 'hl' : ''}">${coaOpp}</div>
+          ${coaVenue ? `<div class="diff-field ${isVenue ? 'hl' : 'muted'}">${coaVenue}</div>` : ''}
+        </div>
+      </div>
+      <div class="diff-type">▶ ${TYPE_LABELS[d.type] || d.type}</div>
+      ${actions}
+    </div>`;
+  }).join('');
+}
+
+function filterDisc(filter, btn) {
+  discFilter = filter;
+  document.querySelectorAll('#page-disc .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDiscList();
+}
+
+// ── 比較表示 描画 ────────────────────────────────────────────────────────────
 function renderCatFilter() {
   const merged = buildMerged();
-  const cats   = [...new Set(merged.map(e => catBase(e.category)).filter(Boolean))].sort(
+  const cats = [...new Set(merged.map(e => catBase(e.category)).filter(Boolean))].sort(
     (a, b) => catSortKey(a) - catSortKey(b)
   );
   const bar = document.getElementById('cat-filter');
@@ -655,23 +787,19 @@ function renderSchedList() {
   }
 
   container.innerHTML = entries.map(e => {
-    const c = e.coach   || {};
+    const c = e.coach    || {};
     const o = e.official || {};
 
     const lineTime  = c.time  || '—';
     const lineOpp   = c.title ? `vs ${c.title}` : '(なし)';
     const lineVenue = c.venue ? `@ ${c.venue}`  : '';
-
     const offTime   = o.time     || '—';
     const offOpp    = o.opponent ? `vs ${o.opponent}` : '(なし)';
     const offVenue  = o.venue    ? `@ ${o.venue}` : '';
 
     const noCoach    = !e.coach;
     const noOfficial = !e.official;
-
-    const actions = (e.disc && e.disc.status === 'open' && isAllowed)
-      ? judgeButtons(e.disc.id)
-      : '';
+    const actions = (e.disc && e.disc.status === 'open' && isAllowed) ? judgeButtons(e.disc.id) : '';
 
     return `<div class="sched-item">
       <div class="sched-head">
@@ -742,16 +870,16 @@ async function adminAction(action) {
   try {
     let res;
     if (action === 'compare') {
-      res = await gasGet('api/admin/compare-now', { token: 'regalia-chk-2026' });
+      res = await gasGet('api/admin/compare-now', { token: ADMIN_TOKEN });
       result.textContent = `照合完了: 新規差分 ${res.newDiscrepancies || 0}件`;
       await loadDiscrepancies();
       renderSummary();
       renderSchedList();
     } else if (action === 'send') {
-      res = await gasGet('api/admin/send-report-now', { token: 'regalia-chk-2026' });
+      res = await gasGet('api/admin/send-report-now', { token: ADMIN_TOKEN });
       result.textContent = res.ok ? 'レポートを配信しました' : 'エラー: ' + JSON.stringify(res);
     } else if (action === 'init') {
-      res = await gasGet('api/admin/init-sheets', { token: 'regalia-chk-2026' });
+      res = await gasGet('api/admin/init-sheets', { token: ADMIN_TOKEN });
       result.textContent = res.message || (res.ok ? '完了' : 'エラー');
     }
   } catch (e) {
