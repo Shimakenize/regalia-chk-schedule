@@ -531,7 +531,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 27;
+const __UI_BUILD__  = 28;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -606,7 +606,7 @@ function statusChip(status) {
 }
 
 // ── API 呼出し ───────────────────────────────────────────────────────────────
-async function gasGet(path, params = {}) {
+async function gasGet(path, params = {}, _retry = 0) {
   const url = new URL(GAS_URL);
   url.searchParams.set('_path', path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -615,6 +615,10 @@ async function gasGet(path, params = {}) {
   try {
     return JSON.parse(text);
   } catch {
+    if (_retry < 2 && text.trimStart().startsWith('<')) {
+      await new Promise(res => setTimeout(res, 1200));
+      return gasGet(path, params, _retry + 1);
+    }
     throw new Error('[' + path + '] ' + text.slice(0, 120).replace(/\n/g, ' '));
   }
 }
