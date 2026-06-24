@@ -45,12 +45,11 @@
     .header-logo-wrap {
       width: 48px; height: 48px;
       border-radius: 50%;
-      border: 1.5px solid var(--gold);
-      background: #fff;
+      background: transparent;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0; overflow: hidden;
     }
-    .header-logo { width:100%; height:100%; object-fit:contain; }
+    .header-logo { width:100%; height:100%; object-fit:cover; }
     .header-wordmark { font-family:'Cormorant Garamond',serif; font-size:23px; font-weight:700; color:#fff; line-height:1; letter-spacing:.02em; }
     .header-sub { font-size:11px; color:#a9c0e0; margin-top:5px; }
     .header-sub-ver { color: var(--gold); }
@@ -246,8 +245,7 @@
     .reg-logo-wrap {
       width: 64px; height: 64px;
       border-radius: 50%;
-      border: 1.5px solid var(--gold);
-      background: radial-gradient(circle at 50% 30%,#16335c,#0a1830);
+      background: transparent;
       margin: 0 auto 16px;
       display: flex; align-items: center; justify-content: center;
       overflow: hidden;
@@ -533,7 +531,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 26;
+const __UI_BUILD__  = 27;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
