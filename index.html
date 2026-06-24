@@ -327,6 +327,42 @@
     .sc-ok      { color:#43b873; font-weight:600; }
     .sc-changed { color:#d2a649; font-weight:600; }
     .sc-none    { color:var(--dim); }
+
+    /* ── LINE試合生データ ──────────────────────────────── */
+    .crt-wrap { padding: 16px 16px 30px; }
+    .crt-hint { font-size:11px; color:var(--dim); margin-bottom:10px; padding:0 2px; }
+    .crt-note { font-size:11px; color:var(--muted); margin-top:10px; padding:0 2px; line-height:1.6; }
+    .crt-table { width:100%; border-collapse:collapse; border-radius:14px; overflow:hidden; border:1px solid var(--border); }
+    .crt-table th {
+      background: linear-gradient(110deg,#11305a,#0d2142);
+      color:var(--gold); font-size:11px; font-weight:700;
+      padding:10px 9px; text-align:left; letter-spacing:.05em;
+    }
+    .crt-table td {
+      padding:9px 9px; font-size:12px; color:var(--sub);
+      border-top:1px solid rgba(255,255,255,.06);
+      background:var(--surface); vertical-align:middle;
+    }
+    .crt-table tr:hover td { background:rgba(201,162,75,.04); }
+    .crt-editable { cursor:pointer; }
+    .crt-editable:hover { color:var(--gold-lt); text-decoration:underline dotted; }
+    .crt-input {
+      background:#0a1830; border:1px solid var(--gold); color:var(--text);
+      font-size:12px; padding:4px 6px; border-radius:5px;
+      width:100%; min-width:50px; font-family:inherit;
+    }
+    .crt-select {
+      background:#0a1830; border:1px solid var(--gold); color:var(--text);
+      font-size:12px; padding:4px 5px; border-radius:5px;
+      width:100%; font-family:inherit;
+    }
+    .crt-del {
+      background:transparent; border:1px solid rgba(224,85,95,.4);
+      color:#e0555f; font-size:13px; cursor:pointer;
+      padding:4px 8px; border-radius:6px; line-height:1;
+    }
+    .crt-del:hover { background:rgba(224,85,95,.12); }
+    .crt-saving { opacity:.45; pointer-events:none; }
   </style>
 </head>
 <body>
@@ -366,6 +402,7 @@
     <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
     <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較表示</div>
     <div class="tab" data-tab="official" onclick="switchTab('official')">公式HP</div>
+    <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE試合データ</div>
     <div class="tab" id="admin-tab" data-tab="admin" onclick="switchTab('admin')" style="display:none;">管理</div>
   </div>
 
@@ -439,6 +476,24 @@
     </div>
   </div>
 
+  <!-- ── LINE試合生データ ── -->
+  <div id="page-coach-raw" class="page">
+    <div class="crt-wrap">
+      <p class="crt-hint">セルをタップして編集 · 保存後に照合を自動実行します</p>
+      <table class="crt-table">
+        <thead>
+          <tr>
+            <th>日付</th><th>Cat</th><th>時刻</th><th>対戦相手</th><th>会場</th><th>大会名</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="crt-tbody">
+          <tr><td colspan="7" class="empty-msg">読み込み中…</td></tr>
+        </tbody>
+      </table>
+      <p class="crt-note">※ 本日以降の試合のみ表示。修正・削除後は照合を自動実行します。</p>
+    </div>
+  </div>
+
   <!-- ── 管理 ── -->
   <div id="page-admin" class="page">
     <div class="admin-cards">
@@ -478,7 +533,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 24;
+const __UI_BUILD__  = 25;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -663,6 +718,7 @@ async function startMainApp(meRes) {
   renderSchedStatusFilter();
   renderSchedList();
   renderOfficialHp();
+  renderCoachRaw();
 
   if (isAdmin) {
     document.getElementById('members-section').style.display = '';
@@ -1106,6 +1162,110 @@ function switchTab(name) {
   document.querySelector(`[data-tab="${name}"]`).classList.add('active');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
+  if (name === 'coach-raw') renderCoachRaw();
+}
+
+// ── LINE試合生データ ──────────────────────────────────────────────────────────
+const CAT_OPTIONS = ['U-13','U-14','U-15','U-13_FUTSAL','U-14_FUTSAL','U-15_FUTSAL','all'];
+
+function renderCoachRaw() {
+  const tbody = document.getElementById('crt-tbody');
+  if (!tbody) return;
+  const today = new Date().toISOString().split('T')[0];
+  const rows = coachData
+    .filter(r => normDate(r.event_date) >= today)
+    .sort((a, b) => {
+      const da = normDate(a.event_date), db = normDate(b.event_date);
+      if (da !== db) return da.localeCompare(db);
+      return catSortKey(a.category_code) - catSortKey(b.category_code);
+    });
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">該当データなし</td></tr>';
+    return;
+  }
+  const FIELDS = [
+    { field:'event_date',            label:'日付',     type:'text'   },
+    { field:'category_code',         label:'Cat',      type:'select' },
+    { field:'event_time',            label:'時刻',     type:'text'   },
+    { field:'title',                 label:'対戦相手', type:'text'   },
+    { field:'venue',                 label:'会場',     type:'text'   },
+    { field:'league_or_competition', label:'大会名',   type:'text'   },
+  ];
+  tbody.innerHTML = rows.map(r => {
+    const rid = String(r.id);
+    const cells = FIELDS.map(f => {
+      const v = String(r[f.field] || '');
+      const disp = v ? v : '<span style="color:var(--dim)">—</span>';
+      return `<td class="crt-editable" data-row-id="${rid}" data-field="${f.field}" data-type="${f.type}" onclick="crtEdit(this)">${disp}</td>`;
+    }).join('');
+    return `<tr data-row-id="${rid}">${cells}<td><button class="crt-del" onclick="crtDelete('${rid}')">🗑</button></td></tr>`;
+  }).join('');
+}
+
+function crtEdit(cell) {
+  if (cell.querySelector('input,select')) return;
+  const rowId = cell.dataset.rowId;
+  const field = cell.dataset.field;
+  const type  = cell.dataset.type;
+  const val   = (cell.textContent.trim() === '—' ? '' : cell.textContent.trim());
+  let input;
+  if (type === 'select') {
+    input = document.createElement('select');
+    input.className = 'crt-select';
+    CAT_OPTIONS.forEach(opt => {
+      const o = document.createElement('option');
+      o.value = o.textContent = opt;
+      if (opt === val) o.selected = true;
+      input.appendChild(o);
+    });
+  } else {
+    input = document.createElement('input');
+    input.className = 'crt-input';
+    input.value = val;
+  }
+  cell.innerHTML = '';
+  cell.appendChild(input);
+  input.focus();
+  if (input.tagName === 'INPUT') input.select();
+
+  const save = async () => {
+    const newVal = input.value;
+    if (newVal === val) { renderCoachRaw(); return; }
+    cell.classList.add('crt-saving');
+    cell.textContent = '…';
+    try {
+      const res = await gasGet('api/coach-schedule/update', { row_id: rowId, field, value: newVal });
+      if (!res.ok) throw new Error(res.error || 'update failed');
+      await Promise.all([loadCoachSchedules(), loadDiscrepancies()]);
+      renderCoachRaw();
+      renderSummary();
+      renderSchedList();
+    } catch(e) {
+      renderCoachRaw();
+      alert('保存エラー: ' + e.message);
+    }
+  };
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+    if (ev.key === 'Escape') renderCoachRaw();
+  });
+}
+
+async function crtDelete(rowId) {
+  if (!confirm('この行を削除しますか？')) return;
+  setStatus('削除中…');
+  try {
+    const res = await gasGet('api/coach-schedule/delete', { row_id: rowId });
+    if (!res.ok) throw new Error(res.error || 'delete failed');
+    await Promise.all([loadCoachSchedules(), loadDiscrepancies()]);
+    renderCoachRaw();
+    renderSummary();
+    renderSchedList();
+    setStatus('削除完了');
+  } catch(e) {
+    setStatus('削除エラー: ' + e.message);
+  }
 }
 
 // ── 起動 ─────────────────────────────────────────────────────────────────────
