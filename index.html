@@ -501,6 +501,11 @@
         <button class="admin-btn-gold admin-btn" onclick="adminAction('compare')">今すぐ照合</button>
       </div>
       <div class="admin-card">
+        <div class="admin-card-title">照合リセット</div>
+        <div class="admin-card-desc">未確認の差分レコードをすべて削除し、照合をゼロから再実行します。マッピングが崩れた場合に使用。確認済みレコードは保持されます。</div>
+        <button class="admin-btn admin-btn" style="background:#7b2d2d;color:#fff;" onclick="adminAction('reset-compare')">照合リセット</button>
+      </div>
+      <div class="admin-card">
         <div class="admin-card-title">今すぐ配信</div>
         <div class="admin-card-desc">照合レポート（Flexメッセージ）をLINEグループへ今すぐ送信します。通常は毎週木曜18:00に自動配信されます。</div>
         <button class="admin-btn-gold admin-btn" onclick="adminAction('send')">今すぐ配信</button>
@@ -531,7 +536,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 31;
+const __UI_BUILD__  = 32;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -1102,6 +1107,12 @@ async function adminAction(action) {
     if (action === 'compare') {
       res = await gasGet('api/admin/compare-now', { token: ADMIN_TOKEN });
       result.textContent = `照合完了: 新規差分 ${res.newDiscrepancies || 0}件`;
+      const dr = await gasGet('api/discrepancies');
+      discData = dr.discrepancies || [];
+      renderSummary(); renderSchedList();
+    } else if (action === 'reset-compare') {
+      res = await gasGet('api/admin/reset-compare', { token: ADMIN_TOKEN });
+      result.textContent = `照合リセット完了: 新規差分 ${res.newDiscrepancies || 0}件`;
       const dr = await gasGet('api/discrepancies');
       discData = dr.discrepancies || [];
       renderSummary(); renderSchedList();
