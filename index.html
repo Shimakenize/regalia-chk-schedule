@@ -53,7 +53,9 @@
     .header-wordmark { font-family:'Cormorant Garamond',serif; font-size:23px; font-weight:700; color:#fff; line-height:1; letter-spacing:.02em; }
     .header-sub { font-size:11px; color:#a9c0e0; margin-top:5px; }
     .header-sub-ver { color: var(--gold); }
-    .header-right { margin-left:auto; font-size:11px; color:var(--muted); text-align:right; max-width:120px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; flex-shrink:0; }
+    .header-right { margin-left:auto; text-align:right; max-width:130px; flex-shrink:0; }
+    .header-user-name { font-size:11px; color:var(--muted); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .header-coach-name { font-size:10px; color:var(--gold); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-top:2px; }
 
     /* ── Tabs ─────────────────────────────────────────── */
     .tabs {
@@ -80,11 +82,32 @@
     .page { display: none; }
     .page.active { display: block; }
 
+    /* ── Summary: toolbar ─────────────────────────────── */
+    .sum-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px 4px;
+      gap: 8px;
+    }
+    .sum-toolbar-status { font-size: 11px; color: var(--muted); flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .sum-refresh-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1px solid rgba(201,162,75,.5);
+      color: var(--gold);
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .15s;
+    }
+    .sum-refresh-btn:active { background: rgba(201,162,75,.15); }
+
     /* ── Summary: Hero ────────────────────────────────── */
     .sum-hero {
-      margin: 18px 16px 12px;
-      border-radius: 16px;
-      padding: 24px 20px;
+      margin: 6px 16px 8px;
+      border-radius: 12px;
+      padding: 12px 14px;
       background: linear-gradient(135deg,#13335f,#0c1f3c);
       border: 1px solid rgba(201,162,75,.35);
       position: relative; overflow: hidden;
@@ -92,16 +115,16 @@
       transition: box-shadow .15s;
     }
     .sum-hero.active { box-shadow: 0 0 0 2px var(--gold); }
-    .sum-hero-bar { position:absolute; top:0; left:0; width:5px; height:100%; background:var(--gold); }
-    .sum-hero-inner { display:flex; align-items:baseline; gap:14px; }
-    .sum-hero-num { font-family:'Cormorant Garamond',serif; font-size:68px; font-weight:700; color:#fff; line-height:.85; }
-    .sum-hero-label { font-size:13px; color:var(--gold); font-weight:700; letter-spacing:.1em; }
+    .sum-hero-bar { position:absolute; top:0; left:0; width:4px; height:100%; background:var(--gold); }
+    .sum-hero-inner { display:flex; align-items:baseline; gap:10px; }
+    .sum-hero-num { font-family:'Cormorant Garamond',serif; font-size:40px; font-weight:700; color:#fff; line-height:.85; }
+    .sum-hero-label { font-size:11px; color:var(--gold); font-weight:700; letter-spacing:.1em; }
 
     /* ── Summary: 2×2 grid ────────────────────────────── */
-    .sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 16px 20px; }
+    .sum-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 16px 12px; }
     .sum-grid-card {
-      border-radius: 14px;
-      padding: 18px 16px;
+      border-radius: 10px;
+      padding: 10px 12px;
       cursor: pointer;
       transition: box-shadow .15s;
       border: 1px solid;
@@ -111,12 +134,12 @@
     .sum-grid-card.ng       { background:rgba(224,85,95,.08);   border-color:rgba(224,85,95,.3); }
     .sum-grid-card.open     { background:rgba(210,166,73,.08);  border-color:rgba(210,166,73,.3); }
     .sum-grid-card.resolved { background:rgba(143,166,200,.08); border-color:rgba(143,166,200,.3); }
-    .sum-grid-num { font-family:'Cormorant Garamond',serif; font-size:40px; font-weight:700; line-height:1; }
+    .sum-grid-num { font-family:'Cormorant Garamond',serif; font-size:24px; font-weight:700; line-height:1; }
     .sum-grid-card.ok       .sum-grid-num { color:#43b873; }
     .sum-grid-card.ng       .sum-grid-num { color:#e0555f; }
     .sum-grid-card.open     .sum-grid-num { color:#d2a649; }
     .sum-grid-card.resolved .sum-grid-num { color:#8fa6c8; }
-    .sum-grid-label { font-size:12px; color:#c4cfe0; margin-top:6px; font-weight:500; }
+    .sum-grid-label { font-size:10px; color:#c4cfe0; margin-top:4px; font-weight:500; }
 
     /* ── Summary: list ────────────────────────────────── */
     .sum-list-hdr { font-size:15px; color:#fff; font-weight:700; }
@@ -272,17 +295,7 @@
     }
     .reg-submit:disabled { opacity:.4; cursor:not-allowed; }
 
-    /* ── Status bar ───────────────────────────────────── */
-    .status-bar {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: #0a1322;
-      border-top: 1px solid var(--border);
-      padding: 8px 16px;
-      display: flex; justify-content: space-between; align-items: center;
-      font-size: 11px; z-index: 10;
-    }
-    .status-msg   { color: var(--muted); }
-    .status-right { color: var(--gold); }
+    .status-msg { color: var(--muted); font-size: 11px; }
 
     .empty-msg { text-align:center; padding:32px 16px; color:var(--muted); font-size:13px; }
 
@@ -392,7 +405,10 @@
       <div class="header-wordmark">F.C. REGALIA</div>
       <div class="header-sub">match check <span class="header-sub-ver" id="header-version"></span></div>
     </div>
-    <div class="header-right" id="header-user"></div>
+    <div class="header-right">
+      <div class="header-user-name" id="header-user"></div>
+      <div class="header-coach-name" id="header-coach"></div>
+    </div>
   </div>
 
   <!-- Tabs -->
@@ -406,6 +422,10 @@
 
   <!-- ── サマリー ── -->
   <div id="page-summary" class="page active">
+    <div class="sum-toolbar">
+      <span class="sum-toolbar-status status-msg" id="status-msg">起動中…</span>
+      <button class="sum-refresh-btn" onclick="refreshData()">↻ 更新</button>
+    </div>
     <div class="sum-hero active" data-filter="all" onclick="filterSummary('all',this)">
       <div class="sum-hero-bar"></div>
       <div class="sum-hero-inner">
@@ -522,12 +542,6 @@
 
 </div>
 
-<!-- ── Status bar ────────────────────────────────────── -->
-<div class="status-bar">
-  <span class="status-msg"  id="status-msg">起動中…</span>
-  <span class="status-right" id="status-right"></span>
-</div>
-
 <script>
 // ── 設定 ─────────────────────────────────────────────────────────────────────
 const LIFF_ID    = '2010471175-mz6PBjZx';
@@ -536,7 +550,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 34;
+const __UI_BUILD__  = 35;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -562,7 +576,21 @@ const OFFICIAL_SOURCES = [
 ];
 
 // ── ユーティリティ ────────────────────────────────────────────────────────────
-function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
+function setStatus(msg) { const el = document.getElementById('status-msg'); if (el) el.textContent = msg; }
+async function refreshData() {
+  const btn = document.querySelector('.sum-refresh-btn');
+  if (btn) btn.disabled = true;
+  setStatus('更新中…');
+  try {
+    await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules()]);
+    renderSummary(); renderSchedList();
+    setStatus('更新完了 ' + new Date().toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' }));
+  } catch(e) {
+    setStatus('更新エラー: ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
 function safeParse(json) { try { return JSON.parse(json); } catch { return null; } }
 function normDate(v)  { return String(v || '').substring(0, 10); }
 function catBase(cat) { return String(cat || '').replace(/_FUTSAL$/, ''); }
@@ -708,6 +736,7 @@ async function startMainApp(meRes) {
   if (isAdmin) document.getElementById('admin-tab').style.display = '';
 
   document.getElementById('header-user').textContent = displayName || '';
+  document.getElementById('header-coach').textContent = '';
 
   const cfgRes = await gasGet('config');
   if (cfgRes.version) {
@@ -717,7 +746,7 @@ async function startMainApp(meRes) {
   }
 
   const coachLabel = meRes.coachName ? meRes.coachName : (displayName || '');
-  document.getElementById('status-right').textContent = coachLabel;
+  document.getElementById('header-coach').textContent = coachLabel;
 
   await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules(), loadScrapeLog()]);
   renderSummary();
