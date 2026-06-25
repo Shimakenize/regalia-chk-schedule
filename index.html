@@ -569,7 +569,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 41;
+const __UI_BUILD__  = 42;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -962,6 +962,7 @@ function buildMerged() {
     entries.push({
       date: normDate(cm.event_date), category: cm.category_code,
       league: cm.league_or_competition || '',
+      notes: cm.notes || '',
       coach: { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
       official, disc,
       status: disc ? disc.status : (official ? 'ok' : 'open'),
@@ -1022,7 +1023,8 @@ function renderSumList(merged) {
   container.innerHTML = entries.map(e => {
     const opp = e.coach ? (e.coach.title || '—') : (e.official ? (e.official.opponent || '—') : '—');
     const catLabel = e.category.replace('_FUTSAL', ' FS');
-    const srcLabel = e.league === 'TRG' ? 'TRG' : ((SRC_MAP[e.category] || {}).shortLabel || '');
+    const isTRG = e.league === 'TRG' || (e.notes || '').split('\n').some(n => n.trim() === 'TRG');
+    const srcLabel = isTRG ? 'TRG' : (e.league || (SRC_MAP[e.category] || {}).shortLabel || '');
     return `<div class="sum-row" onclick="jumpToSched('${catBase(e.category)}')">
       <div class="sum-row-left">
         <div class="sum-row-date">${fmtDate(e.date)}</div>
