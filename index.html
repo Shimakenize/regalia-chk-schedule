@@ -569,7 +569,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 43;
+const __UI_BUILD__  = 44;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -1374,6 +1374,8 @@ function crtEdit(cell) {
   const field = cell.dataset.field;
   const type  = cell.dataset.type;
   const val   = (cell.textContent.trim() === '—' ? '' : cell.textContent.trim());
+  // id列が未設定のスプレッドシート行用フォールバックキー
+  const fbRow = coachData.find(r => String(r.id) === rowId) || {};
   let input;
   if (type === 'select') {
     input = document.createElement('select');
@@ -1400,7 +1402,10 @@ function crtEdit(cell) {
     cell.classList.add('crt-saving');
     cell.textContent = '…';
     try {
-      const res = await gasGet('api/coach-schedule/update', { row_id: rowId, field, value: newVal });
+      const res = await gasGet('api/coach-schedule/update', {
+        row_id: rowId, field, value: newVal,
+        fb_date: fbRow.event_date || '', fb_cat: fbRow.category_code || '', fb_title: fbRow.title || '',
+      });
       if (!res.ok) throw new Error(res.error || 'update failed');
       await Promise.all([loadCoachSchedules(), loadDiscrepancies()]);
       renderCoachRaw();
@@ -1408,7 +1413,7 @@ function crtEdit(cell) {
       renderSchedList();
     } catch(e) {
       renderCoachRaw();
-      alert('保存エラー: ' + e.message);
+      setStatus('保存エラー: ' + e.message);
     }
   };
   input.addEventListener('blur', save);
