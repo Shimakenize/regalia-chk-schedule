@@ -569,7 +569,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 45;
+const __UI_BUILD__  = 46;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -1406,8 +1406,7 @@ function crtEdit(cell) {
         row_id: rowId, field, value: newVal,
         fb_date: fbRow.event_date || '', fb_cat: fbRow.category_code || '', fb_title: fbRow.title || '',
       });
-      if (!res.ok) throw new Error((res.error || 'update failed') + ' | debug:' + JSON.stringify(res.debug));
-      setStatus('保存OK | ' + JSON.stringify(res.debug));
+      if (!res.ok) throw new Error(res.error || 'update failed');
       await Promise.all([loadCoachSchedules(), loadDiscrepancies()]);
       renderCoachRaw();
       renderSummary();
