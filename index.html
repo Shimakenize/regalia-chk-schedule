@@ -156,7 +156,7 @@
     .sum-row:last-child { border-bottom: none; }
     .sum-row-left { flex: none; width: 56px; }
     .sum-row-date { font-size:12px; color:#fff; font-weight:600; }
-    .sum-row-cat { display:inline-block; font-size:9px; color:#0a1830; background:var(--gold); padding:1px 5px; border-radius:4px; margin-top:4px; font-weight:700; }
+    .sum-row-cat { display:inline-block; font-size:9px; padding:1px 5px; border-radius:4px; margin-top:4px; font-weight:700; }
     .sum-row-opp { flex:1; font-size:13px; color:#dde4ef; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
     /* ── Compare: filter chips ────────────────────────── */
@@ -567,7 +567,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 38;
+const __UI_BUILD__  = 39;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -619,6 +619,15 @@ function catSortKey(cat) {
   if (c.startsWith('U-14')) return 2;
   if (c.startsWith('U-13')) return 3;
   return 4;
+}
+
+function catBadgeStyle(cat) {
+  const c = String(cat || '');
+  if (c.startsWith('U-15')) return 'background:#0e2a52;color:#7ab8f8';
+  if (c.startsWith('U-14')) return 'background:#0a2a16;color:#50c080';
+  if (c.startsWith('U-13')) return 'background:#1a0e2a;color:#c07ae0';
+  if (c === 'all')           return 'background:#241808;color:#e0a040';
+  return 'background:#1e1a0a;color:#c9a24b';
 }
 
 function fmtDate(ds) {
@@ -1011,7 +1020,7 @@ function renderSumList(merged) {
     return `<div class="sum-row" onclick="jumpToSched('${catBase(e.category)}')">
       <div class="sum-row-left">
         <div class="sum-row-date">${fmtDate(e.date)}</div>
-        <div class="sum-row-cat">${catLabel}</div>
+        <div class="sum-row-cat" style="${catBadgeStyle(e.category)}">${catLabel}</div>
       </div>
       <div class="sum-row-opp">vs ${opp}</div>
       ${statusChip(e.status)}
@@ -1031,8 +1040,9 @@ function jumpToSched(cat) {
 // ── 比較表示 フィルタ ─────────────────────────────────────────────────────────
 function renderCatFilter() {
   const merged = buildMerged();
-  const cats = [...new Set(merged.map(e => catBase(e.category)).filter(Boolean))].sort((a,b) => catSortKey(a)-catSortKey(b));
-  document.getElementById('cat-filter').innerHTML = ['全て', ...cats].map((c, i) =>
+  const cats = [...new Set(merged.map(e => catBase(e.category)).filter(c => Boolean(c) && c !== 'all'))].sort((a,b) => catSortKey(a)-catSortKey(b));
+  const allCats = ['全て', ...cats, 'all'];
+  document.getElementById('cat-filter').innerHTML = allCats.map((c, i) =>
     `<button class="chip-btn ${i===0?'active':''}" onclick="filterCat('${c}',this)">${c}</button>`
   ).join('');
 }
@@ -1099,7 +1109,7 @@ function renderSchedList() {
 
     return `<div class="cmp-card">
       <div class="cmp-card-head">
-        <span class="cmp-card-title">${fmtDate(e.date)} <span class="cmp-card-cat">[${catLabel}]</span></span>
+        <span class="cmp-card-title">${fmtDate(e.date)} <span class="cmp-card-cat" style="${catBadgeStyle(e.category)};padding:1px 5px;border-radius:3px;font-size:10px;font-weight:700">${catLabel}</span></span>
         ${statusChip(e.status)}
       </div>
       <div class="cmp-cols">
