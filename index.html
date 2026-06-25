@@ -132,13 +132,11 @@
     .sum-grid-card.active { box-shadow: 0 0 0 2px var(--gold); }
     .sum-grid-card.ok       { background:rgba(67,184,115,.08);  border-color:rgba(67,184,115,.3); }
     .sum-grid-card.ng       { background:rgba(224,85,95,.08);   border-color:rgba(224,85,95,.3); }
-    .sum-grid-card.open     { background:rgba(210,166,73,.08);  border-color:rgba(210,166,73,.3); }
-    .sum-grid-card.resolved { background:rgba(143,166,200,.08); border-color:rgba(143,166,200,.3); }
+    .sum-grid-card.other    { background:rgba(210,166,73,.08);  border-color:rgba(210,166,73,.3); }
     .sum-grid-num { font-family:'Cormorant Garamond',serif; font-size:48px; font-weight:700; line-height:1; }
     .sum-grid-card.ok       .sum-grid-num { color:#43b873; }
     .sum-grid-card.ng       .sum-grid-num { color:#e0555f; }
-    .sum-grid-card.open     .sum-grid-num { color:#d2a649; }
-    .sum-grid-card.resolved .sum-grid-num { color:#8fa6c8; }
+    .sum-grid-card.other    .sum-grid-num { color:#d2a649; }
     .sum-grid-label { font-size:10px; color:#c4cfe0; margin-top:4px; font-weight:500; }
 
     /* ── Summary: list ────────────────────────────────── */
@@ -207,13 +205,8 @@
     .cmp-col.muted .cmp-col-opp  { color: var(--dim); }
     .card-diff { padding:11px 16px; border-top:1px solid rgba(255,255,255,.07); font-size:12px; font-weight:600; }
     .card-diff.ok-match  { color:#43b873; }
-    .card-diff.resolved  { color:#8fa6c8; }
-    .card-diff.ng-open   { color:#d2a649; }
-    .card-note { padding:0 16px 12px; font-size:11px; color:#8a96ac; display:flex; align-items:center; gap:6px; }
-    .note-check { color:#43b873; }
-
-    /* ── Judge buttons ────────────────────────────────── */
-    .disc-actions { display:flex; gap:8px; padding:10px 16px 14px; }
+    .card-diff.ng    { color:#e0555f; }
+    .card-diff.other { color:#d2a649; }
 
 
     /* ── Admin ────────────────────────────────────────── */
@@ -453,7 +446,7 @@
         <div class="sum-grid-num" id="cnt-ng">—</div>
         <div class="sum-grid-label">照合NG</div>
       </div>
-      <div class="sum-grid-card open" data-filter="other" onclick="filterSummary('other',this)">
+      <div class="sum-grid-card other" data-filter="other" onclick="filterSummary('other',this)">
         <div class="sum-grid-num" id="cnt-other">—</div>
         <div class="sum-grid-label">公式戦以外</div>
       </div>
@@ -534,7 +527,7 @@
       </div>
       <div class="admin-card">
         <div class="admin-card-title">今すぐ配信</div>
-        <div class="admin-card-desc">照合レポート（Flexメッセージ）をLINEグループへ今すぐ送信します。通常は毎週木曜18:00に自動配信されます。</div>
+        <div class="admin-card-desc">照合レポート（テキスト）をLINEグループへ今すぐ送信します。通常は毎週木曜18:00に自動配信されます。</div>
         <button class="admin-btn-gold admin-btn" onclick="adminAction('send')">今すぐ配信</button>
       </div>
       <div id="admin-result" class="admin-result"></div>
@@ -722,7 +715,7 @@ async function submitRegistration() {
 async function init() {
   const urlParams  = new URLSearchParams(window.location.search);
   const initFilter = urlParams.get('filter');
-  if (initFilter && ['ok','ng','open','resolved'].includes(initFilter)) {
+  if (initFilter && ['ok','ng','other'].includes(initFilter)) {
     summaryFilter = initFilter;
   }
 
@@ -1100,7 +1093,7 @@ function renderSchedList() {
       diffHtml = `<div class="card-diff ok-match">差分無し</div>`;
     } else {
       const typeText = TYPE_LABELS[e.disc.type] || e.disc.type;
-      const cls = e.status === 'ng' ? 'ng-open' : 'resolved';
+      const cls = e.status === 'ng' ? 'ng' : 'other';
       diffHtml = `<div class="card-diff ${cls}">▶ ${typeText}</div>`;
     }
 
