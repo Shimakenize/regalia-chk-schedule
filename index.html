@@ -158,6 +158,8 @@
     .sum-row-date { font-size:12px; color:#fff; font-weight:600; }
     .sum-row-cat { display:inline-block; font-size:9px; padding:1px 5px; border-radius:4px; margin-top:4px; font-weight:700; }
     .sum-row-opp { flex:1; font-size:13px; color:#dde4ef; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sum-row-league { font-size:10px; color:var(--muted); font-weight:400; }
+    .cmp-lbl-note { font-size:10px; color:var(--muted); font-weight:400; margin-left:2px; }
 
     /* ── Compare: filter chips ────────────────────────── */
     .cmp-filters { padding: 14px 16px 4px; }
@@ -567,7 +569,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 39;
+const __UI_BUILD__  = 40;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -583,14 +585,16 @@ let selectedCoach   = null;
 let scrapeLogData   = [];
 
 const OFFICIAL_SOURCES = [
-  { id: 'U-15',        label: 'U-15リーグ',          url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-2b-2026/' },
-  { id: 'U-14',        label: 'U-14リーグ',          url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/' },
-  { id: 'U-13L',       label: 'U-13リーグ',          url: null },
-  { id: 'U-15_FUTSAL', label: 'U-15フットサル 3部B',  url: 'https://matchday-live.com/race/zZGrc4ta' },
-  { id: 'U-14_FUTSAL', label: 'U-14フットサル 3部A',  url: 'https://matchday-live.com/race/EoDjcuJe' },
-  { id: 'U-13_FUTSAL', label: 'U-13フットサル 3部B',  url: 'https://matchday-live.com/race/zZGrc4ta' },
-  { id: 'U-13',        label: 'S.M.A.L.L. CUP',     url: 'https://smallcup-u13.web.app/schedule' },
+  { id: 'U-15',        label: 'U-15リーグ(2部)',         shortLabel: 'U15L 2部',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-2b-2026/' },
+  { id: 'U-15_4B',     label: 'U-15リーグ(4部・U14参戦)', shortLabel: 'U15L 4部',  url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-4b-1st-2026/' },
+  { id: 'U-14',        label: 'U-14リーグ',               shortLabel: 'U14L',       url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/' },
+  { id: 'U-13L',       label: 'U-13リーグ',               shortLabel: 'U13L',       url: null },
+  { id: 'U-15_FUTSAL', label: 'U-15フットサル 3部B',      shortLabel: 'U15FL 3部B', url: 'https://matchday-live.com/race/zZGrc4ta' },
+  { id: 'U-14_FUTSAL', label: 'U-14フットサル 3部A',      shortLabel: 'U14FL 3部A', url: 'https://matchday-live.com/race/EoDjcuJe' },
+  { id: 'U-13_FUTSAL', label: 'U-13フットサル 3部B',      shortLabel: 'U13FL 3部B', url: 'https://matchday-live.com/race/zZGrc4ta' },
+  { id: 'U-13',        label: 'S.M.A.L.L. CUP',           shortLabel: 'S.M.A.L.L.', url: 'https://smallcup-u13.web.app/schedule' },
 ];
+const SRC_MAP = Object.fromEntries(OFFICIAL_SOURCES.map(s => [s.id, s]));
 
 // ── ユーティリティ ────────────────────────────────────────────────────────────
 function setStatus(msg) { const el = document.getElementById('status-msg'); if (el) el.textContent = msg; }
@@ -1017,12 +1021,13 @@ function renderSumList(merged) {
   container.innerHTML = entries.map(e => {
     const opp = e.coach ? (e.coach.title || '—') : (e.official ? (e.official.opponent || '—') : '—');
     const catLabel = e.category.replace('_FUTSAL', ' FS');
+    const srcLabel = (SRC_MAP[e.category] || {}).shortLabel || '';
     return `<div class="sum-row" onclick="jumpToSched('${catBase(e.category)}')">
       <div class="sum-row-left">
         <div class="sum-row-date">${fmtDate(e.date)}</div>
         <div class="sum-row-cat" style="${catBadgeStyle(e.category)}">${catLabel}</div>
       </div>
-      <div class="sum-row-opp">vs ${opp}</div>
+      <div class="sum-row-opp">vs ${opp}${srcLabel ? ` <span class="sum-row-league">${srcLabel}</span>` : ''}</div>
       ${statusChip(e.status)}
     </div>`;
   }).join('');
@@ -1093,6 +1098,7 @@ function renderSchedList() {
     const noCoach    = !e.coach;
     const noOfficial = !e.official;
     const catLabel = e.category.replace('_FUTSAL', ' FS');
+    const offSrcLabel = (SRC_MAP[e.category] || {}).shortLabel || '';
 
     let diffHtml;
     if (!e.disc) {
@@ -1121,7 +1127,7 @@ function renderSchedList() {
         </div>
         <div class="cmp-col-sep"></div>
         <div class="cmp-col off-col${noOfficial?' muted':''}">
-          <div class="cmp-col-lbl">公式</div>
+          <div class="cmp-col-lbl">公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''}</div>
           <div class="cmp-col-time">${noOfficial ? '—' : offTime}</div>
           <div class="cmp-col-opp">${noOfficial ? '(なし)' : offOpp}</div>
           ${!noOfficial && offVenue ? `<div class="cmp-col-venue">@ ${offVenue}</div>` : ''}
