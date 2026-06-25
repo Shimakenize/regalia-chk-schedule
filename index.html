@@ -229,6 +229,17 @@
     }
     .admin-btn-gold:disabled { opacity:.4; cursor:not-allowed; }
     .admin-result { font-size:12px; color:var(--muted); padding:8px 0; text-align:center; min-height:28px; }
+    .mgmt-compare-result { font-size:12px; color:var(--muted); margin-top:10px; }
+    .mgmt-run-at { color:var(--muted); margin-bottom:6px; }
+    .mgmt-summary { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; font-size:13px; font-weight:700; }
+    .mgmt-ok   { color:#4caf50; }
+    .mgmt-diff { color:#ff9800; }
+    .mgmt-warn { color:#f44336; }
+    .mgmt-section-title { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:10px 0 4px; border-top:1px solid var(--border); padding-top:8px; }
+    .mgmt-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .mgmt-table td { padding:4px 6px; border-bottom:1px solid var(--border); vertical-align:top; }
+    .mgmt-table td:first-child { white-space:nowrap; color:var(--muted); }
+    .mgmt-diff-detail { color:#ff9800; }
     .members-card { border-radius:16px; padding:20px; margin:0 16px 24px; background:var(--surface); border:1px solid var(--border); }
     .members-title { font-size:16px; color:#fff; font-weight:700; }
     .members-meta  { font-size:11px; color:var(--muted); margin:5px 0 14px; }
@@ -531,6 +542,12 @@
         <button class="admin-btn-gold admin-btn" onclick="adminAction('send')">今すぐ配信</button>
       </div>
       <div id="admin-result" class="admin-result"></div>
+      <div class="admin-card mgmt-compare-card">
+        <div class="admin-card-title">schedule_mgmt 照合</div>
+        <div class="admin-card-desc">REGALIA_schedule_management の試合情報と LINEコーチ情報を照合します。毎日 6:00 JST 自動実行。</div>
+        <div id="mgmt-compare-result" class="mgmt-compare-result">読み込み中…</div>
+        <button class="admin-btn admin-btn" style="background:#2d547b;color:#fff;margin-top:10px;" onclick="adminRunMgmtCompare(this)">今すぐ実行</button>
+      </div>
     </div>
     <div id="members-section" class="members-card" style="display:none;">
       <div class="members-title">登録メンバーリスト</div>
@@ -550,7 +567,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 37;
+const __UI_BUILD__  = 38;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -1166,6 +1183,79 @@ async function adminAction(action) {
   btns.forEach(b => b.disabled = false);
 }
 
+// ── schedule_mgmt 照合 ────────────────────────────────────────────────────────
+async function loadMgmtCompareResult() {
+  if (!isAdmin) return;
+  try {
+    const res = await gasGet('api/admin/mgmt-compare-result', { token: ADMIN_TOKEN });
+    renderMgmtCompareResult(res);
+  } catch(e) {
+    const el = document.getElementById('mgmt-compare-result');
+    if (el) el.textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function adminRunMgmtCompare(btn) {
+  if (!isAdmin) return;
+  btn.disabled = true;
+  const el = document.getElementById('mgmt-compare-result');
+  el.textContent = '実行中…';
+  try {
+    const res = await gasGet('api/admin/mgmt-compare', { token: ADMIN_TOKEN });
+    renderMgmtCompareResult(res);
+  } catch(e) {
+    el.textContent = 'エラー: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderMgmtCompareResult(res) {
+  const el = document.getElementById('mgmt-compare-result');
+  if (!el) return;
+  if (!res || !res.ok) {
+    el.innerHTML = `<span class="mgmt-warn">エラー: ${res?.error || '不明'}</span>`;
+    return;
+  }
+  if (res.no_data) {
+    el.innerHTML = '<span style="color:var(--muted)">未実行（次回実行: 毎日6:00 JST）</span>';
+    return;
+  }
+  const runAt = res.run_at ? fmtDatetime(String(res.run_at)) : '—';
+  let html = `<div class="mgmt-run-at">最終実行: ${runAt}</div>`;
+  html += `<div class="mgmt-summary">`;
+  html += `<span class="mgmt-ok">✓ 一致 ${res.matched_count}件</span>`;
+  if (res.diff_count > 0)       html += `<span class="mgmt-diff">⚠ 差異 ${res.diff_count}件</span>`;
+  if (res.only_mgmt_count > 0)  html += `<span class="mgmt-warn">mgmtのみ ${res.only_mgmt_count}件</span>`;
+  if (res.only_coach_count > 0) html += `<span class="mgmt-warn">LINEのみ ${res.only_coach_count}件</span>`;
+  if (res.error) html += `<span class="mgmt-warn">⚠ ${res.error}</span>`;
+  html += `</div>`;
+  const det = res.detail || {};
+  if (det.diff && det.diff.length) {
+    html += `<div class="mgmt-section-title">差異あり</div><table class="mgmt-table">`;
+    for (const it of det.diff) {
+      const ds = it.diffs.map(d => `${d.field}: ${d.mgmt||'—'} → ${d.coach||'—'}`).join(' / ');
+      html += `<tr><td>${it.date}</td><td>${it.cat}</td><td>${it.title}</td><td class="mgmt-diff-detail">${ds}</td></tr>`;
+    }
+    html += `</table>`;
+  }
+  if (det.only_mgmt && det.only_mgmt.length) {
+    html += `<div class="mgmt-section-title">schedule_mgmt のみ</div><table class="mgmt-table">`;
+    for (const it of det.only_mgmt) {
+      html += `<tr><td>${it.date}</td><td>${it.cat}</td><td>${it.title}</td><td>${it.time}</td></tr>`;
+    }
+    html += `</table>`;
+  }
+  if (det.only_coach && det.only_coach.length) {
+    html += `<div class="mgmt-section-title">LINE のみ</div><table class="mgmt-table">`;
+    for (const it of det.only_coach) {
+      html += `<tr><td>${it.date}</td><td>${it.cat}</td><td>${it.title}</td><td>${it.time}</td></tr>`;
+    }
+    html += `</table>`;
+  }
+  el.innerHTML = html;
+}
+
 // ── 登録メンバー管理 ─────────────────────────────────────────────────────────
 async function refreshMembers() {
   const meta = document.getElementById('members-meta');
@@ -1218,6 +1308,7 @@ function switchTab(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   if (name === 'coach-raw') renderCoachRaw();
+  if (name === 'admin') loadMgmtCompareResult();
 }
 
 // ── LINE試合生データ ──────────────────────────────────────────────────────────
