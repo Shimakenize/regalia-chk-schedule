@@ -569,7 +569,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 40;
+const __UI_BUILD__  = 41;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -590,8 +590,8 @@ const OFFICIAL_SOURCES = [
   { id: 'U-14',        label: 'U-14リーグ',               shortLabel: 'U14L',       url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/' },
   { id: 'U-13L',       label: 'U-13リーグ',               shortLabel: 'U13L',       url: null },
   { id: 'U-15_FUTSAL', label: 'U-15フットサル 3部B',      shortLabel: 'U15FL 3部B', url: 'https://matchday-live.com/race/zZGrc4ta' },
-  { id: 'U-14_FUTSAL', label: 'U-14フットサル 3部A',      shortLabel: 'U14FL 3部A', url: 'https://matchday-live.com/race/EoDjcuJe' },
-  { id: 'U-13_FUTSAL', label: 'U-13フットサル 3部B',      shortLabel: 'U13FL 3部B', url: 'https://matchday-live.com/race/zZGrc4ta' },
+  { id: 'U-14_FUTSAL', label: 'U-14フットサル 3部A',      shortLabel: 'U15FL 3部A', url: 'https://matchday-live.com/race/EoDjcuJe' },
+  { id: 'U-13_FUTSAL', label: 'U-13フットサル 3部B',      shortLabel: 'U15FL 3部B', url: 'https://matchday-live.com/race/zZGrc4ta' },
   { id: 'U-13',        label: 'S.M.A.L.L. CUP',           shortLabel: 'S.M.A.L.L.', url: 'https://smallcup-u13.web.app/schedule' },
 ];
 const SRC_MAP = Object.fromEntries(OFFICIAL_SOURCES.map(s => [s.id, s]));
@@ -961,6 +961,7 @@ function buildMerged() {
     }
     entries.push({
       date: normDate(cm.event_date), category: cm.category_code,
+      league: cm.league_or_competition || '',
       coach: { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
       official, disc,
       status: disc ? disc.status : (official ? 'ok' : 'open'),
@@ -1021,7 +1022,7 @@ function renderSumList(merged) {
   container.innerHTML = entries.map(e => {
     const opp = e.coach ? (e.coach.title || '—') : (e.official ? (e.official.opponent || '—') : '—');
     const catLabel = e.category.replace('_FUTSAL', ' FS');
-    const srcLabel = (SRC_MAP[e.category] || {}).shortLabel || '';
+    const srcLabel = e.league === 'TRG' ? 'TRG' : ((SRC_MAP[e.category] || {}).shortLabel || '');
     return `<div class="sum-row" onclick="jumpToSched('${catBase(e.category)}')">
       <div class="sum-row-left">
         <div class="sum-row-date">${fmtDate(e.date)}</div>
