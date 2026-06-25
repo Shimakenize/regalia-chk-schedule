@@ -569,7 +569,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 42;
+const __UI_BUILD__  = 43;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -673,7 +673,7 @@ async function gasGet(path, params = {}, _retry = 0) {
   const url = new URL(GAS_URL);
   url.searchParams.set('_path', path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const r = await fetch(url.toString());
+  const r = await fetch(url.toString(), { cache: 'no-cache' });
   const text = await r.text();
   try {
     return JSON.parse(text);
@@ -1101,7 +1101,8 @@ function renderSchedList() {
     const noCoach    = !e.coach;
     const noOfficial = !e.official;
     const catLabel = e.category.replace('_FUTSAL', ' FS');
-    const offSrcLabel = (SRC_MAP[e.category] || {}).shortLabel || '';
+    const isTRGEntry = e.league === 'TRG' || (e.notes || '').split('\n').some(n => n.trim() === 'TRG');
+    const offSrcLabel = isTRGEntry ? '' : (e.league || (SRC_MAP[e.category] || {}).shortLabel || '');
 
     let diffHtml;
     if (!e.disc) {
