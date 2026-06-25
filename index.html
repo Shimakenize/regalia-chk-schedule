@@ -552,11 +552,10 @@
 // ── 設定 ─────────────────────────────────────────────────────────────────────
 const LIFF_ID    = '2010471175-mz6PBjZx';
 const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQwAeb7U_Z2Xn-xBVRfvnv302cu_ckO-g-wyPATYuv4dPZY/exec';
-const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 47;
+const __UI_BUILD__  = 48;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -1132,19 +1131,19 @@ async function adminAction(action) {
   try {
     let res;
     if (action === 'compare') {
-      res = await gasGet('api/admin/compare-now', { token: ADMIN_TOKEN });
+      res = await gasGet('api/admin/compare-now', { userId });
       result.textContent = `照合完了: 新規差分 ${res.newDiscrepancies || 0}件`;
       const dr = await gasGet('api/discrepancies');
       discData = dr.discrepancies || [];
       renderSummary(); renderSchedList();
     } else if (action === 'reset-compare') {
-      res = await gasGet('api/admin/reset-compare', { token: ADMIN_TOKEN });
+      res = await gasGet('api/admin/reset-compare', { userId });
       result.textContent = `照合リセット完了: 新規差分 ${res.newDiscrepancies || 0}件`;
       const dr = await gasGet('api/discrepancies');
       discData = dr.discrepancies || [];
       renderSummary(); renderSchedList();
     } else if (action === 'send') {
-      res = await gasGet('api/admin/send-report-now', { token: ADMIN_TOKEN });
+      res = await gasGet('api/admin/send-report-now', { userId });
       result.textContent = res.ok ? 'レポートを配信しました' : 'エラー: ' + JSON.stringify(res);
     }
   } catch(e) { result.textContent = 'エラー: ' + e.message; }
@@ -1155,7 +1154,7 @@ async function adminAction(action) {
 async function loadMgmtCompareResult() {
   if (!isAdmin) return;
   try {
-    const res = await gasGet('api/admin/mgmt-compare-result', { token: ADMIN_TOKEN });
+    const res = await gasGet('api/admin/mgmt-compare-result', { userId });
     renderMgmtCompareResult(res);
   } catch(e) {
     const el = document.getElementById('mgmt-compare-result');
@@ -1169,7 +1168,7 @@ async function adminRunMgmtCompare(btn) {
   const el = document.getElementById('mgmt-compare-result');
   el.textContent = '実行中…';
   try {
-    const res = await gasGet('api/admin/mgmt-compare', { token: ADMIN_TOKEN });
+    const res = await gasGet('api/admin/mgmt-compare', { userId });
     renderMgmtCompareResult(res);
   } catch(e) {
     el.textContent = 'エラー: ' + e.message;
