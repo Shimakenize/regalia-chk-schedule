@@ -214,9 +214,7 @@
 
     /* ── Judge buttons ────────────────────────────────── */
     .disc-actions { display:flex; gap:8px; padding:10px 16px 14px; }
-    .judge-btn { flex:1; padding:11px; border-radius:9px; font-size:13px; font-weight:700; border:none; cursor:pointer; }
-    .judge-btn.ok     { background:linear-gradient(110deg,var(--gold),var(--gold-lt)); color:#1a1206; }
-    .judge-btn.danger { background:rgba(224,85,95,.18); color:#e0555f; border:1px solid rgba(224,85,95,.4); }
+
 
     /* ── Admin ────────────────────────────────────────── */
     .admin-cards { padding: 16px 16px 0; }
@@ -455,13 +453,9 @@
         <div class="sum-grid-num" id="cnt-ng">—</div>
         <div class="sum-grid-label">照合NG</div>
       </div>
-      <div class="sum-grid-card open" data-filter="open" onclick="filterSummary('open',this)">
-        <div class="sum-grid-num" id="cnt-open">—</div>
-        <div class="sum-grid-label">未確認</div>
-      </div>
-      <div class="sum-grid-card resolved" data-filter="resolved" onclick="filterSummary('resolved',this)">
-        <div class="sum-grid-num" id="cnt-manok">—</div>
-        <div class="sum-grid-label">マニュアル確認済</div>
+      <div class="sum-grid-card open" data-filter="other" onclick="filterSummary('other',this)">
+        <div class="sum-grid-num" id="cnt-other">—</div>
+        <div class="sum-grid-label">公式戦以外</div>
       </div>
     </div>
     <div class="sum-list-hdr-wrap">
@@ -535,7 +529,7 @@
       </div>
       <div class="admin-card">
         <div class="admin-card-title">照合リセット</div>
-        <div class="admin-card-desc">未確認の差分レコードをすべて削除し、照合をゼロから再実行します。マッピングが崩れた場合に使用。確認済みレコードは保持されます。</div>
+        <div class="admin-card-desc">全差分レコードを削除し、照合をゼロから再実行します。マッピングが崩れた場合に使用。</div>
         <button class="admin-btn admin-btn" style="background:#7b2d2d;color:#fff;" onclick="adminAction('reset-compare')">照合リセット</button>
       </div>
       <div class="admin-card">
@@ -569,7 +563,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 46;
+const __UI_BUILD__  = 47;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -580,7 +574,6 @@ let coachData       = [];
 let catFilter       = '全て';
 let schedStatusFilter = 'all';
 let summaryFilter   = 'all';
-let judging         = false;
 let selectedCoach   = null;
 let scrapeLogData   = [];
 
@@ -659,10 +652,9 @@ function fmtDateShort(dt) {
 
 function statusChip(status) {
   const cfg = {
-    ok:       { text:'照合OK',         c:'#43b873', bg:'rgba(67,184,115,.14)',   b:'rgba(67,184,115,.45)' },
-    ng:       { text:'要調査',         c:'#e0555f', bg:'rgba(224,85,95,.14)',    b:'rgba(224,85,95,.45)' },
-    open:     { text:'未確認',         c:'#d2a649', bg:'rgba(210,166,73,.14)',   b:'rgba(210,166,73,.45)' },
-    resolved: { text:'確認済',         c:'#8fa6c8', bg:'rgba(143,166,200,.16)',  b:'rgba(143,166,200,.45)' },
+    ok:    { text:'照合OK',    c:'#43b873', bg:'rgba(67,184,115,.14)',  b:'rgba(67,184,115,.45)' },
+    ng:    { text:'照合NG',    c:'#e0555f', bg:'rgba(224,85,95,.14)',   b:'rgba(224,85,95,.45)' },
+    other: { text:'公式戦以外', c:'#d2a649', bg:'rgba(210,166,73,.14)', b:'rgba(210,166,73,.45)' },
   };
   const s = cfg[status] || { text:status, c:'#9aa6bd', bg:'rgba(154,166,189,.14)', b:'rgba(154,166,189,.45)' };
   return `<span style="flex-shrink:0;font-size:11px;font-weight:700;color:${s.c};background:${s.bg};border:1px solid ${s.b};padding:5px 9px;border-radius:7px;">${s.text}</span>`;
@@ -965,7 +957,7 @@ function buildMerged() {
       notes: cm.notes || '',
       coach: { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
       official, disc,
-      status: disc ? disc.status : (official ? 'ok' : 'open'),
+      status: disc ? (NG_TYPES.has(disc.type) ? 'ng' : 'other') : (official ? 'ok' : 'other'),
     });
   }
   for (const d of discData) {
@@ -973,7 +965,7 @@ function buildMerged() {
     const dd = normDate(d.match_date);
     if (dd < today) continue;
     const od = safeParse(d.official_data) || {};
-    entries.push({ date: dd, category: d.category_code, coach: null, official: od, disc: d, status: d.status });
+    entries.push({ date: dd, category: d.category_code, coach: null, official: od, disc: d, status: 'ng' });
     usedDiscIds.add(d.id);
   }
   entries.sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : catSortKey(a.category) - catSortKey(b.category));
@@ -981,7 +973,8 @@ function buildMerged() {
 }
 
 // ── サマリー ─────────────────────────────────────────────────────────────────
-const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', open:'未確認', resolved:'マニュアル確認済' };
+const NG_TYPES = new Set(['official_only','time_mismatch','venue_mismatch','opponent_mismatch']);
+const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', other:'公式戦以外' };
 const TYPE_LABELS = {
   official_only:     '公式のみ（LINE未登録）',
   coach_only:        'LINEのみ（公式未掲載）',
@@ -995,8 +988,7 @@ function renderSummary() {
   document.getElementById('cnt-all').textContent   = merged.length;
   document.getElementById('cnt-ok').textContent    = merged.filter(e => e.status === 'ok').length;
   document.getElementById('cnt-ng').textContent    = merged.filter(e => e.status === 'ng').length;
-  document.getElementById('cnt-open').textContent  = merged.filter(e => e.status === 'open').length;
-  document.getElementById('cnt-manok').textContent = merged.filter(e => e.status === 'resolved').length;
+  document.getElementById('cnt-other').textContent = merged.filter(e => e.status === 'other').length;
   activateSummaryCard(summaryFilter);
   renderSumList(merged);
 }
@@ -1057,11 +1049,10 @@ function renderCatFilter() {
 
 function renderSchedStatusFilter() {
   const statuses = [
-    {label:'全て',            val:'all'},
-    {label:'照合OK',          val:'ok'},
-    {label:'照合NG',          val:'ng'},
-    {label:'未確認',          val:'open'},
-    {label:'確認済',          val:'resolved'},
+    {label:'全て',      val:'all'},
+    {label:'照合OK',    val:'ok'},
+    {label:'照合NG',    val:'ng'},
+    {label:'公式戦以外', val:'other'},
   ];
   document.getElementById('status-filter').innerHTML = statuses.map(s =>
     `<button class="chip-btn ${s.val==='all'?'active':''}" onclick="filterSchedStatus('${s.val}',this)">${s.label}</button>`
@@ -1109,13 +1100,9 @@ function renderSchedList() {
       diffHtml = `<div class="card-diff ok-match">差分無し</div>`;
     } else {
       const typeText = TYPE_LABELS[e.disc.type] || e.disc.type;
-      const cls = e.disc.status === 'resolved' ? 'resolved' : 'ng-open';
+      const cls = e.status === 'ng' ? 'ng-open' : 'resolved';
       diffHtml = `<div class="card-diff ${cls}">▶ ${typeText}</div>`;
     }
-    const resolvedHtml = (e.disc && e.disc.status === 'resolved' && e.disc.resolved_by)
-      ? `<div class="card-note"><span class="note-check">✓</span> ${e.disc.resolved_by} が確認 · ${fmtDatetime(e.disc.resolved_at)}</div>`
-      : '';
-    const actions = (e.disc && e.disc.status === 'open' && isAllowed) ? judgeButtons(e.disc.id) : '';
 
     return `<div class="cmp-card">
       <div class="cmp-card-head">
@@ -1137,41 +1124,9 @@ function renderSchedList() {
           ${!noOfficial && offVenue ? `<div class="cmp-col-venue">@ ${offVenue}</div>` : ''}
         </div>
       </div>
-      ${diffHtml}${resolvedHtml}${actions}
+      ${diffHtml}
     </div>`;
   }).join('');
-}
-
-// ── 判定ボタン ────────────────────────────────────────────────────────────────
-function judgeButtons(discId) {
-  return `<div class="disc-actions">
-    <button onclick="judgeDisc('${discId}','resolved')" class="judge-btn ok">確認済</button>
-    <button onclick="judgeDisc('${discId}','ng')"       class="judge-btn danger">要調査</button>
-  </div>`;
-}
-
-async function judgeDisc(id, status) {
-  if (judging) return;
-  judging = true;
-  const allJudgeBtns = document.querySelectorAll('.judge-btn');
-  allJudgeBtns.forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
-  setStatus('登録中…');
-  try {
-    const res = await gasGet('api/discrepancy/judge', { userId, displayName, id, status });
-    if (res.ok) {
-      const d = discData.find(d => d.id === id);
-      if (d) { d.status = status; if (status==='resolved') { d.resolved_by=displayName; d.resolved_at=new Date().toLocaleString('ja-JP'); } }
-      renderSchedList();
-      renderSummary();
-      setStatus(status==='resolved' ? '確認済として登録しました' : '要調査として登録しました');
-    } else {
-      setStatus('エラー: ' + JSON.stringify(res));
-      allJudgeBtns.forEach(b => { b.disabled=false; b.style.opacity=''; });
-    }
-  } catch(e) {
-    setStatus('エラー: ' + e.message);
-    allJudgeBtns.forEach(b => { b.disabled=false; b.style.opacity=''; });
-  } finally { judging = false; }
 }
 
 // ── 管理操作 ─────────────────────────────────────────────────────────────────
