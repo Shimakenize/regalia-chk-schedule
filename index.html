@@ -536,7 +536,7 @@ const ADMIN_TOKEN = 'rgl-claude-2026-Q8nJv4Yw';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 32;
+const __UI_BUILD__  = 33;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -878,7 +878,13 @@ function buildMerged() {
   for (const cm of upcomingCoach) {
     const key = normDate(cm.event_date) + '_' + catBase(cm.category_code);
     const discs = (discByKey[key] || []).filter(d => !usedDiscIds.has(d.id));
-    let disc = discs[0] || null, official = null;
+    // coach_data.title が一致するディスクを優先。同一日付+カテゴリに複数エントリがある場合の誤横取りを防ぐ
+    const cmTitle = (cm.title || cm.league_or_competition || '').toLowerCase().trim();
+    let disc = discs.find(d => {
+      const cd = safeParse(d.coach_data);
+      return cd && String(cd.title || '').toLowerCase().trim() === cmTitle;
+    }) || discs[0] || null;
+    let official = null;
     if (disc) {
       usedDiscIds.add(disc.id);
       const od = safeParse(disc.official_data);
