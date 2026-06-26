@@ -214,6 +214,35 @@
     .admin-card { border-radius:16px; padding:20px; margin-bottom:14px; background:var(--surface); border:1px solid var(--border); }
     .admin-card-title { font-size:16px; color:#fff; font-weight:700; margin-bottom:8px; }
     .admin-card-desc  { font-size:12px; color:var(--muted); line-height:1.7; margin-bottom:16px; }
+    .admin-subtabs {
+      display:flex; gap:8px; padding:14px 16px 0;
+      position:sticky; top:0; z-index:3;
+      background:linear-gradient(180deg,var(--bg) 75%,rgba(7,12,22,0));
+    }
+    .admin-subtab {
+      flex:1; padding:10px 8px; border-radius:999px;
+      background:rgba(255,255,255,.05); border:1px solid var(--border);
+      color:var(--muted); font-size:12px; font-weight:700; text-align:center;
+      cursor:pointer;
+    }
+    .admin-subtab.active {
+      color:#1a1206; border-color:transparent;
+      background:linear-gradient(110deg,var(--gold),var(--gold-lt));
+    }
+    .admin-panel { display:none; }
+    .admin-panel.active { display:block; }
+    .admin-actions-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .admin-action-tile {
+      min-height:104px; padding:14px; border-radius:14px;
+      background:var(--surface); border:1px solid var(--border);
+      color:#fff; text-align:left; cursor:pointer;
+    }
+    .admin-action-tile:disabled { opacity:.45; cursor:not-allowed; }
+    .admin-action-title { font-size:13px; font-weight:800; color:#fff; margin-bottom:6px; }
+    .admin-action-desc { font-size:10px; line-height:1.45; color:var(--muted); }
+    .admin-action-tile.gold { background:linear-gradient(135deg,rgba(201,162,75,.24),rgba(224,192,116,.12)); border-color:rgba(201,162,75,.5); }
+    .admin-action-tile.blue { background:rgba(45,84,123,.34); border-color:rgba(93,149,201,.35); }
+    .admin-action-tile.red  { background:rgba(123,45,45,.32); border-color:rgba(224,85,95,.38); }
     .admin-btn-gold {
       width:100%; padding:15px; border-radius:11px;
       background: linear-gradient(110deg,var(--gold),var(--gold-lt));
@@ -524,50 +553,64 @@
 
   <!-- ── 管理 ── -->
   <div id="page-admin" class="page">
-    <div class="admin-cards">
-      <div class="admin-card">
-        <div class="admin-card-title">公式HP再取得＆照合</div>
-        <div class="admin-card-desc">公式HPを今すぐスクレイプ（GitHub Actions）し、最新データでLINEと照合します。完了まで約2分かかります。</div>
-        <button class="admin-btn-gold admin-btn" onclick="adminAction('trigger-scrape')">スクレイプ＆照合</button>
-      </div>
-      <div class="admin-card">
-        <div class="admin-card-title">今すぐ照合（スクレイプなし）</div>
-        <div class="admin-card-desc">前回スクレイプ済みの公式データとLINEデータを再照合し、差分を書き込みます。通常は毎週木曜17:50に自動実行されます。</div>
-        <button class="admin-btn admin-btn" style="background:#2d547b;color:#fff;" onclick="adminAction('compare')">今すぐ照合</button>
-      </div>
-      <div class="admin-card">
-        <div class="admin-card-title">照合リセット</div>
-        <div class="admin-card-desc">全差分レコードを削除し、照合をゼロから再実行します。マッピングが崩れた場合に使用。</div>
-        <button class="admin-btn admin-btn" style="background:#7b2d2d;color:#fff;" onclick="adminAction('reset-compare')">照合リセット</button>
-      </div>
-      <div class="admin-card">
-        <div class="admin-card-title">今すぐ配信</div>
-        <div class="admin-card-desc">照合レポート（テキスト）をLINEグループへ今すぐ送信します。通常は毎週木曜18:00に自動配信されます。</div>
-        <button class="admin-btn-gold admin-btn" onclick="adminAction('send')">今すぐ配信</button>
-      </div>
-      <div id="admin-result" class="admin-result"></div>
-      <div class="admin-card mgmt-compare-card">
-        <div class="admin-card-title">schedule_mgmt 照合</div>
-        <div class="admin-card-desc">REGALIA_schedule_management の試合情報と LINEコーチ情報を照合します。毎日 6:00 JST 自動実行。</div>
-        <div id="mgmt-compare-result" class="mgmt-compare-result">読み込み中…</div>
-        <button class="admin-btn admin-btn" style="background:#2d547b;color:#fff;margin-top:10px;" onclick="adminRunMgmtCompare(this)">今すぐ実行</button>
+    <div class="admin-subtabs">
+      <button class="admin-subtab active" data-admin-panel="actions" onclick="switchAdminPanel('actions')">操作</button>
+      <button class="admin-subtab" data-admin-panel="compare" onclick="switchAdminPanel('compare')">照合</button>
+      <button class="admin-subtab" data-admin-panel="logs" onclick="switchAdminPanel('logs')">メンバー/ログ</button>
+    </div>
+
+    <div id="admin-panel-actions" class="admin-panel active">
+      <div class="admin-cards">
+        <div class="admin-actions-grid">
+          <button class="admin-action-tile gold admin-btn" onclick="adminAction('trigger-scrape')">
+            <div class="admin-action-title">公式HP再取得＆照合</div>
+            <div class="admin-action-desc">公式HPをスクレイプして照合。約2分。</div>
+          </button>
+          <button class="admin-action-tile blue admin-btn" onclick="adminAction('compare')">
+            <div class="admin-action-title">今すぐ照合</div>
+            <div class="admin-action-desc">前回スクレイプ済みデータで再照合。</div>
+          </button>
+          <button class="admin-action-tile gold admin-btn" onclick="adminAction('send')">
+            <div class="admin-action-title">今すぐ配信</div>
+            <div class="admin-action-desc">照合レポートをLINEグループへ送信。</div>
+          </button>
+          <button class="admin-action-tile red admin-btn" onclick="adminAction('reset-compare')">
+            <div class="admin-action-title">照合リセット</div>
+            <div class="admin-action-desc">差分を全削除してゼロから再照合。</div>
+          </button>
+        </div>
+        <div id="admin-result" class="admin-result"></div>
       </div>
     </div>
-    <div id="members-section" class="members-card" style="display:none;">
-      <div class="members-title">登録メンバーリスト</div>
-      <div class="members-meta" id="members-meta">読み込み中…</div>
-      <div id="members-body"></div>
-      <button class="members-refresh-btn" onclick="refreshMembers()">更新</button>
+
+    <div id="admin-panel-compare" class="admin-panel">
+      <div class="admin-cards">
+        <div class="admin-card mgmt-compare-card">
+          <div class="admin-card-title">schedule_mgmt 照合</div>
+          <div class="admin-card-desc">REGALIA_schedule_management の試合情報と LINEコーチ情報を照合します。毎日 6:00 JST 自動実行。</div>
+          <div id="mgmt-compare-result" class="mgmt-compare-result">読み込み中…</div>
+          <button class="admin-btn admin-btn" style="background:#2d547b;color:#fff;margin-top:10px;" onclick="adminRunMgmtCompare(this)">今すぐ実行</button>
+        </div>
+      </div>
     </div>
-    <div id="access-log-section" class="members-card" style="display:none;">
-      <div class="members-title">アクセスログ</div>
-      <div class="members-meta">LIFF 起動時のアクセスを記録（閲覧者すべて）</div>
-      <select id="access-log-filter" class="access-log-filter" onchange="refreshAccessLog()">
-        <option value="30d">直近30日</option>
-      </select>
-      <div class="members-meta" id="access-log-meta">読み込み中…</div>
-      <div id="access-log-body"></div>
-      <button class="members-refresh-btn" onclick="refreshAccessLog()">更新</button>
+
+    <div id="admin-panel-logs" class="admin-panel">
+      <div id="members-section" class="members-card" style="display:none;">
+        <div class="members-title">登録メンバーリスト</div>
+        <div class="members-meta" id="members-meta">読み込み中…</div>
+        <div id="members-body"></div>
+        <button class="members-refresh-btn" onclick="refreshMembers()">更新</button>
+      </div>
+      <div id="access-log-section" class="members-card" style="display:none;">
+        <div class="members-title">アクセスログ</div>
+        <div class="members-meta">LIFF 起動時のアクセスを記録（閲覧者すべて）</div>
+        <select id="access-log-filter" class="access-log-filter" onchange="refreshAccessLog()">
+          <option value="30d">直近30日</option>
+        </select>
+        <div class="members-meta" id="access-log-meta">読み込み中…</div>
+        <div id="access-log-body"></div>
+        <button class="members-refresh-btn" onclick="refreshAccessLog()">更新</button>
+      </div>
     </div>
   </div>
 
@@ -580,7 +623,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 51;
+const __UI_BUILD__  = 52;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -798,8 +841,6 @@ async function startMainApp(meRes) {
   if (isAdmin) {
     document.getElementById('members-section').style.display = '';
     document.getElementById('access-log-section').style.display = '';
-    refreshMembers();
-    refreshAccessLog();
   }
 
   setStatus('読み込み完了');
@@ -1354,8 +1395,23 @@ function switchTab(name) {
   document.getElementById('page-' + name).classList.add('active');
   if (name === 'coach-raw') renderCoachRaw();
   if (name === 'admin') {
-    loadMgmtCompareResult();
-    if (isAdmin) refreshAccessLog();
+    switchAdminPanel('actions');
+  }
+}
+
+function switchAdminPanel(name) {
+  document.querySelectorAll('.admin-subtab').forEach(t => {
+    t.classList.toggle('active', t.dataset.adminPanel === name);
+  });
+  document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById('admin-panel-' + name);
+  if (panel) panel.classList.add('active');
+
+  if (!isAdmin) return;
+  if (name === 'compare') loadMgmtCompareResult();
+  if (name === 'logs') {
+    refreshMembers();
+    refreshAccessLog();
   }
 }
 
