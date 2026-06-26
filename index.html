@@ -253,6 +253,16 @@
       color:#fff; font-size:13px; font-weight:700; letter-spacing:.06em;
       border:none; cursor:pointer; margin-top:14px;
     }
+    .access-log-filter {
+      width:100%; padding:10px 12px; border-radius:10px;
+      background:#0a1528; color:#fff; border:1px solid var(--border);
+      font-size:13px; margin-bottom:10px;
+    }
+    .access-log-table { width:100%; border-collapse:collapse; font-size:11px; }
+    .access-log-table th { text-align:left; color:var(--muted); font-weight:600; padding:6px 4px; border-bottom:1px solid var(--border); }
+    .access-log-table td { padding:7px 4px; border-bottom:1px solid rgba(255,255,255,.05); vertical-align:top; }
+    .access-log-table td:first-child { white-space:nowrap; color:var(--muted); }
+    .access-log-unreg { color:#d2a649; }
 
     /* ── Registration overlay ─────────────────────────── */
     #register-overlay {
@@ -549,6 +559,16 @@
       <div id="members-body"></div>
       <button class="members-refresh-btn" onclick="refreshMembers()">更新</button>
     </div>
+    <div id="access-log-section" class="members-card" style="display:none;">
+      <div class="members-title">アクセスログ</div>
+      <div class="members-meta">LIFF 起動時のアクセスを記録（閲覧者すべて）</div>
+      <select id="access-log-filter" class="access-log-filter" onchange="refreshAccessLog()">
+        <option value="30d">直近30日</option>
+      </select>
+      <div class="members-meta" id="access-log-meta">読み込み中…</div>
+      <div id="access-log-body"></div>
+      <button class="members-refresh-btn" onclick="refreshAccessLog()">更新</button>
+    </div>
   </div>
 
 </div>
@@ -560,7 +580,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 49;
+const __UI_BUILD__  = 50;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -732,7 +752,7 @@ async function init() {
     userId      = profile.userId;
     displayName = profile.displayName;
 
-    const meRes = await gasGet('auth/me', { userId });
+    const meRes = await gasGet('auth/me', { userId, displayName });
     isAdmin   = meRes.isAdmin   || false;
     isAllowed = meRes.isAllowed || false;
 
@@ -777,7 +797,9 @@ async function startMainApp(meRes) {
 
   if (isAdmin) {
     document.getElementById('members-section').style.display = '';
+    document.getElementById('access-log-section').style.display = '';
     refreshMembers();
+    refreshAccessLog();
   }
 
   setStatus('読み込み完了');
@@ -1236,6 +1258,47 @@ function renderMgmtCompareResult(res) {
 }
 
 // ── 登録メンバー管理 ─────────────────────────────────────────────────────────
+async function refreshAccessLog() {
+  const meta = document.getElementById('access-log-meta');
+  const body = document.getElementById('access-log-body');
+  const sel  = document.getElementById('access-log-filter');
+  if (!meta || !body || !sel) return;
+  const filter = sel.value || '30d';
+  meta.textContent = '読み込み中…';
+  body.innerHTML = '';
+  try {
+    const res = await gasGet('admin/access-log', { userId, filter });
+    if (!res.ok) { meta.textContent = 'エラー: ' + (res.error || ''); return; }
+
+    const current = sel.value;
+    const monthOpts = (res.months || []).map(m =>
+      `<option value="${m.value}">${m.label}</option>`
+    ).join('');
+    sel.innerHTML = `<option value="30d">直近30日</option>${monthOpts}`;
+    sel.value = (current === '30d' || (res.months || []).some(m => m.value === current)) ? current : '30d';
+
+    const logs = res.logs || [];
+    meta.textContent = `${logs.length} 件表示`;
+    if (!logs.length) {
+      body.innerHTML = '<div class="empty-msg" style="padding:16px 0;">該当ログなし</div>';
+      return;
+    }
+    body.innerHTML = `<table class="access-log-table">
+      <thead><tr><th>日時</th><th>ユーザー</th></tr></thead>
+      <tbody>${logs.map(l => {
+        const cls = l.registered ? '' : ' access-log-unreg';
+        const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return `<tr>
+          <td>${esc(fmtDatetime(l.accessed_at))}</td>
+          <td class="${cls.trim()}">${esc(l.user_label)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  } catch (e) {
+    meta.textContent = 'エラー: ' + e.message;
+  }
+}
+
 async function refreshMembers() {
   const meta = document.getElementById('members-meta');
   const body = document.getElementById('members-body');
@@ -1287,7 +1350,10 @@ function switchTab(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   if (name === 'coach-raw') renderCoachRaw();
-  if (name === 'admin') loadMgmtCompareResult();
+  if (name === 'admin') {
+    loadMgmtCompareResult();
+    if (isAdmin) refreshAccessLog();
+  }
 }
 
 // ── LINE試合生データ ──────────────────────────────────────────────────────────
