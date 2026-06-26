@@ -516,9 +516,14 @@
   <div id="page-admin" class="page">
     <div class="admin-cards">
       <div class="admin-card">
-        <div class="admin-card-title">今すぐ照合</div>
-        <div class="admin-card-desc">公式HPとLINEの試合予定を照合し、差分をスプレッドシートに書き込みます。通常は毎週木曜17:50に自動実行されます。</div>
-        <button class="admin-btn-gold admin-btn" onclick="adminAction('compare')">今すぐ照合</button>
+        <div class="admin-card-title">公式HP再取得＆照合</div>
+        <div class="admin-card-desc">公式HPを今すぐスクレイプ（GitHub Actions）し、最新データでLINEと照合します。完了まで約2分かかります。</div>
+        <button class="admin-btn-gold admin-btn" onclick="adminAction('trigger-scrape')">スクレイプ＆照合</button>
+      </div>
+      <div class="admin-card">
+        <div class="admin-card-title">今すぐ照合（スクレイプなし）</div>
+        <div class="admin-card-desc">前回スクレイプ済みの公式データとLINEデータを再照合し、差分を書き込みます。通常は毎週木曜17:50に自動実行されます。</div>
+        <button class="admin-btn admin-btn" style="background:#2d547b;color:#fff;" onclick="adminAction('compare')">今すぐ照合</button>
       </div>
       <div class="admin-card">
         <div class="admin-card-title">照合リセット</div>
@@ -555,7 +560,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 48;
+const __UI_BUILD__  = 49;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -1142,6 +1147,13 @@ async function adminAction(action) {
       const dr = await gasGet('api/discrepancies');
       discData = dr.discrepancies || [];
       renderSummary(); renderSchedList();
+    } else if (action === 'trigger-scrape') {
+      res = await gasGet('api/admin/trigger-scrape', { userId });
+      if (res.ok) {
+        result.innerHTML = 'スクレイプを開始しました。<br><small style="color:var(--muted)">約2分後に画面を更新すると照合結果が反映されます。</small>';
+      } else {
+        result.textContent = 'エラー: ' + (res.error || '不明');
+      }
     } else if (action === 'send') {
       res = await gasGet('api/admin/send-report-now', { userId });
       result.textContent = res.ok ? 'レポートを配信しました' : 'エラー: ' + JSON.stringify(res);
