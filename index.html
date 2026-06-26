@@ -580,7 +580,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 50;
+const __UI_BUILD__  = 51;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -1284,13 +1284,16 @@ async function refreshAccessLog() {
       return;
     }
     body.innerHTML = `<table class="access-log-table">
-      <thead><tr><th>日時</th><th>ユーザー</th></tr></thead>
+      <thead><tr><th>日時</th><th>紐付け</th><th>名前</th></tr></thead>
       <tbody>${logs.map(l => {
         const cls = l.registered ? '' : ' access-log-unreg';
         const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const bindLabel = l.registered ? (esc(l.coach_name) || '—') : '未登録';
+        const nameLabel = esc(l.display_name) || '—';
         return `<tr>
           <td>${esc(fmtDatetime(l.accessed_at))}</td>
-          <td class="${cls.trim()}">${esc(l.user_label)}</td>
+          <td class="${cls.trim()}">${bindLabel}</td>
+          <td>${nameLabel}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>`;
