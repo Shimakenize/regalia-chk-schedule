@@ -367,6 +367,15 @@
       padding: 2px 13px 10px;
       border-top: none !important;
     }
+    .official-detail-row.collapsed { display: none; }
+    .official-detail-toggle {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: none; border: none; padding: 0; margin: 0;
+      cursor: pointer; font: inherit; text-align: left;
+    }
+    .official-detail-toggle .official-detail-chevron {
+      color: var(--gold); font-size: 11px; line-height: 1;
+    }
     .official-matches { display:flex; flex-direction:column; gap:4px; }
     .official-match-item {
       font-size: 11px; color: var(--sub);
@@ -624,7 +633,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 53;
+const __UI_BUILD__  = 54;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -637,6 +646,7 @@ let schedStatusFilter = 'all';
 let summaryFilter   = 'all';
 let selectedCoach   = null;
 let scrapeLogData   = [];
+let officialDetailOpen = {};
 
 const OFFICIAL_SOURCES = [
   { id: 'U-15',        label: 'U-15リーグ(2部)',         shortLabel: 'U15L 2部',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-2b-2026/' },
@@ -874,6 +884,15 @@ async function loadScrapeLog() {
   }
 }
 
+function isOfficialDetailOpen(id) {
+  return officialDetailOpen[id] !== false;
+}
+
+function toggleOfficialDetail(id) {
+  officialDetailOpen[id] = !isOfficialDetailOpen(id);
+  renderOfficialHp();
+}
+
 function renderOfficialHp() {
   const tbody = document.getElementById('official-tbody');
   if (!tbody) return;
@@ -899,8 +918,14 @@ function renderOfficialHp() {
         resultHtml = '<span class="sc-none">HP更新（REGALIA試合なし）</span>';
       } else {
         const cntStr = cnt > 0 ? ` ${cnt}件追加` : '';
-        resultHtml = `<span class="sc-changed">変更検知${cntStr}</span>`;
         showDetails = cnt > 0;
+        if (showDetails) {
+          const open = isOfficialDetailOpen(src.id);
+          const chevron = open ? '▾' : '▸';
+          resultHtml = `<button type="button" class="official-detail-toggle" onclick="toggleOfficialDetail('${src.id}')"><span class="sc-changed">変更検知${cntStr}</span><span class="official-detail-chevron">${chevron}</span></button>`;
+        } else {
+          resultHtml = `<span class="sc-changed">変更検知${cntStr}</span>`;
+        }
       }
     }
 
@@ -923,7 +948,8 @@ function renderOfficialHp() {
           const v = m.venue ? ` @${m.venue}` : '';
           return `<div class="official-match-item">▸ ${d}${t} vs ${opp}${v}</div>`;
         }).join('');
-        rows.push(`<tr class="official-detail-row"><td colspan="4"><div class="official-matches">${items}</div></td></tr>`);
+        const open = isOfficialDetailOpen(src.id);
+        rows.push(`<tr class="official-detail-row${open ? '' : ' collapsed'}"><td colspan="4"><div class="official-matches">${items}</div></td></tr>`);
       }
     }
   });
