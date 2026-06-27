@@ -522,7 +522,7 @@
   <!-- ── 公式HP ── -->
   <div id="page-official" class="page">
     <div class="official-wrap">
-      <p class="official-hint">大会名をタップすると公式HPを開きます</p>
+      <p class="official-hint">大会名をタップすると公式HPを開きます。差分がある場合は「変更検知 N件追加」をタップすると内容を開けます。時刻はすべてJSTです。</p>
       <table class="official-table">
         <thead>
           <tr>
@@ -633,7 +633,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 54;
+const __UI_BUILD__  = 55;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -885,7 +885,7 @@ async function loadScrapeLog() {
 }
 
 function isOfficialDetailOpen(id) {
-  return officialDetailOpen[id] !== false;
+  return officialDetailOpen[id] === true;
 }
 
 function toggleOfficialDetail(id) {
