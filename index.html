@@ -518,12 +518,13 @@
         <thead>
           <tr>
             <th>大会名</th>
-            <th>最終確認 (JST)</th>
-            <th>スクレイプ結果</th>
+            <th>差分検出時刻</th>
+            <th>差分結果</th>
+            <th>最終確認時間</th>
           </tr>
         </thead>
         <tbody id="official-tbody">
-          <tr><td colspan="3" class="empty-msg">読み込み中…</td></tr>
+          <tr><td colspan="4" class="empty-msg">読み込み中…</td></tr>
         </tbody>
       </table>
       <p class="official-note">
@@ -623,7 +624,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 52;
+const __UI_BUILD__  = 53;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -883,6 +884,7 @@ function renderOfficialHp() {
     const log = scrapeLogData.find(r => r.category_code === src.id);
     const lastChecked = log ? String(log.last_checked || '') : '';
     const lastChanged = log ? String(log.last_changed || '') : '';
+    const changedFmt  = lastChanged ? fmtDatetime(lastChanged) : '—';
     const checkedFmt  = lastChecked ? fmtDatetime(lastChecked) : '—';
     const cnt = log && log.regalia_match_count != null ? Number(log.regalia_match_count) : -1;
 
@@ -891,8 +893,8 @@ function renderOfficialHp() {
     if (!lastChecked) {
       resultHtml = '<span class="sc-none">未記録</span>';
     } else if (!lastChanged) {
-      resultHtml = '<span class="sc-ok">更新なし</span>';
-    } else if (lastChecked.substring(0, 16) === lastChanged.substring(0, 16)) {
+      resultHtml = '<span class="sc-ok">差分なし</span>';
+    } else {
       if (cnt === 0) {
         resultHtml = '<span class="sc-none">HP更新（REGALIA試合なし）</span>';
       } else {
@@ -900,15 +902,13 @@ function renderOfficialHp() {
         resultHtml = `<span class="sc-changed">変更検知${cntStr}</span>`;
         showDetails = cnt > 0;
       }
-    } else {
-      resultHtml = '<span class="sc-ok">更新なし</span>';
     }
 
     const nameHtml = src.url
       ? `<a class="official-link" href="${src.url}" target="_blank">${src.label} ↗</a>`
       : `<span class="official-tbd">${src.label} (TBD)</span>`;
 
-    rows.push(`<tr><td>${nameHtml}</td><td>${checkedFmt}</td><td>${resultHtml}</td></tr>`);
+    rows.push(`<tr><td>${nameHtml}</td><td>${changedFmt}</td><td>${resultHtml}</td><td>${checkedFmt}</td></tr>`);
 
     if (showDetails) {
       const matches = schedData
@@ -923,7 +923,7 @@ function renderOfficialHp() {
           const v = m.venue ? ` @${m.venue}` : '';
           return `<div class="official-match-item">▸ ${d}${t} vs ${opp}${v}</div>`;
         }).join('');
-        rows.push(`<tr class="official-detail-row"><td colspan="3"><div class="official-matches">${items}</div></td></tr>`);
+        rows.push(`<tr class="official-detail-row"><td colspan="4"><div class="official-matches">${items}</div></td></tr>`);
       }
     }
   });
