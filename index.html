@@ -633,7 +633,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 56;
+const __UI_BUILD__  = 57;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -896,7 +896,7 @@ function toggleOfficialDetail(id) {
 function renderOfficialHp() {
   const tbody = document.getElementById('official-tbody');
   if (!tbody) return;
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Intl.DateTimeFormat('sv', {timeZone: 'Asia/Tokyo'}).format(new Date());
   const rows = [];
 
   OFFICIAL_SOURCES.forEach(src => {
@@ -973,7 +973,7 @@ function _nameSim(a, b) {
 }
 
 function buildMerged() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Intl.DateTimeFormat('sv', {timeZone: 'Asia/Tokyo'}).format(new Date());
   const discByKey = {};
   discData.forEach(d => {
     const key = normDate(d.match_date) + '_' + catBase(d.category_code);
@@ -1453,7 +1453,7 @@ const CAT_OPTIONS = ['U-13','U-14','U-15','U-13_FUTSAL','U-14_FUTSAL','U-15_FUTS
 function renderCoachRaw() {
   const tbody = document.getElementById('crt-tbody');
   if (!tbody) return;
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Intl.DateTimeFormat('sv', {timeZone: 'Asia/Tokyo'}).format(new Date());
   const rows = coachData
     .filter(r => normDate(r.event_date) >= today)
     .sort((a, b) => {
