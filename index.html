@@ -633,7 +633,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 55;
+const __UI_BUILD__  = 56;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -1103,7 +1103,7 @@ function renderSumList(merged) {
     const catLabel = e.category.replace('_FUTSAL', ' FS');
     const isTRG = e.league === 'TRG' || (e.notes || '').split('\n').some(n => n.trim() === 'TRG');
     const srcLabel = isTRG ? 'TRG' : (e.league || (SRC_MAP[e.category] || {}).shortLabel || '');
-    return `<div class="sum-row" onclick="jumpToSched('${catBase(e.category)}')">
+    return `<div class="sum-row" onclick="jumpToSched()">
       <div class="sum-row-left">
         <div class="sum-row-date">${fmtDate(e.date)}</div>
         <div class="sum-row-cat" style="${catBadgeStyle(e.category)}">${catLabel}</div>
@@ -1114,11 +1114,17 @@ function renderSumList(merged) {
   }).join('');
 }
 
-function jumpToSched(cat) {
-  catFilter = cat;
+const SCHED_STATUS_LABELS = { all:'全て', ok:'照合OK', ng:'照合NG', other:'公式戦以外' };
+
+function jumpToSched() {
+  catFilter = '全て';
+  schedStatusFilter = summaryFilter;
   switchTab('sched');
   document.querySelectorAll('#cat-filter .chip-btn').forEach(b => {
-    b.classList.toggle('active', b.textContent.trim() === cat);
+    b.classList.toggle('active', b.textContent.trim() === '全て');
+  });
+  document.querySelectorAll('#status-filter .chip-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === SCHED_STATUS_LABELS[schedStatusFilter]);
   });
   renderSchedList();
 }
