@@ -633,7 +633,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 57;
+const __UI_BUILD__  = 58;
 let userId          = null;
 let displayName     = null;
 let isAdmin         = false;
@@ -709,7 +709,10 @@ function fmtDatetime(dt) {
   if (!dt) return '—';
   const s = String(dt);
   const m = s.match(/(\d{1,4})[\/\-](\d{1,2})[\/\-](\d{1,2})[\sT](\d{2}):(\d{2})/);
-  if (m) return `${Number(m[2])}/${Number(m[3])} ${m[4]}:${m[5]}`;
+  if (m) {
+    const dow = ['日','月','火','水','木','金','土'][new Date(Number(m[1]),Number(m[2])-1,Number(m[3])).getDay()];
+    return `${Number(m[2])}/${Number(m[3])}(${dow}) ${m[4]}:${m[5]}`;
+  }
   return s.substring(0, 16);
 }
 
@@ -717,7 +720,10 @@ function fmtDateShort(dt) {
   if (!dt) return '—';
   const s = String(dt);
   const m = s.match(/(\d{1,4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-  if (m) return `${Number(m[2])}/${Number(m[3])}`;
+  if (m) {
+    const dow = ['日','月','火','水','木','金','土'][new Date(Number(m[1]),Number(m[2])-1,Number(m[3])).getDay()];
+    return `${Number(m[2])}/${Number(m[3])}(${dow})`;
+  }
   return s.substring(0, 10);
 }
 
@@ -1309,21 +1315,21 @@ function renderMgmtCompareResult(res) {
     html += `<div class="mgmt-section-title">差異あり</div><table class="mgmt-table">`;
     for (const it of det.diff) {
       const ds = it.diffs.map(d => `${d.field}: ${d.mgmt||'—'} → ${d.coach||'—'}`).join(' / ');
-      html += `<tr><td>${it.date}</td><td>${it.cat}</td><td>${it.title}</td><td class="mgmt-diff-detail">${ds}</td></tr>`;
+      html += `<tr><td>${fmtDate(it.date)}</td><td>${it.cat}</td><td>${it.title}</td><td class="mgmt-diff-detail">${ds}</td></tr>`;
     }
     html += `</table>`;
   }
   if (det.only_mgmt && det.only_mgmt.length) {
     html += `<div class="mgmt-section-title">schedule_mgmt のみ</div><table class="mgmt-table">`;
     for (const it of det.only_mgmt) {
-      html += `<tr><td>${it.date}</td><td>${it.cat}</td><td>${it.title}</td><td>${it.time}</td></tr>`;
+      html += `<tr><td>${fmtDate(it.date)}</td><td>${it.cat}</td><td>${it.title}</td><td>${it.time}</td></tr>`;
     }
     html += `</table>`;
   }
   if (det.only_coach && det.only_coach.length) {
     html += `<div class="mgmt-section-title">LINE のみ</div><table class="mgmt-table">`;
     for (const it of det.only_coach) {
-      html += `<tr><td>${it.date}</td><td>${it.cat}</td><td>${it.title}</td><td>${it.time}</td></tr>`;
+      html += `<tr><td>${fmtDate(it.date)}</td><td>${it.cat}</td><td>${it.title}</td><td>${it.time}</td></tr>`;
     }
     html += `</table>`;
   }
@@ -1477,8 +1483,9 @@ function renderCoachRaw() {
     const rid = String(r.id);
     const cells = FIELDS.map(f => {
       const v = String(r[f.field] || '');
-      const disp = v ? v : '<span style="color:var(--dim)">—</span>';
-      return `<td class="crt-editable" data-row-id="${rid}" data-field="${f.field}" data-type="${f.type}" onclick="crtEdit(this)">${disp}</td>`;
+      const dispVal = (f.field === 'event_date' && v) ? fmtDate(v) : v;
+      const disp = v ? dispVal : '<span style="color:var(--dim)">—</span>';
+      return `<td class="crt-editable" data-row-id="${rid}" data-field="${f.field}" data-type="${f.type}" data-raw-val="${v}" onclick="crtEdit(this)">${disp}</td>`;
     }).join('');
     return `<tr data-row-id="${rid}">${cells}<td><button class="crt-del" onclick="crtDelete('${rid}')">🗑</button></td></tr>`;
   }).join('');
@@ -1489,7 +1496,7 @@ function crtEdit(cell) {
   const rowId = cell.dataset.rowId;
   const field = cell.dataset.field;
   const type  = cell.dataset.type;
-  const val   = (cell.textContent.trim() === '—' ? '' : cell.textContent.trim());
+  const val   = cell.hasAttribute('data-raw-val') ? cell.dataset.rawVal : (cell.textContent.trim() === '—' ? '' : cell.textContent.trim());
   // id列が未設定のスプレッドシート行用フォールバックキー
   const fbRow = coachData.find(r => String(r.id) === rowId) || {};
   let input;
