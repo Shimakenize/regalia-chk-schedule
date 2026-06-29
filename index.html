@@ -708,7 +708,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 61;
+const __UI_BUILD__  = 62;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1103,20 +1103,20 @@ function buildMerged() {
     // coach_data.title が一致するディスクのみ割り当て。不一致はフォールバックせずnull
     // → 同一日付+カテゴリの複数エントリ間での誤横取りを防ぐ
     const cmTitle = (cm.title || cm.league_or_competition || '').toLowerCase().trim();
-    const titledDisc = discs.find(d => {
+    const titledDiscs = discs.filter(d => {
       const cd = safeParse(d.coach_data);
       const cdTitle = String(cd?.title || '').toLowerCase().trim();
       return cdTitle && cdTitle === cmTitle;
     });
     // title 不一致でも disc が1件のみかつ coach_data に title が無い場合のみフォールバック
-    const disc = titledDisc ?? (
+    const matchedDiscs = titledDiscs.length > 0 ? titledDiscs : (
       discs.length === 1 && (() => { const cd = safeParse(discs[0].coach_data); return !cd?.title; })()
-        ? discs[0] : null
+        ? [discs[0]] : []
     );
     let official = null;
-    if (disc) {
-      usedDiscIds.add(disc.id);
-      const od = safeParse(disc.official_data);
+    if (matchedDiscs.length > 0) {
+      matchedDiscs.forEach(d => usedDiscIds.add(d.id));
+      const od = safeParse(matchedDiscs[0].official_data);
       if (od && (od.opponent || od.time)) official = od;
     } else {
       const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
@@ -1127,8 +1127,8 @@ function buildMerged() {
       league: cm.league_or_competition || '',
       notes: cm.notes || '',
       coach: { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
-      official, disc,
-      status: disc ? (NG_TYPES.has(disc.type) ? 'ng' : 'other') : (official ? 'ok' : 'other'),
+      official, discs: matchedDiscs,
+      status: matchedDiscs.length > 0 ? (matchedDiscs.some(d => NG_TYPES.has(d.type)) ? 'ng' : 'other') : (official ? 'ok' : 'other'),
     });
   }
   for (const d of discData) {
@@ -1136,7 +1136,7 @@ function buildMerged() {
     const dd = normDate(d.match_date);
     if (dd < today) continue;
     const od = safeParse(d.official_data) || {};
-    entries.push({ date: dd, category: d.category_code, coach: null, official: od, disc: d, status: 'ng' });
+    entries.push({ date: dd, category: d.category_code, coach: null, official: od, discs: [d], status: 'ng' });
     usedDiscIds.add(d.id);
   }
   entries.sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : catSortKey(a.category) - catSortKey(b.category));
@@ -1273,11 +1273,11 @@ function renderSchedList() {
     const offSrcLabel = isTRGEntry ? '' : (e.league || (SRC_MAP[e.category] || {}).shortLabel || '');
 
     let diffHtml;
-    if (!e.disc) {
+    if (!e.discs || !e.discs.length) {
       diffHtml = `<div class="card-diff ok-match">差分無し</div>`;
     } else {
-      const typeText = TYPE_LABELS[e.disc.type] || e.disc.type;
       const cls = e.status === 'ng' ? 'ng' : 'other';
+      const typeText = e.discs.map(d => TYPE_LABELS[d.type] || d.type).join(' / ');
       diffHtml = `<div class="card-diff ${cls}">▶ ${typeText}</div>`;
     }
 
