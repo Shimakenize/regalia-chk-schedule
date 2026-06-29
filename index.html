@@ -708,7 +708,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 60;
+const __UI_BUILD__  = 61;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1670,7 +1670,7 @@ function _esc(s) {
 }
 
 function renderFeedback() {
-  const reporter = coachName || displayName || '—';
+  const reporter = isAdmin ? '管理者' : (coachName || displayName || '—');
   const el = document.getElementById('fb-reporter-name');
   if (el) el.textContent = reporter;
 
@@ -1735,7 +1735,7 @@ async function submitFeedback() {
   setStatus('送信中…');
   try {
     const res = await gasGet('api/feedback/submit', {
-      userId, displayName: coachName || displayName || '',
+      userId, displayName: isAdmin ? '管理者' : (coachName || displayName || ''),
       type: fbSelectedType, title, body,
     });
     if (!res.ok) throw new Error(res.error || 'submit failed');
