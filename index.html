@@ -294,6 +294,49 @@
     .access-log-table td:first-child { white-space:nowrap; color:var(--muted); }
     .access-log-unreg { color:#d2a649; }
 
+    /* ── バグ・要望タブ ───────────────────────────────── */
+    .fb-section { padding: 14px 16px 30px; }
+    .fb-section-title { font-size:11px; font-weight:700; color:var(--gold); letter-spacing:1px; margin:0 0 12px; text-transform:uppercase; }
+    .fb-form-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
+    .fb-type-row { display:flex; gap:8px; margin-bottom:14px; }
+    .fb-type-btn { padding:7px 18px; border-radius:20px; font-size:13px; font-weight:600; border:1.5px solid var(--border); color:var(--muted); cursor:pointer; background:transparent; font-family:inherit; }
+    .fb-type-btn.sel-bug  { border-color:#e0555f; color:#e0555f; background:rgba(224,85,95,.12); }
+    .fb-type-btn.sel-feat { border-color:#43b873; color:#43b873; background:rgba(67,184,115,.12); }
+    .fb-form-label { font-size:11px; color:var(--dim); margin-bottom:5px; }
+    .fb-form-input { width:100%; background:#050d1a; border:1px solid var(--border); border-radius:6px; padding:9px 12px; color:#e8eaf0; font-size:13px; margin-bottom:12px; font-family:inherit; }
+    .fb-form-input::placeholder { color:#2a3a4a; }
+    textarea.fb-form-input { resize:vertical; min-height:90px; line-height:1.6; }
+    .fb-reporter-row { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+    .fb-reporter-chip { background:#0a1525; border:1px solid var(--border); border-radius:20px; padding:4px 12px; font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+    .fb-reporter-dot { width:6px; height:6px; border-radius:50%; background:#43b873; }
+    .fb-submit-btn { width:100%; background:var(--gold); color:#070c16; border:none; border-radius:8px; padding:12px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
+    .fb-divider { height:1px; background:var(--border); margin:8px 0 16px; }
+    .fb-list-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .fb-list-count { font-size:11px; color:var(--dim); }
+    .fb-item { background:#0a1525; border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:10px; }
+    .fb-item.done { opacity:.45; border-style:dashed; }
+    .fb-item-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .fb-type-chip { font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; }
+    .fb-type-chip.bug  { background:rgba(224,85,95,.15); color:#e0555f; border:1px solid rgba(224,85,95,.4); }
+    .fb-type-chip.feat { background:rgba(67,184,115,.15); color:#43b873; border:1px solid rgba(67,184,115,.4); }
+    .fb-done-chip { font-size:10px; padding:2px 8px; border-radius:10px; background:rgba(90,122,154,.15); color:var(--dim); border:1px solid var(--border); }
+    .fb-item-title { font-size:13px; font-weight:600; color:#c9d8ec; flex:1; }
+    .fb-item-body { font-size:12px; color:var(--muted); line-height:1.7; margin-bottom:10px; }
+    .fb-item-meta { font-size:11px; color:#3a5a7a; display:flex; gap:12px; flex-wrap:wrap; }
+    .fb-admin-comment { background:var(--surface); border-left:3px solid var(--gold); border-radius:0 6px 6px 0; padding:8px 12px; margin-top:10px; }
+    .fb-admin-comment-label { font-size:10px; color:var(--gold); font-weight:600; margin-bottom:4px; }
+    .fb-admin-comment-text { font-size:12px; color:#9ab8d0; line-height:1.6; }
+    .fb-admin-comment-meta { font-size:10px; color:#3a5a7a; margin-top:4px; }
+    .fb-admin-actions { margin-top:12px; border-top:1px solid var(--border); padding-top:12px; }
+    .fb-admin-actions-label { font-size:10px; color:var(--gold); font-weight:600; margin-bottom:8px; }
+    .fb-preset-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+    .fb-preset-btn { font-size:11px; padding:4px 10px; border-radius:4px; border:1px solid var(--border); color:var(--muted); background:transparent; cursor:pointer; font-family:inherit; }
+    .fb-comment-row { display:flex; gap:8px; margin-bottom:8px; }
+    .fb-comment-input { flex:1; background:#050d1a; border:1px solid var(--border); border-radius:6px; padding:6px 10px; color:#e8eaf0; font-size:12px; font-family:inherit; }
+    .fb-send-btn { padding:6px 14px; background:transparent; border:1px solid rgba(67,184,115,.4); border-radius:6px; color:#43b873; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; }
+    .fb-done-btn { width:100%; padding:7px; background:transparent; border:1px solid var(--border); border-radius:6px; color:var(--dim); font-size:11px; cursor:pointer; font-family:inherit; margin-top:4px; }
+    .tab-badge { display:inline-block; background:#e0555f; color:#fff; font-size:10px; padding:1px 5px; border-radius:8px; margin-left:4px; vertical-align:middle; line-height:1.4; }
+
     /* ── Registration overlay ─────────────────────────── */
     #register-overlay {
       position: fixed; inset: 0;
@@ -470,6 +513,7 @@
     <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較表示</div>
     <div class="tab" data-tab="official" onclick="switchTab('official')">公式HP</div>
     <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE試合データ</div>
+    <div class="tab" id="feedback-tab" data-tab="feedback" onclick="switchTab('feedback')">バグ・要望<span id="feedback-badge" class="tab-badge" style="display:none"></span></div>
     <div class="tab" id="admin-tab" data-tab="admin" onclick="switchTab('admin')" style="display:none;">管理</div>
   </div>
 
@@ -562,6 +606,36 @@
     </div>
   </div>
 
+  <!-- ── バグ・要望 ── -->
+  <div id="page-feedback" class="page">
+    <div class="fb-section">
+      <div class="fb-form-card">
+        <div class="fb-section-title">新規投稿</div>
+        <div class="fb-form-label">種別</div>
+        <div class="fb-type-row">
+          <button class="fb-type-btn sel-bug" id="fb-type-bug" onclick="fbSelectType('bug')">🐛 バグ報告</button>
+          <button class="fb-type-btn" id="fb-type-feat" onclick="fbSelectType('feat')">✨ 機能追加</button>
+        </div>
+        <div class="fb-form-label">件名（任意・30文字）</div>
+        <input class="fb-form-input" id="fb-title-input" maxlength="30" placeholder="例: 照合NGの件数がおかしい">
+        <div class="fb-form-label">詳細</div>
+        <textarea class="fb-form-input" id="fb-body-input" placeholder="状況・再現手順・期待する動作などを記入してください"></textarea>
+        <div class="fb-form-label">報告者（自動）</div>
+        <div class="fb-reporter-row">
+          <div class="fb-reporter-chip"><span class="fb-reporter-dot"></span><span id="fb-reporter-name">—</span></div>
+          <span style="font-size:11px;color:#3a5a7a">ログイン中のアカウントで自動登録</span>
+        </div>
+        <button class="fb-submit-btn" onclick="submitFeedback()">送信する</button>
+      </div>
+      <div class="fb-divider"></div>
+      <div class="fb-list-header">
+        <div class="fb-section-title" style="margin:0">投稿一覧</div>
+        <div class="fb-list-count" id="fb-list-count">読み込み中…</div>
+      </div>
+      <div id="fb-list"><div class="empty-msg">読み込み中…</div></div>
+    </div>
+  </div>
+
   <!-- ── 管理 ── -->
   <div id="page-admin" class="page">
     <div class="admin-subtabs">
@@ -634,9 +708,10 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 59;
+const __UI_BUILD__  = 60;
 let userId          = null;
 let displayName     = null;
+let coachName       = null;
 let isAdmin         = false;
 let isAllowed       = false;
 let discData        = [];
@@ -648,6 +723,8 @@ let summaryFilter   = 'all';
 let selectedCoach   = null;
 let scrapeLogData   = [];
 let officialDetailOpen = {};
+let feedbackData    = [];
+let fbSelectedType  = 'bug';
 
 const OFFICIAL_SOURCES = [
   { id: 'U-15',        label: 'U-15リーグ(2部)',         shortLabel: 'U15L 2部',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-2b-2026/' },
@@ -846,9 +923,10 @@ async function startMainApp(meRes) {
   }
 
   const coachLabel = meRes.coachName ? meRes.coachName : (displayName || '');
+  coachName = meRes.coachName || null;
   document.getElementById('header-coach').textContent = coachLabel;
 
-  await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules(), loadScrapeLog()]);
+  await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules(), loadScrapeLog(), loadFeedback()]);
   renderSummary();
   renderCatFilter();
   renderSchedStatusFilter();
@@ -1433,6 +1511,7 @@ function switchTab(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   if (name === 'coach-raw') renderCoachRaw();
+  if (name === 'feedback') renderFeedback();
   if (name === 'admin') {
     switchAdminPanel('actions');
   }
@@ -1561,6 +1640,139 @@ async function crtDelete(rowId) {
   } catch(e) {
     setStatus('削除エラー: ' + e.message);
   }
+}
+
+// ── バグ・要望 ───────────────────────────────────────────────────────────────
+function fbSelectType(type) {
+  fbSelectedType = type;
+  document.getElementById('fb-type-bug').className  = 'fb-type-btn' + (type === 'bug'  ? ' sel-bug'  : '');
+  document.getElementById('fb-type-feat').className = 'fb-type-btn' + (type === 'feat' ? ' sel-feat' : '');
+}
+
+async function loadFeedback() {
+  try {
+    const res = await gasGet('api/feedback/list', { userId });
+    feedbackData = res.items || [];
+    _updateFbBadge();
+  } catch(_) { feedbackData = []; }
+}
+
+function _updateFbBadge() {
+  const n = feedbackData.filter(f => f.status !== 'done').length;
+  const el = document.getElementById('feedback-badge');
+  if (!el) return;
+  el.textContent = n;
+  el.style.display = n > 0 ? '' : 'none';
+}
+
+function _esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderFeedback() {
+  const reporter = coachName || displayName || '—';
+  const el = document.getElementById('fb-reporter-name');
+  if (el) el.textContent = reporter;
+
+  const open = feedbackData.filter(f => f.status !== 'done');
+  const done = feedbackData.filter(f => f.status === 'done');
+  const countEl = document.getElementById('fb-list-count');
+  if (countEl) countEl.textContent = `未対応 ${open.length}件 / 完了 ${done.length}件`;
+
+  const listEl = document.getElementById('fb-list');
+  if (!listEl) return;
+  const items = [...open, ...done];
+  if (!items.length) {
+    listEl.innerHTML = '<div class="empty-msg">投稿がありません</div>';
+    return;
+  }
+  listEl.innerHTML = items.map(f => {
+    const isDone  = f.status === 'done';
+    const typeLabel = f.type === 'feat' ? '機能追加' : 'バグ';
+    const titleHtml = f.title
+      ? `<span class="fb-item-title"${isDone ? ' style="color:var(--dim)"' : ''}>${_esc(f.title)}</span>` : '';
+    const adminActions = isAdmin && !isDone ? `
+      <div class="fb-admin-actions">
+        <div class="fb-admin-actions-label">管理者操作</div>
+        <div class="fb-preset-row">
+          <button class="fb-preset-btn" onclick="fbPresetComment('${_esc(f.id)}','✅ 対応しました',true)">✅ 対応しました</button>
+          <button class="fb-preset-btn" onclick="fbPresetComment('${_esc(f.id)}','📋 認識しました。対応予定です',false)">📋 認識しました。対応予定です</button>
+          <button class="fb-preset-btn" onclick="fbPresetComment('${_esc(f.id)}','⏭ 対応予定なし',true)">⏭ 対応予定なし</button>
+        </div>
+        <div class="fb-comment-row">
+          <input class="fb-comment-input" id="fbc-${_esc(f.id)}" placeholder="カスタムコメントを入力…">
+          <button class="fb-send-btn" onclick="fbSendComment('${_esc(f.id)}')">送信</button>
+        </div>
+        <button class="fb-done-btn" onclick="fbMarkDone('${_esc(f.id)}')">✓ 対応済みにする</button>
+      </div>` : '';
+    const adminComment = f.admin_comment ? `
+      <div class="fb-admin-comment">
+        <div class="fb-admin-comment-label">管理者コメント</div>
+        <div class="fb-admin-comment-text">${_esc(f.admin_comment)}</div>
+        <div class="fb-admin-comment-meta">${_esc(f.updated_at || '')}</div>
+      </div>` : '';
+    return `<div class="fb-item${isDone ? ' done' : ''}">
+      <div class="fb-item-head">
+        <span class="fb-type-chip ${_esc(f.type)}">${typeLabel}</span>
+        ${isDone ? '<span class="fb-done-chip">✓ 対応済み</span>' : ''}
+        ${titleHtml}
+      </div>
+      ${f.body ? `<div class="fb-item-body">${_esc(f.body)}</div>` : ''}
+      <div class="fb-item-meta">
+        <span>👤 ${_esc(f.reporter_name || '')}</span>
+        <span>🕐 ${_esc(f.submitted_at || '')}</span>
+      </div>
+      ${adminComment}
+      ${adminActions}
+    </div>`;
+  }).join('');
+}
+
+async function submitFeedback() {
+  const body = (document.getElementById('fb-body-input').value || '').trim();
+  if (!body) { alert('詳細を入力してください'); return; }
+  const title = (document.getElementById('fb-title-input').value || '').trim();
+  setStatus('送信中…');
+  try {
+    const res = await gasGet('api/feedback/submit', {
+      userId, displayName: coachName || displayName || '',
+      type: fbSelectedType, title, body,
+    });
+    if (!res.ok) throw new Error(res.error || 'submit failed');
+    document.getElementById('fb-title-input').value = '';
+    document.getElementById('fb-body-input').value = '';
+    fbSelectType('bug');
+    await loadFeedback();
+    renderFeedback();
+    setStatus('送信しました');
+  } catch(err) { setStatus('送信エラー: ' + err.message); }
+}
+
+async function fbPresetComment(id, comment, markDone) {
+  await _fbUpdate(id, comment, markDone ? 'done' : '');
+}
+
+async function fbSendComment(id) {
+  const comment = (document.getElementById('fbc-' + id) || {}).value || '';
+  await _fbUpdate(id, comment.trim(), '');
+}
+
+async function fbMarkDone(id) {
+  await _fbUpdate(id, '', 'done');
+}
+
+async function _fbUpdate(id, comment, status) {
+  setStatus('更新中…');
+  try {
+    const params = { userId, id };
+    if (comment) params.admin_comment = comment;
+    if (status)  params.status = status;
+    const res = await gasGet('api/feedback/update', params);
+    if (!res.ok) throw new Error(res.error || 'update failed');
+    await loadFeedback();
+    renderFeedback();
+    setStatus('更新しました');
+  } catch(err) { setStatus('更新エラー: ' + err.message); }
 }
 
 // ── 起動 ─────────────────────────────────────────────────────────────────────
