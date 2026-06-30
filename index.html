@@ -436,21 +436,44 @@
     .sc-none    { color:var(--dim); }
 
     /* ── LINE試合生データ ──────────────────────────────── */
-    .crt-wrap { padding: 16px 16px 30px; }
-    .crt-hint { font-size:11px; color:var(--muted); margin-bottom:10px; padding:0 2px; }
-    .crt-note { font-size:11px; color:var(--muted); margin-top:10px; padding:0 2px; line-height:1.6; }
-    .crt-table { width:100%; border-collapse:collapse; border-radius:14px; overflow:hidden; border:1px solid var(--border); }
-    .crt-table th {
-      background: linear-gradient(110deg,#11305a,#0d2142);
-      color:var(--gold); font-size:11px; font-weight:700;
-      padding:10px 9px; text-align:left; letter-spacing:.05em;
+    .crt-update-banner {
+      display:flex; align-items:center; gap:8px;
+      padding:10px 16px;
+      background:rgba(201,162,75,.07);
+      border-bottom:1px solid rgba(201,162,75,.15);
+      cursor:pointer; user-select:none;
     }
-    .crt-table td {
-      padding:9px 9px; font-size:12px; color:var(--sub);
-      border-top:1px solid rgba(255,255,255,.06);
-      background:var(--surface); vertical-align:middle;
+    .crt-update-text { font-size:12px; color:var(--sub); flex:1; }
+    .crt-update-arrow { font-size:10px; color:var(--muted); transition:transform .2s; }
+    .crt-update-arrow.open { transform:rotate(180deg); }
+    .crt-update-detail {
+      background:rgba(0,0,0,.35);
+      border-bottom:1px solid rgba(255,255,255,.06);
+      padding:12px 16px;
+      font-size:11px; color:var(--muted);
+      white-space:pre-wrap; word-break:break-all;
+      max-height:220px; overflow-y:auto;
+      display:none;
     }
-    .crt-table tr:hover td { background:rgba(201,162,75,.04); }
+    .crt-hint { font-size:11px; color:var(--muted); padding:8px 16px 0; }
+    .crt-note { font-size:11px; color:var(--muted); padding:0 16px 30px; line-height:1.6; }
+    .crt-cards { display:flex; flex-direction:column; gap:8px; padding:10px 16px 8px; }
+    .crt-card {
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:12px 14px;
+    }
+    .crt-card-head {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:8px;
+    }
+    .crt-card-date-cat { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .crt-card-date { font-size:15px; font-weight:700; color:var(--text); }
+    .crt-card-body { display:flex; flex-direction:column; gap:4px; }
+    .crt-card-time { font-size:13px; color:var(--gold); font-weight:600; }
+    .crt-card-opp  { font-size:13px; color:var(--text); }
+    .crt-card-sub  { font-size:11px; color:var(--muted); }
     .crt-editable { cursor:pointer; }
     .crt-editable:hover { color:var(--gold-lt); text-decoration:underline dotted; }
     .crt-input {
@@ -466,7 +489,7 @@
     .crt-del {
       background:transparent; border:1px solid rgba(224,85,95,.4);
       color:#e0555f; font-size:13px; cursor:pointer;
-      padding:4px 8px; border-radius:6px; line-height:1;
+      padding:4px 8px; border-radius:6px; line-height:1; flex-shrink:0;
     }
     .crt-del:hover { background:rgba(224,85,95,.12); }
     .crt-saving { opacity:.45; pointer-events:none; }
@@ -590,20 +613,12 @@
 
   <!-- ── LINE試合生データ ── -->
   <div id="page-coach-raw" class="page">
-    <div class="crt-wrap">
-      <p class="crt-hint">セルをタップして編集 · 保存後に照合を自動実行します</p>
-      <table class="crt-table">
-        <thead>
-          <tr>
-            <th>日付</th><th>Cat</th><th>時刻</th><th>対戦相手</th><th>会場</th><th>大会名</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="crt-tbody">
-          <tr><td colspan="7" class="empty-msg">読み込み中…</td></tr>
-        </tbody>
-      </table>
-      <p class="crt-note">※ 本日以降の試合のみ表示。修正・削除後は照合を自動実行します。</p>
+    <div id="crt-update-wrap"></div>
+    <p class="crt-hint">各項目をタップして編集 · 保存後に照合を自動実行します</p>
+    <div id="crt-cards" class="crt-cards">
+      <div class="empty-msg">読み込み中…</div>
     </div>
+    <p class="crt-note">※ 本日以降の試合のみ表示。修正・削除後は照合を自動実行します。</p>
   </div>
 
   <!-- ── バグ・要望 ── -->
@@ -708,7 +723,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 63;
+const __UI_BUILD__  = 64;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -717,6 +732,7 @@ let isAllowed       = false;
 let discData        = [];
 let schedData       = [];
 let coachData       = [];
+let coachUpdateLog  = [];
 let catFilter       = '全て';
 let schedStatusFilter = 'all';
 let summaryFilter   = 'all';
@@ -745,7 +761,7 @@ async function refreshData() {
   if (btn) btn.disabled = true;
   setStatus('更新中…');
   try {
-    await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules()]);
+    await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules(), loadCoachUpdateLog()]);
     renderSummary(); renderSchedList();
     setStatus('更新完了 ' + new Date().toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' }));
   } catch(e) {
@@ -926,7 +942,7 @@ async function startMainApp(meRes) {
   coachName = meRes.coachName || null;
   document.getElementById('header-coach').textContent = coachLabel;
 
-  await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules(), loadScrapeLog(), loadFeedback()]);
+  await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules(), loadScrapeLog(), loadFeedback(), loadCoachUpdateLog()]);
   renderSummary();
   renderCatFilter();
   renderSchedStatusFilter();
@@ -958,6 +974,13 @@ async function loadSchedules() {
 async function loadCoachSchedules() {
   const res = await gasGet('api/coach-schedules');
   coachData = res.schedules || [];
+}
+
+async function loadCoachUpdateLog() {
+  try {
+    const res = await gasGet('api/coach-schedule/update-log');
+    coachUpdateLog = res.ok ? (res.logs || []) : [];
+  } catch(e) { coachUpdateLog = []; }
 }
 
 async function loadScrapeLog() {
@@ -1513,7 +1536,7 @@ function switchTab(name) {
   document.querySelector(`[data-tab="${name}"]`).classList.add('active');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
-  if (name === 'coach-raw') renderCoachRaw();
+  if (name === 'coach-raw') { loadCoachUpdateLog().then(() => renderCoachRaw()); }
   if (name === 'feedback') renderFeedback();
   if (name === 'admin') {
     switchAdminPanel('actions');
@@ -1539,9 +1562,34 @@ function switchAdminPanel(name) {
 // ── LINE試合生データ ──────────────────────────────────────────────────────────
 const CAT_OPTIONS = ['U-13','U-14','U-15','U-13_FUTSAL','U-14_FUTSAL','U-15_FUTSAL','all'];
 
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function renderCoachRaw() {
-  const tbody = document.getElementById('crt-tbody');
-  if (!tbody) return;
+  // ── 最終更新バナー ──────────────────────────────────────────────────────────
+  const updateWrap = document.getElementById('crt-update-wrap');
+  if (updateWrap) {
+    const latest = coachUpdateLog[0];
+    if (latest) {
+      const srcLabel = latest.source === 'LINE' ? 'LINE投稿により更新' : 'appで直接編集により更新';
+      const timeStr  = fmtDatetime(latest.logged_at);
+      const summary  = latest.summary ? `　${escHtml(latest.summary)}` : '';
+      updateWrap.innerHTML =
+        `<div class="crt-update-banner" onclick="toggleCrtUpdateDetail()">` +
+          `<span style="font-size:13px">📝</span>` +
+          `<span class="crt-update-text">最終更新: ${timeStr}　${srcLabel}${summary}</span>` +
+          `<span class="crt-update-arrow" id="crt-update-arrow">▼</span>` +
+        `</div>` +
+        `<div class="crt-update-detail" id="crt-update-detail">${escHtml(latest.detail || latest.summary || '—')}</div>`;
+    } else {
+      updateWrap.innerHTML = '';
+    }
+  }
+
+  // ── カードリスト ────────────────────────────────────────────────────────────
+  const container = document.getElementById('crt-cards');
+  if (!container) return;
   const today = new Intl.DateTimeFormat('sv', {timeZone: 'Asia/Tokyo'}).format(new Date());
   const rows = coachData
     .filter(r => normDate(r.event_date) >= today)
@@ -1550,28 +1598,63 @@ function renderCoachRaw() {
       if (da !== db) return da.localeCompare(db);
       return catSortKey(a.category_code) - catSortKey(b.category_code);
     });
+
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">該当データなし</td></tr>';
+    container.innerHTML = '<div class="empty-msg">該当データなし</div>';
     return;
   }
-  const FIELDS = [
-    { field:'event_date',            label:'日付',     type:'text'   },
-    { field:'category_code',         label:'Cat',      type:'select' },
-    { field:'event_time',            label:'時刻',     type:'text'   },
-    { field:'title',                 label:'対戦相手', type:'text'   },
-    { field:'venue',                 label:'会場',     type:'text'   },
-    { field:'league_or_competition', label:'大会名',   type:'text'   },
-  ];
-  tbody.innerHTML = rows.map(r => {
-    const rid = String(r.id);
-    const cells = FIELDS.map(f => {
-      const v = String(r[f.field] || '');
-      const dispVal = (f.field === 'event_date' && v) ? fmtDate(v) : v;
-      const disp = v ? dispVal : '<span style="color:var(--dim)">—</span>';
-      return `<td class="crt-editable" data-row-id="${rid}" data-field="${f.field}" data-type="${f.type}" data-raw-val="${v}" onclick="crtEdit(this)">${disp}</td>`;
-    }).join('');
-    return `<tr data-row-id="${rid}">${cells}<td><button class="crt-del" onclick="crtDelete('${rid}')">🗑</button></td></tr>`;
+
+  const mkCell = (rid, field, type, rawVal, dispHtml) =>
+    `<span class="crt-editable" data-row-id="${rid}" data-field="${field}" data-type="${type}" data-raw-val="${escHtml(rawVal)}" onclick="crtEdit(this)">${dispHtml}</span>`;
+
+  container.innerHTML = rows.map(r => {
+    const rid  = String(r.id);
+    const date = normDate(r.event_date);
+    const catStyle = catBadgeStyle(r.category_code);
+    const catLabel = (r.category_code || '').replace('_FUTSAL', ' FS');
+    const time   = String(r.event_time  || '');
+    const opp    = String(r.title       || '');
+    const venue  = String(r.venue       || '');
+    const league = String(r.league_or_competition || '');
+
+    const dateCell = mkCell(rid, 'event_date', 'text', r.event_date || '',
+      date ? fmtDate(date) : '<span style="color:var(--dim)">—</span>');
+    const catCell = mkCell(rid, 'category_code', 'select', r.category_code || '',
+      `<span style="${catStyle};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700">${escHtml(catLabel)||'—'}</span>`);
+    const timeCell = mkCell(rid, 'event_time', 'text', time,
+      time ? escHtml(time) : '<span style="color:var(--dim)">時刻未定</span>');
+    const oppCell = mkCell(rid, 'title', 'text', opp,
+      opp ? `vs ${escHtml(opp)}` : '<span style="color:var(--dim)">対戦相手未登録</span>');
+    const venueCell = mkCell(rid, 'venue', 'text', venue,
+      venue ? `@ ${escHtml(venue)}` : '<span style="color:var(--dim)">会場未登録</span>');
+    const leagueCell = league
+      ? ` · ${mkCell(rid, 'league_or_competition', 'text', league, escHtml(league))}`
+      : mkCell(rid, 'league_or_competition', 'text', '', '<span style="color:var(--dim)">大会名未登録</span>');
+
+    return `<div class="crt-card" data-row-id="${rid}">
+      <div class="crt-card-head">
+        <div class="crt-card-date-cat">
+          <span class="crt-card-date">${dateCell}</span>
+          ${catCell}
+        </div>
+        <button class="crt-del" onclick="crtDelete('${rid}')">🗑</button>
+      </div>
+      <div class="crt-card-body">
+        <div class="crt-card-time">${timeCell}</div>
+        <div class="crt-card-opp">${oppCell}</div>
+        <div class="crt-card-sub">${venueCell}${leagueCell}</div>
+      </div>
+    </div>`;
   }).join('');
+}
+
+function toggleCrtUpdateDetail() {
+  const detail = document.getElementById('crt-update-detail');
+  const arrow  = document.getElementById('crt-update-arrow');
+  if (!detail) return;
+  const open = detail.style.display !== 'none';
+  detail.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.classList.toggle('open', !open);
 }
 
 function crtEdit(cell) {
@@ -1611,9 +1694,10 @@ function crtEdit(cell) {
       const res = await gasGet('api/coach-schedule/update', {
         row_id: rowId, field, value: newVal,
         fb_date: fbRow.event_date || '', fb_cat: fbRow.category_code || '', fb_title: fbRow.title || '',
+        userId,
       });
       if (!res.ok) throw new Error(res.error || 'update failed');
-      await Promise.all([loadCoachSchedules(), loadDiscrepancies()]);
+      await Promise.all([loadCoachSchedules(), loadDiscrepancies(), loadCoachUpdateLog()]);
       renderCoachRaw();
       renderSummary();
       renderSchedList();
@@ -1633,9 +1717,9 @@ async function crtDelete(rowId) {
   if (!confirm('この行を削除しますか？')) return;
   setStatus('削除中…');
   try {
-    const res = await gasGet('api/coach-schedule/delete', { row_id: rowId });
+    const res = await gasGet('api/coach-schedule/delete', { row_id: rowId, userId });
     if (!res.ok) throw new Error(res.error || 'delete failed');
-    await Promise.all([loadCoachSchedules(), loadDiscrepancies()]);
+    await Promise.all([loadCoachSchedules(), loadDiscrepancies(), loadCoachUpdateLog()]);
     renderCoachRaw();
     renderSummary();
     renderSchedList();
