@@ -614,6 +614,9 @@
   <!-- ── LINE試合生データ ── -->
   <div id="page-coach-raw" class="page">
     <div id="crt-update-wrap"></div>
+    <div class="cmp-filters" style="padding-top:10px;padding-bottom:0">
+      <div class="chip-row" id="crt-cat-filter"></div>
+    </div>
     <p class="crt-hint">各項目をタップして編集 · 保存後に照合を自動実行します</p>
     <div id="crt-cards" class="crt-cards">
       <div class="empty-msg">読み込み中…</div>
@@ -723,7 +726,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 64;
+const __UI_BUILD__  = 65;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -734,6 +737,7 @@ let schedData       = [];
 let coachData       = [];
 let coachUpdateLog  = [];
 let catFilter       = '全て';
+let crtCatFilter    = '全て';
 let schedStatusFilter = 'all';
 let summaryFilter   = 'all';
 let selectedCoach   = null;
@@ -1266,6 +1270,24 @@ function filterCat(c, btn) {
   renderSchedList();
 }
 
+// ── LINE試合データ カテゴリフィルタ ─────────────────────────────────────────
+function renderCrtCatFilter() {
+  const el = document.getElementById('crt-cat-filter');
+  if (!el) return;
+  const cats = [...new Set(coachData.map(r => catBase(r.category_code)).filter(c => Boolean(c) && c !== 'all'))].sort((a,b) => catSortKey(a)-catSortKey(b));
+  const allCats = ['全て', ...cats, 'all'];
+  el.innerHTML = allCats.map(c =>
+    `<button class="chip-btn ${crtCatFilter===c?'active':''}" onclick="filterCrtCat('${c}',this)">${c}</button>`
+  ).join('');
+}
+
+function filterCrtCat(c, btn) {
+  crtCatFilter = c;
+  document.querySelectorAll('#crt-cat-filter .chip-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCoachRaw();
+}
+
 function filterSchedStatus(val, btn) {
   schedStatusFilter = val;
   document.querySelectorAll('#status-filter .chip-btn').forEach(b => b.classList.remove('active'));
@@ -1587,12 +1609,16 @@ function renderCoachRaw() {
     }
   }
 
+  // ── カテゴリフィルタ ────────────────────────────────────────────────────────
+  renderCrtCatFilter();
+
   // ── カードリスト ────────────────────────────────────────────────────────────
   const container = document.getElementById('crt-cards');
   if (!container) return;
   const today = new Intl.DateTimeFormat('sv', {timeZone: 'Asia/Tokyo'}).format(new Date());
   const rows = coachData
     .filter(r => normDate(r.event_date) >= today)
+    .filter(r => crtCatFilter === '全て' || catBase(r.category_code) === crtCatFilter || r.category_code === crtCatFilter)
     .sort((a, b) => {
       const da = normDate(a.event_date), db = normDate(b.event_date);
       if (da !== db) return da.localeCompare(db);
