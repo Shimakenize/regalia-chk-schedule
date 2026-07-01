@@ -657,12 +657,12 @@
   <!-- ── 管理 ── -->
   <div id="page-admin" class="page">
     <div class="admin-subtabs">
-      <button class="admin-subtab" data-admin-panel="logs" onclick="switchAdminPanel('logs')">メンバー/ログ</button>
-      <button class="admin-subtab active" data-admin-panel="actions" onclick="switchAdminPanel('actions')">操作</button>
+      <button class="admin-subtab active" data-admin-panel="logs" onclick="switchAdminPanel('logs')">メンバー/ログ</button>
+      <button class="admin-subtab" data-admin-panel="actions" onclick="switchAdminPanel('actions')">操作</button>
       <button class="admin-subtab" data-admin-panel="compare" onclick="switchAdminPanel('compare')">照合</button>
     </div>
 
-    <div id="admin-panel-actions" class="admin-panel active">
+    <div id="admin-panel-actions" class="admin-panel">
       <div class="admin-cards">
         <div class="admin-actions-grid">
           <button class="admin-action-tile gold admin-btn" onclick="adminAction('trigger-scrape')">
@@ -697,7 +697,7 @@
       </div>
     </div>
 
-    <div id="admin-panel-logs" class="admin-panel">
+    <div id="admin-panel-logs" class="admin-panel active">
       <div id="members-section" class="members-card" style="display:none;">
         <div class="members-title">登録メンバーリスト</div>
         <div class="members-meta" id="members-meta">読み込み中…</div>
@@ -726,7 +726,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 66;
+const __UI_BUILD__  = 67;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1561,7 +1561,7 @@ function switchTab(name) {
   if (name === 'coach-raw') { loadCoachUpdateLog().then(() => renderCoachRaw()); }
   if (name === 'feedback') renderFeedback();
   if (name === 'admin') {
-    switchAdminPanel('actions');
+    switchAdminPanel('logs');
   }
 }
 
