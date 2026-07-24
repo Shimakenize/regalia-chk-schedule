@@ -263,6 +263,10 @@
     .mgmt-table td { padding:4px 6px; border-bottom:1px solid var(--border); vertical-align:top; }
     .mgmt-table td:first-child { white-space:nowrap; color:var(--muted); }
     .mgmt-diff-detail { color:#ff9800; }
+    .mgmt-apply-btn { font-size:11px; padding:2px 8px; border-radius:4px; border:1px solid #3a7d44; background:#234a2b; color:#c9f5d3; cursor:pointer; }
+    .mgmt-apply-btn:disabled { opacity:.5; cursor:default; }
+    .mgmt-apply-all-btn { font-size:12px; padding:5px 12px; border-radius:6px; border:none; background:#3a7d44; color:#fff; cursor:pointer; margin-bottom:8px; }
+    .mgmt-apply-all-btn:disabled { opacity:.5; cursor:default; }
     .members-card { border-radius:16px; padding:20px; margin:0 16px 24px; background:var(--surface); border:1px solid var(--border); }
     .members-title { font-size:16px; color:#fff; font-weight:700; }
     .members-meta  { font-size:11px; color:var(--muted); margin:5px 0 14px; }
@@ -726,7 +730,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 69;
+const __UI_BUILD__  = 70;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1437,20 +1441,30 @@ function renderMgmtCompareResult(res) {
   if (res.only_coach_count > 0) html += `<span class="mgmt-warn">ChkMatch(本アプリ)のみ ${res.only_coach_count}件</span>`;
   if (res.error) html += `<span class="mgmt-warn">⚠ ${res.error}</span>`;
   html += `</div>`;
+  if (res.applied) html += `<div class="mgmt-ok" style="margin-bottom:8px;">✓ ${res.applied}件を反映しました</div>`;
+  if (res.apply_errors && res.apply_errors.length) {
+    html += `<div class="mgmt-warn" style="margin-bottom:8px;">⚠ 反映失敗: ${res.apply_errors.join(' / ')}</div>`;
+  }
   const det = res.detail || {};
+  const applyTargets = (det.diff ? det.diff.length : 0) + (det.only_mgmt ? det.only_mgmt.length : 0);
+  if (applyTargets > 0) {
+    html += `<button class="mgmt-apply-all-btn" onclick="applyMgmtAll(this)">差異・schedule_mgmtのみを一括反映（${applyTargets}件）</button>`;
+  }
   if (det.diff && det.diff.length) {
     html += `<div class="mgmt-section-title">差異あり</div><table class="mgmt-table">`;
-    for (const it of det.diff) {
+    det.diff.forEach((it, i) => {
       const ds = it.diffs.map(d => `${d.field}: ${d.mgmt||'—'} → ${d.coach||'—'}`).join(' / ');
-      html += `<tr><td>${fmtDate(it.date)}</td><td>${it.cat}</td><td>${it.title}</td><td class="mgmt-diff-detail">${ds}</td></tr>`;
-    }
+      html += `<tr><td>${fmtDate(it.date)}</td><td>${it.cat}</td><td>${it.title}</td><td class="mgmt-diff-detail">${ds}</td>` +
+              `<td><button class="mgmt-apply-btn" onclick="applyMgmtOne(this,'diff',${i})">反映</button></td></tr>`;
+    });
     html += `</table>`;
   }
   if (det.only_mgmt && det.only_mgmt.length) {
     html += `<div class="mgmt-section-title">schedule_mgmt のみ</div><table class="mgmt-table">`;
-    for (const it of det.only_mgmt) {
-      html += `<tr><td>${fmtDate(it.date)}</td><td>${it.cat}</td><td>${it.title}</td><td>${it.time}</td></tr>`;
-    }
+    det.only_mgmt.forEach((it, i) => {
+      html += `<tr><td>${fmtDate(it.date)}</td><td>${it.cat}</td><td>${it.title}</td><td>${it.time}</td>` +
+              `<td><button class="mgmt-apply-btn" onclick="applyMgmtOne(this,'only_mgmt',${i})">反映</button></td></tr>`;
+    });
     html += `</table>`;
   }
   if (det.only_coach && det.only_coach.length) {
@@ -1461,6 +1475,41 @@ function renderMgmtCompareResult(res) {
     html += `</table>`;
   }
   el.innerHTML = html;
+}
+
+async function applyMgmtOne(btn, kind, idx) {
+  if (!isAdmin) return;
+  const label = kind === 'diff' ? 'この差異行' : 'このschedule_mgmt側のみの試合';
+  if (!confirm(`${label}を、schedule_mgmtの内容で上書き反映します。よろしいですか？`)) return;
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '反映中…';
+  try {
+    const res = await gasGet('api/admin/mgmt-apply-one', { userId, kind, idx });
+    if (!res.ok) { alert('エラー: ' + (res.error || '不明')); btn.disabled = false; btn.textContent = orig; return; }
+    renderMgmtCompareResult(res);
+  } catch (e) {
+    alert('エラー: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+async function applyMgmtAll(btn) {
+  if (!isAdmin) return;
+  if (!confirm('差異あり・schedule_mgmtのみの全件を、schedule_mgmtの内容で上書き反映します。よろしいですか？')) return;
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '反映中…';
+  try {
+    const res = await gasGet('api/admin/mgmt-apply-all', { userId });
+    if (!res.ok) { alert('エラー: ' + (res.error || '不明')); btn.disabled = false; btn.textContent = orig; return; }
+    renderMgmtCompareResult(res);
+  } catch (e) {
+    alert('エラー: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
 }
 
 // ── 登録メンバー管理 ─────────────────────────────────────────────────────────
