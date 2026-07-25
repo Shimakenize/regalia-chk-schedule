@@ -898,6 +898,24 @@ async function submitRegistration() {
 }
 
 // ── 初期化 ──────────────────────────────────────────────────────────────────
+/** JWT payload の exp を見るだけ（署名検証はしない）。LIFF はログイン中でも id_token だけ切れることがある。 */
+function idTokenJwtExpired(token) {
+  try {
+    const parts = String(token || '').split('.');
+    if (parts.length < 2) return false;
+    let payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = payload.length % 4;
+    if (pad) payload += '===='.slice(0, 4 - pad);
+    const json = JSON.parse(atob(payload));
+    return typeof json.exp === 'number' && json.exp < Date.now() / 1000 + 45;
+  } catch (e) { return false; }
+}
+async function liffLogoutThenLogin() {
+  const uri = location.href.split('#')[0];
+  try { if (liff.isLoggedIn && liff.isLoggedIn() && liff.logout) await liff.logout(); } catch (e) {}
+  liff.login({ redirectUri: uri });
+}
+
 async function init() {
   const urlParams  = new URLSearchParams(window.location.search);
   const initFilter = urlParams.get('filter');
@@ -907,8 +925,25 @@ async function init() {
 
   setStatus('LINE 認証中…');
   try {
-    await liff.init({ liffId: LIFF_ID });
-    if (!liff.isLoggedIn()) { liff.login(); return; }
+    try {
+      await Promise.race([
+        liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('liff.init timeout')), 15000)),
+      ]);
+    } catch (liffErr) {
+      if (String(liffErr.message || '').includes('did not match the expected pattern')) {
+        window.location.replace(location.pathname);
+        return;
+      }
+      if (String(liffErr.message || '').includes('liff.init timeout')) {
+        setStatus('LINEとの通信がタイムアウトしました。再読み込みしてください。');
+        return;
+      }
+      throw liffErr;
+    }
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href.split('#')[0] }); return; }
+    const idTok = liff.getIDToken && liff.getIDToken();
+    if (idTok && idTokenJwtExpired(idTok)) { await liffLogoutThenLogin(); return; }
 
     const profile = await liff.getProfile();
     userId      = profile.userId;
