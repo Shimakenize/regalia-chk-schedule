@@ -730,7 +730,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 71;
+const __UI_BUILD__  = 72;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1491,7 +1491,9 @@ function renderMgmtCompareResult(res) {
   if (det.diff && det.diff.length) {
     html += `<div class="mgmt-section-title">差異あり</div><table class="mgmt-table">`;
     det.diff.forEach((it, i) => {
-      const ds = it.diffs.map(d => `${d.field}: ${d.mgmt||'—'} → ${d.coach||'—'}`).join(' / ');
+      // 反映すると ChkMatch側(coach)の値が schedule_mgmt側(mgmt)の値に上書きされるため、
+      // 「現在値 → 反映後の値」の順（coach → mgmt）で表示する
+      const ds = it.diffs.map(d => `${d.field}: ${d.coach||'—'} → ${d.mgmt||'—'}`).join(' / ');
       html += `<tr><td>${fmtDate(it.date)}</td><td>${it.cat}</td><td>${it.title}</td><td class="mgmt-diff-detail">${ds}</td>` +
               `<td><button class="mgmt-apply-btn" onclick="applyMgmtOne(this,'diff',${i})">反映</button></td></tr>`;
     });
