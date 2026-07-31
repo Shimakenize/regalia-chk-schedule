@@ -730,7 +730,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 72;
+const __UI_BUILD__  = 73;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1253,7 +1253,10 @@ function renderSumList(merged) {
     const opp = e.coach ? (e.coach.title || '—') : (e.official ? (e.official.opponent || '—') : '—');
     const catLabel = e.category.replace('_FUTSAL', ' FS');
     const isTRG = e.league === 'TRG' || (e.notes || '').split('\n').some(n => n.trim() === 'TRG');
-    const srcLabel = isTRG ? 'TRG' : (e.league || (SRC_MAP[e.category] || {}).shortLabel || '');
+    // league未指定時に公式サイトの既定リーグ名で埋めるのは、実際に公式HPスクレイプと
+    // 突合できた（＝そのリーグの試合と確認できた）場合のみ。交流戦等は e.official が
+    // 無いため、勝手に「U14L」等の公式リーグ名を表示しない
+    const srcLabel = isTRG ? 'TRG' : (e.league || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || '');
     return `<div class="sum-row" onclick="jumpToSched()">
       <div class="sum-row-left">
         <div class="sum-row-date">${fmtDate(e.date)}</div>
@@ -1354,7 +1357,9 @@ function renderSchedList() {
     const noOfficial = !e.official;
     const catLabel = e.category.replace('_FUTSAL', ' FS');
     const isTRGEntry = e.league === 'TRG' || (e.notes || '').split('\n').some(n => n.trim() === 'TRG');
-    const offSrcLabel = isTRGEntry ? '' : (e.league || (SRC_MAP[e.category] || {}).shortLabel || '');
+    // srcLabel と同様、公式HPスクレイプと突合できていない（＝交流戦等の可能性がある）
+    // 場合は既定リーグ名を勝手に表示しない
+    const offSrcLabel = isTRGEntry ? '' : (e.league || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || '');
     const offSrcUrl   = (!isTRGEntry && !noOfficial) ? ((SRC_MAP[e.category] || {}).url || null) : null;
 
     let diffHtml;
