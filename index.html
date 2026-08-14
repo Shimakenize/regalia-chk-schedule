@@ -730,7 +730,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 73;
+const __UI_BUILD__  = 74;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -752,9 +752,9 @@ let fbSelectedType  = 'bug';
 
 const OFFICIAL_SOURCES = [
   { id: 'U-15',        label: 'U-15リーグ(2部)',         shortLabel: 'U15L 2部',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-2b-2026/' },
-  { id: 'U-15_4B',     label: 'U-15リーグ(4部・U14参戦)', shortLabel: 'U15L 4部',  url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-4b-1st-2026/' },
+  { id: 'U-15_4B',     label: 'U-15リーグ(4部2nd・U14参戦)', shortLabel: 'U15L 4部',  url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-4b-2nd-2026/' },
   { id: 'U-14',        label: 'U-14リーグ',               shortLabel: 'U14L',       url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/' },
-  { id: 'U-13L',       label: 'U-13リーグ',               shortLabel: 'U13L',       url: null },
+  { id: 'U-13L',       label: 'U-13リーグ(2部)',          shortLabel: 'U13L',       url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u13league-2nddiv-2026/' },
   { id: 'U-15_FUTSAL', label: 'U-15フットサル 3部B',      shortLabel: 'U15FL 3部B', url: 'https://matchday-live.com/race/zZGrc4ta' },
   { id: 'U-14_FUTSAL', label: 'U-14フットサル 3部A',      shortLabel: 'U15FL 3部A', url: 'https://matchday-live.com/race/EoDjcuJe' },
   { id: 'U-13_FUTSAL', label: 'U-13フットサル 3部B',      shortLabel: 'U15FL 3部B', url: 'https://matchday-live.com/race/zZGrc4ta' },
@@ -780,7 +780,12 @@ async function refreshData() {
 }
 function safeParse(json) { try { return JSON.parse(json); } catch { return null; } }
 function normDate(v)  { return String(v || '').substring(0, 10); }
-function catBase(cat) { return String(cat || '').replace(/_FUTSAL$/, ''); }
+function catBase(cat) {
+  const c = String(cat || '').replace(/_FUTSAL$/, '');
+  // official_schedule側のU-13リーグ(2部)スクレイパーはid="U-13L"を使う（S.M.A.L.L. CUPが
+  // 既にid="U-13"のため）。coach_schedule側の通常カテゴリ"U-13"と照合できるよう正規化する。
+  return c === 'U-13L' ? 'U-13' : c;
+}
 
 function catSortKey(cat) {
   const c = String(cat || '');
@@ -1134,7 +1139,7 @@ function buildMerged() {
   for (const o of schedData) {
     const key = normDate(o.match_date) + '_' + o.category_code;
     (offPool[key] = offPool[key] || []).push(o);
-    const base = o.category_code.replace(/_FUTSAL$/, '');
+    const base = catBase(o.category_code);
     if (base !== o.category_code) {
       (offPool[normDate(o.match_date) + '_' + base] = offPool[normDate(o.match_date) + '_' + base] || []).push(o);
     }
