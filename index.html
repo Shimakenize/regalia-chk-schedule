@@ -133,10 +133,12 @@
     .sum-grid-card.active { box-shadow: 0 0 0 2px var(--gold); }
     .sum-grid-card.ok       { background:rgba(67,184,115,.08);  border-color:rgba(67,184,115,.3); }
     .sum-grid-card.ng       { background:rgba(224,85,95,.08);   border-color:rgba(224,85,95,.3); }
+    .sum-grid-card.pending  { background:rgba(90,140,200,.08);  border-color:rgba(90,140,200,.3); }
     .sum-grid-card.other    { background:rgba(210,166,73,.08);  border-color:rgba(210,166,73,.3); }
     .sum-grid-num { font-family:'Cormorant Garamond',serif; font-size:48px; font-weight:700; line-height:1; }
     .sum-grid-card.ok       .sum-grid-num { color:#43b873; }
     .sum-grid-card.ng       .sum-grid-num { color:#e0555f; }
+    .sum-grid-card.pending  .sum-grid-num { color:#5a8cc8; }
     .sum-grid-card.other    .sum-grid-num { color:#d2a649; }
     .sum-grid-label { font-size:10px; color:#c4cfe0; margin-top:4px; font-weight:500; }
 
@@ -206,8 +208,9 @@
     .cmp-col.muted .cmp-col-opp  { color: var(--dim); }
     .card-diff { padding:11px 16px; border-top:1px solid rgba(255,255,255,.07); font-size:12px; font-weight:600; }
     .card-diff.ok-match  { color:#43b873; }
-    .card-diff.ng    { color:#e0555f; }
-    .card-diff.other { color:#d2a649; }
+    .card-diff.ng      { color:#e0555f; }
+    .card-diff.pending  { color:#5a8cc8; }
+    .card-diff.other  { color:#d2a649; }
 
 
     /* ── Admin ────────────────────────────────────────── */
@@ -566,6 +569,10 @@
         <div class="sum-grid-num" id="cnt-ng">—</div>
         <div class="sum-grid-label">照合NG</div>
       </div>
+      <div class="sum-grid-card pending" data-filter="pending" onclick="filterSummary('pending',this)">
+        <div class="sum-grid-num" id="cnt-pending">—</div>
+        <div class="sum-grid-label">公式未掲載</div>
+      </div>
       <div class="sum-grid-card other" data-filter="other" onclick="filterSummary('other',this)">
         <div class="sum-grid-num" id="cnt-other">—</div>
         <div class="sum-grid-label">公式戦以外</div>
@@ -730,7 +737,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 77;
+const __UI_BUILD__  = 78;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -854,18 +861,12 @@ function fmtDateShort(dt) {
 function statusChip(e) {
   const status = (e && typeof e === 'object') ? e.status : e;
   const cfg = {
-    ok:    { text:'照合OK',    c:'#43b873', bg:'rgba(67,184,115,.14)',  b:'rgba(67,184,115,.45)' },
-    ng:    { text:'照合NG',    c:'#e0555f', bg:'rgba(224,85,95,.14)',   b:'rgba(224,85,95,.45)' },
-    other: { text:'公式戦以外', c:'#d2a649', bg:'rgba(210,166,73,.14)', b:'rgba(210,166,73,.45)' },
+    ok:      { text:'照合OK',    c:'#43b873', bg:'rgba(67,184,115,.14)',  b:'rgba(67,184,115,.45)' },
+    ng:      { text:'照合NG',    c:'#e0555f', bg:'rgba(224,85,95,.14)',   b:'rgba(224,85,95,.45)' },
+    pending: { text:'公式未掲載', c:'#5a8cc8', bg:'rgba(90,140,200,.14)', b:'rgba(90,140,200,.45)' },
+    other:   { text:'公式戦以外', c:'#d2a649', bg:'rgba(210,166,73,.14)', b:'rgba(210,166,73,.45)' },
   };
-  let s = cfg[status] || { text:status, c:'#9aa6bd', bg:'rgba(154,166,189,.14)', b:'rgba(154,166,189,.45)' };
-  // "公式戦以外"はTRG・交流戦等の非公式な予定を指す表現だが、league_or_competition が
-  // 実在の大会名（TRG以外）で埋まっている場合は「非公式戦」ではなく「公式サイトに
-  // まだ掲載されていないだけ」の可能性が高い（例: 対戦カードは決まったが日程未発表、
-  // トーナメントの対戦相手未定）。誤解を招くため表現を変える。
-  if (status === 'other' && e && typeof e === 'object' && e.league && e.league.trim().toUpperCase() !== 'TRG') {
-    s = { ...s, text: '公式未掲載' };
-  }
+  const s = cfg[status] || { text:status, c:'#9aa6bd', bg:'rgba(154,166,189,.14)', b:'rgba(154,166,189,.45)' };
   return `<span style="flex-shrink:0;font-size:11px;font-weight:700;color:${s.c};background:${s.bg};border:1px solid ${s.b};padding:5px 9px;border-radius:7px;">${s.text}</span>`;
 }
 
@@ -949,7 +950,7 @@ async function liffLogoutThenLogin() {
 async function init() {
   const urlParams  = new URLSearchParams(window.location.search);
   const initFilter = urlParams.get('filter');
-  if (initFilter && ['ok','ng','other'].includes(initFilter)) {
+  if (initFilter && ['ok','ng','pending','other'].includes(initFilter)) {
     summaryFilter = initFilter;
   }
 
@@ -1218,13 +1219,18 @@ function buildMerged() {
       const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
       if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '' };
     }
+    // league_or_competition が判明していてTRG以外なら、公式サイトと未突合でも
+    // 「非公式戦」ではなく「公式未掲載（公式サイトにまだ載っていないだけ）」として区別する。
+    // 誤解を招く「公式戦以外」カウントへの混入を防ぐため、集計上も別ステータスにする。
+    const leagueKnown = !!(cm.league_or_competition && String(cm.league_or_competition).trim().toUpperCase() !== 'TRG');
+    const unmatchedStatus = leagueKnown ? 'pending' : 'other';
     entries.push({
       date: normDate(cm.event_date), category: cm.category_code,
       league: cm.league_or_competition || '',
       notes: cm.notes || '',
       coach: { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
       official, discs: matchedDiscs,
-      status: matchedDiscs.length > 0 ? (matchedDiscs.some(d => NG_TYPES.has(d.type)) ? 'ng' : 'other') : (official ? 'ok' : 'other'),
+      status: matchedDiscs.length > 0 ? (matchedDiscs.some(d => NG_TYPES.has(d.type)) ? 'ng' : unmatchedStatus) : (official ? 'ok' : unmatchedStatus),
     });
   }
   for (const d of discData) {
@@ -1241,7 +1247,7 @@ function buildMerged() {
 
 // ── サマリー ─────────────────────────────────────────────────────────────────
 const NG_TYPES = new Set(['official_only','time_mismatch','venue_mismatch','opponent_mismatch']);
-const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', other:'公式戦以外' };
+const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', pending:'公式未掲載', other:'公式戦以外' };
 const TYPE_LABELS = {
   official_only:     '公式のみ（LINE未登録）',
   coach_only:        'LINEのみ（公式未掲載）',
@@ -1255,6 +1261,7 @@ function renderSummary() {
   document.getElementById('cnt-all').textContent   = merged.length;
   document.getElementById('cnt-ok').textContent    = merged.filter(e => e.status === 'ok').length;
   document.getElementById('cnt-ng').textContent    = merged.filter(e => e.status === 'ng').length;
+  document.getElementById('cnt-pending').textContent = merged.filter(e => e.status === 'pending').length;
   document.getElementById('cnt-other').textContent = merged.filter(e => e.status === 'other').length;
   activateSummaryCard(summaryFilter);
   renderSumList(merged);
@@ -1302,7 +1309,7 @@ function renderSumList(merged) {
   }).join('');
 }
 
-const SCHED_STATUS_LABELS = { all:'全て', ok:'照合OK', ng:'照合NG', other:'公式戦以外' };
+const SCHED_STATUS_LABELS = { all:'全て', ok:'照合OK', ng:'照合NG', pending:'公式未掲載', other:'公式戦以外' };
 
 function jumpToSched() {
   catFilter = '全て';
@@ -1329,9 +1336,10 @@ function renderCatFilter() {
 
 function renderSchedStatusFilter() {
   const statuses = [
-    {label:'全て',      val:'all'},
-    {label:'照合OK',    val:'ok'},
-    {label:'照合NG',    val:'ng'},
+    {label:'全て',       val:'all'},
+    {label:'照合OK',     val:'ok'},
+    {label:'照合NG',     val:'ng'},
+    {label:'公式未掲載', val:'pending'},
     {label:'公式戦以外', val:'other'},
   ];
   document.getElementById('status-filter').innerHTML = statuses.map(s =>
@@ -1403,7 +1411,7 @@ function renderSchedList() {
     if (!e.discs || !e.discs.length) {
       diffHtml = `<div class="card-diff ok-match">差分無し</div>`;
     } else {
-      const cls = e.status === 'ng' ? 'ng' : 'other';
+      const cls = (e.status === 'ng' || e.status === 'pending') ? e.status : 'other';
       const typeText = e.discs.map(d => TYPE_LABELS[d.type] || d.type).join(' / ');
       diffHtml = `<div class="card-diff ${cls}">▶ ${typeText}</div>`;
     }
