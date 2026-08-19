@@ -730,7 +730,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 76;
+const __UI_BUILD__  = 77;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -851,13 +851,21 @@ function fmtDateShort(dt) {
   return s.substring(0, 10);
 }
 
-function statusChip(status) {
+function statusChip(e) {
+  const status = (e && typeof e === 'object') ? e.status : e;
   const cfg = {
     ok:    { text:'照合OK',    c:'#43b873', bg:'rgba(67,184,115,.14)',  b:'rgba(67,184,115,.45)' },
     ng:    { text:'照合NG',    c:'#e0555f', bg:'rgba(224,85,95,.14)',   b:'rgba(224,85,95,.45)' },
     other: { text:'公式戦以外', c:'#d2a649', bg:'rgba(210,166,73,.14)', b:'rgba(210,166,73,.45)' },
   };
-  const s = cfg[status] || { text:status, c:'#9aa6bd', bg:'rgba(154,166,189,.14)', b:'rgba(154,166,189,.45)' };
+  let s = cfg[status] || { text:status, c:'#9aa6bd', bg:'rgba(154,166,189,.14)', b:'rgba(154,166,189,.45)' };
+  // "公式戦以外"はTRG・交流戦等の非公式な予定を指す表現だが、league_or_competition が
+  // 実在の大会名（TRG以外）で埋まっている場合は「非公式戦」ではなく「公式サイトに
+  // まだ掲載されていないだけ」の可能性が高い（例: 対戦カードは決まったが日程未発表、
+  // トーナメントの対戦相手未定）。誤解を招くため表現を変える。
+  if (status === 'other' && e && typeof e === 'object' && e.league && e.league.trim().toUpperCase() !== 'TRG') {
+    s = { ...s, text: '公式未掲載' };
+  }
   return `<span style="flex-shrink:0;font-size:11px;font-weight:700;color:${s.c};background:${s.bg};border:1px solid ${s.b};padding:5px 9px;border-radius:7px;">${s.text}</span>`;
 }
 
@@ -1289,7 +1297,7 @@ function renderSumList(merged) {
         <div class="sum-row-cat" style="${catBadgeStyle(e.category)}">${catLabel}</div>
       </div>
       <div class="sum-row-opp">vs ${opp}${srcLabel ? ` <span class="sum-row-league">${srcLabel}</span>` : ''}</div>
-      ${statusChip(e.status)}
+      ${statusChip(e)}
     </div>`;
   }).join('');
 }
@@ -1403,7 +1411,7 @@ function renderSchedList() {
     return `<div class="cmp-card">
       <div class="cmp-card-head">
         <span class="cmp-card-title">${fmtDate(e.date)} <span class="cmp-card-cat" style="${catBadgeStyle(e.category)};padding:1px 5px;border-radius:3px;font-size:10px;font-weight:700">${catLabel}</span></span>
-        ${statusChip(e.status)}
+        ${statusChip(e)}
       </div>
       <div class="cmp-cols">
         <div class="cmp-col line-col${noCoach?' muted':''}">
