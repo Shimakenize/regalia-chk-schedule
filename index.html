@@ -571,7 +571,7 @@
       </div>
       <div class="sum-grid-card pending" data-filter="pending" onclick="filterSummary('pending',this)">
         <div class="sum-grid-num" id="cnt-pending">—</div>
-        <div class="sum-grid-label">公式未掲載</div>
+        <div class="sum-grid-label">公式掲載待</div>
       </div>
       <div class="sum-grid-card other" data-filter="other" onclick="filterSummary('other',this)">
         <div class="sum-grid-num" id="cnt-other">—</div>
@@ -737,7 +737,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 78;
+const __UI_BUILD__  = 79;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -863,7 +863,7 @@ function statusChip(e) {
   const cfg = {
     ok:      { text:'照合OK',    c:'#43b873', bg:'rgba(67,184,115,.14)',  b:'rgba(67,184,115,.45)' },
     ng:      { text:'照合NG',    c:'#e0555f', bg:'rgba(224,85,95,.14)',   b:'rgba(224,85,95,.45)' },
-    pending: { text:'公式未掲載', c:'#5a8cc8', bg:'rgba(90,140,200,.14)', b:'rgba(90,140,200,.45)' },
+    pending: { text:'公式掲載待', c:'#5a8cc8', bg:'rgba(90,140,200,.14)', b:'rgba(90,140,200,.45)' },
     other:   { text:'公式戦以外', c:'#d2a649', bg:'rgba(210,166,73,.14)', b:'rgba(210,166,73,.45)' },
   };
   const s = cfg[status] || { text:status, c:'#9aa6bd', bg:'rgba(154,166,189,.14)', b:'rgba(154,166,189,.45)' };
@@ -1220,7 +1220,7 @@ function buildMerged() {
       if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '' };
     }
     // league_or_competition が判明していてTRG以外なら、公式サイトと未突合でも
-    // 「非公式戦」ではなく「公式未掲載（公式サイトにまだ載っていないだけ）」として区別する。
+    // 「非公式戦」ではなく「公式掲載待（公式サイトにまだ載っていないだけ）」として区別する。
     // 誤解を招く「公式戦以外」カウントへの混入を防ぐため、集計上も別ステータスにする。
     const leagueKnown = !!(cm.league_or_competition && String(cm.league_or_competition).trim().toUpperCase() !== 'TRG');
     const unmatchedStatus = leagueKnown ? 'pending' : 'other';
@@ -1247,10 +1247,10 @@ function buildMerged() {
 
 // ── サマリー ─────────────────────────────────────────────────────────────────
 const NG_TYPES = new Set(['official_only','time_mismatch','venue_mismatch','opponent_mismatch']);
-const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', pending:'公式未掲載', other:'公式戦以外' };
+const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', pending:'公式掲載待', other:'公式戦以外' };
 const TYPE_LABELS = {
   official_only:     '公式のみ（LINE未登録）',
-  coach_only:        'LINEのみ（公式未掲載）',
+  coach_only:        'LINEのみ（公式掲載待）',
   time_mismatch:     '時刻が異なる',
   venue_mismatch:    '会場が異なる',
   opponent_mismatch: '対戦相手名が異なる',
@@ -1309,7 +1309,7 @@ function renderSumList(merged) {
   }).join('');
 }
 
-const SCHED_STATUS_LABELS = { all:'全て', ok:'照合OK', ng:'照合NG', pending:'公式未掲載', other:'公式戦以外' };
+const SCHED_STATUS_LABELS = { all:'全て', ok:'照合OK', ng:'照合NG', pending:'公式掲載待', other:'公式戦以外' };
 
 function jumpToSched() {
   catFilter = '全て';
@@ -1339,7 +1339,7 @@ function renderSchedStatusFilter() {
     {label:'全て',       val:'all'},
     {label:'照合OK',     val:'ok'},
     {label:'照合NG',     val:'ng'},
-    {label:'公式未掲載', val:'pending'},
+    {label:'公式掲載待', val:'pending'},
     {label:'公式戦以外', val:'other'},
   ];
   document.getElementById('status-filter').innerHTML = statuses.map(s =>
