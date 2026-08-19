@@ -730,7 +730,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 75;
+const __UI_BUILD__  = 76;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -762,6 +762,20 @@ const OFFICIAL_SOURCES = [
   { id: 'U-13',        label: 'S.M.A.L.L. CUP',           shortLabel: 'S.M.A.L.L.', url: 'https://smallcup-u13.web.app/final' },
 ];
 const SRC_MAP = Object.fromEntries(OFFICIAL_SOURCES.map(s => [s.id, s]));
+
+// 同一カテゴリに複数の公式ソースがある場合（例: U-15はリーグ戦と高円宮杯の両方）、
+// SRC_MAP[category] は代表1件しか返せない。official_schedule側の実際の
+// league_or_competition（leagueName）が分かればラベル文字列で突き合わせ、
+// より正確なソース（リンク先URL等）を解決する。見つからなければカテゴリ既定にフォールバック。
+function resolveOfficialSource(category, leagueName) {
+  if (leagueName) {
+    const hit = OFFICIAL_SOURCES.find(s =>
+      leagueName.includes(s.shortLabel) || leagueName.includes(s.label) || s.label.includes(leagueName)
+    );
+    if (hit) return hit;
+  }
+  return SRC_MAP[category] || {};
+}
 
 // ── ユーティリティ ────────────────────────────────────────────────────────────
 function setStatus(msg) { const el = document.getElementById('status-msg'); if (el) el.textContent = msg; }
@@ -1194,7 +1208,7 @@ function buildMerged() {
       if (od && (od.opponent || od.time)) official = od;
     } else {
       const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
-      if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue };
+      if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '' };
     }
     entries.push({
       date: normDate(cm.event_date), category: cm.category_code,
@@ -1263,8 +1277,12 @@ function renderSumList(merged) {
     const isTRG = e.league === 'TRG' || (e.notes || '').split('\n').some(n => n.trim() === 'TRG');
     // league未指定時に公式サイトの既定リーグ名で埋めるのは、実際に公式HPスクレイプと
     // 突合できた（＝そのリーグの試合と確認できた）場合のみ。交流戦等は e.official が
-    // 無いため、勝手に「U14L」等の公式リーグ名を表示しない
-    const srcLabel = isTRG ? 'TRG' : (e.league || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || '');
+    // 無いため、勝手に「U14L」等の公式リーグ名を表示しない。
+    // 同一カテゴリに複数の公式ソースがある場合（例: U-15はリーグ戦と高円宮杯の両方）、
+    // SRC_MAP[e.category]は代表1件しか持てないため誤ったリーグ名になりうる。
+    // official_schedule側が持つ実際のleague_or_competition（e.official.league）が
+    // あればそれを優先し、無い場合のみカテゴリ既定にフォールバックする。
+    const srcLabel = isTRG ? 'TRG' : (e.league || (e.official && e.official.league) || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || '');
     return `<div class="sum-row" onclick="jumpToSched()">
       <div class="sum-row-left">
         <div class="sum-row-date">${fmtDate(e.date)}</div>
@@ -1366,9 +1384,12 @@ function renderSchedList() {
     const catLabel = e.category.replace('_FUTSAL', ' FS');
     const isTRGEntry = e.league === 'TRG' || (e.notes || '').split('\n').some(n => n.trim() === 'TRG');
     // srcLabel と同様、公式HPスクレイプと突合できていない（＝交流戦等の可能性がある）
-    // 場合は既定リーグ名を勝手に表示しない
-    const offSrcLabel = isTRGEntry ? '' : (e.league || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || '');
-    const offSrcUrl   = (!isTRGEntry && !noOfficial) ? ((SRC_MAP[e.category] || {}).url || null) : null;
+    // 場合は既定リーグ名を勝手に表示しない。league_or_competitionが分かればそれを優先し
+    // （同一カテゴリに複数の公式ソースがある場合の誤表示を防ぐ）、無ければカテゴリ既定にフォールバック
+    const offSrcLabel = isTRGEntry ? '' : (e.league || (e.official && e.official.league) || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || '');
+    const offSrcUrl   = (!isTRGEntry && !noOfficial)
+      ? (resolveOfficialSource(e.category, e.official && e.official.league).url || null)
+      : null;
 
     let diffHtml;
     if (!e.discs || !e.discs.length) {
