@@ -737,7 +737,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 80;
+const __UI_BUILD__  = 81;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -782,6 +782,20 @@ function resolveOfficialSource(category, leagueName) {
     if (hit) return hit;
   }
   return SRC_MAP[category] || {};
+}
+// 括弧・空白を除去した正規化文字列で比較する（例: "U-15リーグ2部" と "U-15リーグ(2部)" を同一視）
+function _normLeagueStr(s) { return String(s || '').replace(/[()（）\s　]/g, ''); }
+// league_or_competition が「公式HPで実際に追跡している大会名」と一致するかを判定する。
+// 単に非空・非TRGというだけでは、足柄招待のような私的招待大会（公式HPの対象外）まで
+// 「公式HP掲載まち」に誤分類してしまうため、OFFICIAL_SOURCES（categories.yamlと対応）に
+// 実在する大会名かどうかで厳密に判定する。
+function isKnownOfficialLeague(leagueName) {
+  const s = _normLeagueStr(leagueName);
+  if (!s || s.toUpperCase() === 'TRG') return false;
+  return OFFICIAL_SOURCES.some(o => {
+    const lbl = _normLeagueStr(o.label), short = _normLeagueStr(o.shortLabel);
+    return s.includes(short) || s.includes(lbl) || lbl.includes(s) || short.includes(s);
+  });
 }
 
 // ── ユーティリティ ────────────────────────────────────────────────────────────
@@ -1219,10 +1233,10 @@ function buildMerged() {
       const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
       if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '' };
     }
-    // league_or_competition が判明していてTRG以外なら、公式サイトと未突合でも
-    // 「非公式戦」ではなく「公式HP掲載まち（公式サイトにまだ載っていないだけ）」として区別する。
-    // 誤解を招く「公式戦以外」カウントへの混入を防ぐため、集計上も別ステータスにする。
-    const leagueKnown = !!(cm.league_or_competition && String(cm.league_or_competition).trim().toUpperCase() !== 'TRG');
+    // league_or_competition がOFFICIAL_SOURCES（公式HPで実際に追跡している大会）に該当するなら、
+    // 公式サイトと未突合でも「非公式戦」ではなく「公式HP掲載まち（公式サイトにまだ載っていないだけ）」
+    // として区別する。足柄招待等の私的招待大会は該当しないため'other'のまま。
+    const leagueKnown = isKnownOfficialLeague(cm.league_or_competition);
     const unmatchedStatus = leagueKnown ? 'pending' : 'other';
     entries.push({
       date: normDate(cm.event_date), category: cm.category_code,
