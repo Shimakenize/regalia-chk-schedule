@@ -716,14 +716,19 @@
         <button class="members-refresh-btn" onclick="refreshMembers()">更新</button>
       </div>
       <div id="access-log-section" class="members-card" style="display:none;">
-        <div class="members-title">アクセスログ</div>
-        <div class="members-meta">LIFF 起動時のアクセスを記録（閲覧者すべて）</div>
-        <select id="access-log-filter" class="access-log-filter" onchange="refreshAccessLog()">
-          <option value="30d">直近30日</option>
-        </select>
-        <div class="members-meta" id="access-log-meta">読み込み中…</div>
-        <div id="access-log-body"></div>
-        <button class="members-refresh-btn" onclick="refreshAccessLog()">更新</button>
+        <button type="button" class="official-detail-toggle" id="access-log-accordion-toggle" onclick="toggleAccessLogAccordion()" style="width:100%;justify-content:space-between;display:flex">
+          <span class="members-title" style="margin:0">アクセスログ</span>
+          <span class="official-detail-chevron" id="access-log-chevron">▸</span>
+        </button>
+        <div id="access-log-accordion-body" style="display:none;margin-top:8px">
+          <div class="members-meta">LIFF 起動時のアクセスを記録（閲覧者すべて）</div>
+          <select id="access-log-filter" class="access-log-filter" onchange="refreshAccessLog()">
+            <option value="30d">直近30日</option>
+          </select>
+          <div class="members-meta" id="access-log-meta">読み込み中…</div>
+          <div id="access-log-body"></div>
+          <button class="members-refresh-btn" onclick="refreshAccessLog()">更新</button>
+        </div>
       </div>
     </div>
   </div>
@@ -737,7 +742,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 82;
+const __UI_BUILD__  = 83;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1747,8 +1752,17 @@ function switchAdminPanel(name) {
   if (name === 'compare') loadMgmtCompareResult();
   if (name === 'logs') {
     refreshMembers();
-    refreshAccessLog();
+    // アクセスログはアコーディオン展開時に読み込む（折りたたみ時は取得しない）
   }
+}
+
+function toggleAccessLogAccordion() {
+  const body = document.getElementById('access-log-accordion-body');
+  const chevron = document.getElementById('access-log-chevron');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  chevron.textContent = open ? '▸' : '▾';
+  if (!open) refreshAccessLog();
 }
 
 // ── LINE試合生データ ──────────────────────────────────────────────────────────
