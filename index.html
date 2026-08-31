@@ -749,7 +749,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 89;
+const __UI_BUILD__  = 90;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1248,7 +1248,7 @@ function buildMerged() {
       if (od && (od.opponent || od.time)) official = od;
     } else {
       const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
-      if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '', sourceType: o.source_type || 'hp', evidenceDocId: o.evidence_doc_id || '' };
+      if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '', sourceType: o.source_type || 'hp', evidenceDocId: o.evidence_doc_id || '', evidenceDocUrl: o.evidence_doc_url || '' };
     }
     // league_or_competition がOFFICIAL_SOURCES（公式HPで実際に追跡している大会）に該当するなら、
     // 公式サイトと未突合でも「非公式戦」ではなく「公式HP掲載まち（公式サイトにまだ載っていないだけ）」
@@ -1440,11 +1440,15 @@ function renderSchedList() {
     // 場合は既定リーグ名を勝手に表示しない。league_or_competitionが分かればそれを優先し
     // （同一カテゴリに複数の公式ソースがある場合の誤表示を防ぐ）、無ければカテゴリ既定にフォールバック
     const offSrcLabel = isTRGEntry ? '' : (e.league || (e.official && e.official.league) || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || '');
-    const offSrcUrl   = (!isTRGEntry && !noOfficial)
-      ? (resolveOfficialSource(e.category, e.official && e.official.league).url || null)
-      : null;
     // 照合の根拠が公式HPスクレイプか、協会配布資料によるフォールバック確認かを表示する（v0.2.73）
     const offSourceType = e.official && e.official.sourceType;
+    // 「公式」リンクは確認元に応じて切り替える：document確認ならエビデンス資料（Drive）へ、
+    // hp確認なら公式HPへ。従来は資料確認済みでも常にHPリンクになっていたバグを修正（v0.2.76）
+    const offSrcUrl = noOfficial ? null : (
+      offSourceType === 'document'
+        ? ((e.official && e.official.evidenceDocUrl) || null)
+        : (isTRGEntry ? null : (resolveOfficialSource(e.category, e.official && e.official.league).url || null))
+    );
     const offSourceBadge = (!noOfficial && offSourceType === 'document')
       ? `<span class="cmp-lbl-note" style="color:var(--gold)" title="公式HPがまだ掲載していないため、協会配布資料で確認済み">📄資料確認</span>`
       : (!noOfficial ? `<span class="cmp-lbl-note" style="color:#5a9a7a" title="公式HPスクレイプで確認済み">🌐HP確認</span>` : '');
