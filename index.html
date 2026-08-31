@@ -742,7 +742,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 84;
+const __UI_BUILD__  = 85;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -825,7 +825,7 @@ function normDate(v)  { return String(v || '').substring(0, 10); }
 // official_schedule側は同一カテゴリに複数の公式ソースがある場合、idを通常カテゴリ名と
 // 揃えられないスクレイパーがある（例: U-13はS.M.A.L.L. CUPが既にid="U-13"のため、
 // U-13リーグ(2部)はid="U-13L"）。coach_schedule側の通常カテゴリと照合できるようエイリアスを解決する。
-const CAT_ALIAS = { 'U-13L': 'U-13', 'U-15_TKMD': 'U-15', 'U-15_SAGAMIHARA': 'U-15' };
+const CAT_ALIAS = { 'U-13L': 'U-13', 'U-15_TKMD': 'U-15', 'U-15_SAGAMIHARA': 'U-15', 'CJY_U14': 'U-14' };
 function catBase(cat) {
   const c = String(cat || '').replace(/_FUTSAL$/, '');
   return CAT_ALIAS[c] || c;
@@ -1237,7 +1237,7 @@ function buildMerged() {
       if (od && (od.opponent || od.time)) official = od;
     } else {
       const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
-      if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '' };
+      if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '', sourceType: o.source_type || 'hp', evidenceDocId: o.evidence_doc_id || '' };
     }
     // league_or_competition がOFFICIAL_SOURCES（公式HPで実際に追跡している大会）に該当するなら、
     // 公式サイトと未突合でも「非公式戦」ではなく「公式HP掲載まち（公式サイトにまだ載っていないだけ）」
@@ -1426,6 +1426,11 @@ function renderSchedList() {
     const offSrcUrl   = (!isTRGEntry && !noOfficial)
       ? (resolveOfficialSource(e.category, e.official && e.official.league).url || null)
       : null;
+    // 照合の根拠が公式HPスクレイプか、協会配布資料によるフォールバック確認かを表示する（v0.2.73）
+    const offSourceType = e.official && e.official.sourceType;
+    const offSourceBadge = (!noOfficial && offSourceType === 'document')
+      ? `<span class="cmp-lbl-note" style="color:var(--gold)" title="公式HPがまだ掲載していないため、協会配布資料で確認済み">📄資料確認</span>`
+      : (!noOfficial ? `<span class="cmp-lbl-note" style="color:#5a9a7a" title="公式HPスクレイプで確認済み">🌐HP確認</span>` : '');
 
     let diffHtml;
     if (!e.discs || !e.discs.length) {
@@ -1452,7 +1457,7 @@ function renderSchedList() {
         <div class="cmp-col off-col${noOfficial?' muted':''}">
           <div class="cmp-col-lbl">${offSrcUrl
             ? `<a href="${offSrcUrl}" target="_blank" style="color:inherit;text-decoration:none">公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''} <span style="color:var(--gold);font-size:10px">↗</span></a>`
-            : `公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''}`}</div>
+            : `公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''}`} ${offSourceBadge}</div>
           <div class="cmp-col-time">${noOfficial ? '—' : offTime}</div>
           <div class="cmp-col-opp">${noOfficial ? '(なし)' : offOpp}</div>
           ${!noOfficial && offVenue ? `<div class="cmp-col-venue">@ ${offVenue}</div>` : ''}
