@@ -134,11 +134,13 @@
     .sum-grid-card.ok       { background:rgba(67,184,115,.08);  border-color:rgba(67,184,115,.3); }
     .sum-grid-card.ng       { background:rgba(224,85,95,.08);   border-color:rgba(224,85,95,.3); }
     .sum-grid-card.pending  { background:rgba(90,140,200,.08);  border-color:rgba(90,140,200,.3); }
+    .sum-grid-card.line_pending { background:rgba(147,112,219,.08); border-color:rgba(147,112,219,.3); }
     .sum-grid-card.other    { background:rgba(210,166,73,.08);  border-color:rgba(210,166,73,.3); }
     .sum-grid-num { font-family:'Cormorant Garamond',serif; font-size:48px; font-weight:700; line-height:1; }
     .sum-grid-card.ok       .sum-grid-num { color:#43b873; }
     .sum-grid-card.ng       .sum-grid-num { color:#e0555f; }
     .sum-grid-card.pending  .sum-grid-num { color:#5a8cc8; }
+    .sum-grid-card.line_pending .sum-grid-num { color:#9370db; }
     .sum-grid-card.other    .sum-grid-num { color:#d2a649; }
     .sum-grid-label { font-size:10px; color:#c4cfe0; margin-top:4px; font-weight:500; }
 
@@ -210,6 +212,7 @@
     .card-diff.ok-match  { color:#43b873; }
     .card-diff.ng      { color:#e0555f; }
     .card-diff.pending  { color:#5a8cc8; }
+    .card-diff.line_pending { color:#9370db; }
     .card-diff.other  { color:#d2a649; }
 
 
@@ -573,6 +576,10 @@
         <div class="sum-grid-num" id="cnt-pending">—</div>
         <div class="sum-grid-label">公式HP掲載まち</div>
       </div>
+      <div class="sum-grid-card line_pending" data-filter="line_pending" onclick="filterSummary('line_pending',this)">
+        <div class="sum-grid-num" id="cnt-line_pending">—</div>
+        <div class="sum-grid-label">LINE通知待ち</div>
+      </div>
       <div class="sum-grid-card other" data-filter="other" onclick="filterSummary('other',this)">
         <div class="sum-grid-num" id="cnt-other">—</div>
         <div class="sum-grid-label">公式戦以外</div>
@@ -742,7 +749,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 85;
+const __UI_BUILD__  = 86;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -884,6 +891,7 @@ function statusChip(e) {
     ok:      { text:'照合OK',    c:'#43b873', bg:'rgba(67,184,115,.14)',  b:'rgba(67,184,115,.45)' },
     ng:      { text:'照合NG',    c:'#e0555f', bg:'rgba(224,85,95,.14)',   b:'rgba(224,85,95,.45)' },
     pending: { text:'公式HP掲載まち', c:'#5a8cc8', bg:'rgba(90,140,200,.14)', b:'rgba(90,140,200,.45)' },
+    line_pending: { text:'LINE通知待ち', c:'#9370db', bg:'rgba(147,112,219,.14)', b:'rgba(147,112,219,.45)' },
     other:   { text:'公式戦以外', c:'#d2a649', bg:'rgba(210,166,73,.14)', b:'rgba(210,166,73,.45)' },
   };
   const s = cfg[status] || { text:status, c:'#9aa6bd', bg:'rgba(154,166,189,.14)', b:'rgba(154,166,189,.45)' };
@@ -970,7 +978,7 @@ async function liffLogoutThenLogin() {
 async function init() {
   const urlParams  = new URLSearchParams(window.location.search);
   const initFilter = urlParams.get('filter');
-  if (initFilter && ['ok','ng','pending','other'].includes(initFilter)) {
+  if (initFilter && ['ok','ng','pending','line_pending','other'].includes(initFilter)) {
     summaryFilter = initFilter;
   }
 
@@ -1258,7 +1266,9 @@ function buildMerged() {
     const dd = normDate(d.match_date);
     if (dd < today) continue;
     const od = safeParse(d.official_data) || {};
-    entries.push({ date: dd, category: d.category_code, coach: null, official: od, discs: [d], status: 'ng' });
+    // 公式にはあるがLINE未報告 = 「LINE通知待ち」（v0.2.75で'ng'から分離）。
+    // 照合NGは「LINE・公式両方にデータがあり内容が食い違う」場合のみとする。
+    entries.push({ date: dd, category: d.category_code, coach: null, official: od, discs: [d], status: 'line_pending' });
     usedDiscIds.add(d.id);
   }
   entries.sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : catSortKey(a.category) - catSortKey(b.category));
@@ -1266,10 +1276,12 @@ function buildMerged() {
 }
 
 // ── サマリー ─────────────────────────────────────────────────────────────────
-const NG_TYPES = new Set(['official_only','time_mismatch','venue_mismatch','opponent_mismatch']);
-const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', pending:'公式HP掲載まち', other:'公式戦以外' };
+// official_only（公式にはあるがLINE未報告）はv0.2.75で'ng'から独立した'line_pending'ステータスに分離した。
+// NG_TYPESは「両側にデータがあり内容が食い違う」差分のみを指す。
+const NG_TYPES = new Set(['time_mismatch','venue_mismatch','opponent_mismatch']);
+const SUMMARY_LABELS = { all:'全試合', ok:'照合OK', ng:'照合NG', pending:'公式HP掲載まち', line_pending:'LINE通知待ち', other:'公式戦以外' };
 const TYPE_LABELS = {
-  official_only:     '公式のみ（LINE未登録）',
+  official_only:     '公式のみ（LINE通知待ち）',
   coach_only:        'LINEのみ（公式HP掲載まち）',
   time_mismatch:     '時刻が異なる',
   venue_mismatch:    '会場が異なる',
@@ -1282,6 +1294,7 @@ function renderSummary() {
   document.getElementById('cnt-ok').textContent    = merged.filter(e => e.status === 'ok').length;
   document.getElementById('cnt-ng').textContent    = merged.filter(e => e.status === 'ng').length;
   document.getElementById('cnt-pending').textContent = merged.filter(e => e.status === 'pending').length;
+  document.getElementById('cnt-line_pending').textContent = merged.filter(e => e.status === 'line_pending').length;
   document.getElementById('cnt-other').textContent = merged.filter(e => e.status === 'other').length;
   activateSummaryCard(summaryFilter);
   renderSumList(merged);
@@ -1329,7 +1342,7 @@ function renderSumList(merged) {
   }).join('');
 }
 
-const SCHED_STATUS_LABELS = { all:'全て', ok:'照合OK', ng:'照合NG', pending:'公式HP掲載まち', other:'公式戦以外' };
+const SCHED_STATUS_LABELS = { all:'全て', ok:'照合OK', ng:'照合NG', pending:'公式HP掲載まち', line_pending:'LINE通知待ち', other:'公式戦以外' };
 
 function jumpToSched() {
   catFilter = '全て';
@@ -1360,6 +1373,7 @@ function renderSchedStatusFilter() {
     {label:'照合OK',     val:'ok'},
     {label:'照合NG',     val:'ng'},
     {label:'公式HP掲載まち', val:'pending'},
+    {label:'LINE通知待ち', val:'line_pending'},
     {label:'公式戦以外', val:'other'},
   ];
   document.getElementById('status-filter').innerHTML = statuses.map(s =>
@@ -1436,7 +1450,7 @@ function renderSchedList() {
     if (!e.discs || !e.discs.length) {
       diffHtml = `<div class="card-diff ok-match">差分無し</div>`;
     } else {
-      const cls = (e.status === 'ng' || e.status === 'pending') ? e.status : 'other';
+      const cls = (e.status === 'ng' || e.status === 'pending' || e.status === 'line_pending') ? e.status : 'other';
       const typeText = e.discs.map(d => TYPE_LABELS[d.type] || d.type).join(' / ');
       diffHtml = `<div class="card-diff ${cls}">▶ ${typeText}</div>`;
     }
