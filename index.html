@@ -742,7 +742,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 83;
+const __UI_BUILD__  = 84;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -772,6 +772,7 @@ const OFFICIAL_SOURCES = [
   { id: 'U-14_FUTSAL', label: 'U-14フットサル 3部A',      shortLabel: 'U15FL 3部A', url: 'https://matchday-live.com/race/EoDjcuJe' },
   { id: 'U-13_FUTSAL', label: 'U-13フットサル 3部B',      shortLabel: 'U15FL 3部B', url: 'https://matchday-live.com/race/zZGrc4ta' },
   { id: 'U-13',        label: 'S.M.A.L.L. CUP',           shortLabel: 'S.M.A.L.L.', url: 'https://smallcup-u13.web.app/final' },
+  { id: 'U-15_SAGAMIHARA', label: '相模原市U15リーグ',    shortLabel: '相模原U15L', url: 'http://sagamihara-fa.com/tyugaku.html' },
 ];
 const SRC_MAP = Object.fromEntries(OFFICIAL_SOURCES.map(s => [s.id, s]));
 
@@ -824,7 +825,7 @@ function normDate(v)  { return String(v || '').substring(0, 10); }
 // official_schedule側は同一カテゴリに複数の公式ソースがある場合、idを通常カテゴリ名と
 // 揃えられないスクレイパーがある（例: U-13はS.M.A.L.L. CUPが既にid="U-13"のため、
 // U-13リーグ(2部)はid="U-13L"）。coach_schedule側の通常カテゴリと照合できるようエイリアスを解決する。
-const CAT_ALIAS = { 'U-13L': 'U-13', 'U-15_TKMD': 'U-15' };
+const CAT_ALIAS = { 'U-13L': 'U-13', 'U-15_TKMD': 'U-15', 'U-15_SAGAMIHARA': 'U-15' };
 function catBase(cat) {
   const c = String(cat || '').replace(/_FUTSAL$/, '');
   return CAT_ALIAS[c] || c;
