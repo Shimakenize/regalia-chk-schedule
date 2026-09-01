@@ -149,6 +149,11 @@
     .sum-list-hdr { font-size:15px; color:#fff; font-weight:700; }
     .sum-list-hdr-wrap { padding:0 16px 8px; display:flex; align-items:baseline; gap:8px; }
     .sum-filter-label { font-size:10px; color:var(--gold); }
+    .sum-history-btn {
+      margin-left:auto; flex-shrink:0;
+      background:transparent; border:1px solid var(--border); border-radius:6px;
+      color:var(--muted); font-size:11px; padding:5px 10px; cursor:pointer; font-family:inherit;
+    }
     .sum-list-wrap { border-radius:14px; overflow:hidden; border:1px solid var(--border); margin:0 16px 30px; }
     .sum-row {
       display: flex; align-items: center; gap: 12px;
@@ -393,6 +398,40 @@
       background: #fff;
     }
     .doc-viewer-msg { color: var(--muted); font-size: 13px; padding: 24px; text-align: center; }
+
+    /* ── 更新履歴モーダル（v0.2.85） ───────────────────── */
+    #history-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 200;
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .history-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 100%; max-width: 480px; max-height: 80vh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .history-bar {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .history-title { font-size: 14px; font-weight: 700; color: #fff; }
+    .history-close {
+      background: transparent; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--muted); font-size: 12px; padding: 5px 10px; cursor: pointer; font-family: inherit;
+    }
+    .history-list { flex: 1; overflow: auto; padding: 8px 16px 16px; }
+    .history-entry { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+    .history-entry:last-child { border-bottom: none; }
+    .history-entry-head { font-size: 11px; color: var(--gold); font-weight: 600; }
+    .history-entry-line { font-size: 12px; color: #d8dee8; margin-top: 3px; padding-left: 1em; white-space: pre-wrap; word-break: break-word; }
     .reg-card {
       background: var(--surface);
       border: 1px solid rgba(201,162,75,.3);
@@ -570,6 +609,17 @@
   <div class="doc-viewer-pages" id="doc-viewer-pages"></div>
 </div>
 
+<!-- ── 更新履歴モーダル（v0.2.85） ────────────────────── -->
+<div id="history-overlay">
+  <div class="history-card">
+    <div class="history-bar">
+      <span class="history-title">更新履歴（直近30件）</span>
+      <button class="history-close" onclick="closeUpdateHistory()">✕ 閉じる</button>
+    </div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+</div>
+
 <!-- ── メインアプリ ─────────────────────────────────── -->
 <div id="main-app" style="display:none;">
 
@@ -636,6 +686,7 @@
     <div class="sum-list-hdr-wrap">
       <div class="sum-list-hdr" id="sum-list-hdr">全試合 一覧</div>
       <div class="sum-filter-label" id="sum-filter-label"></div>
+      <button class="sum-history-btn" onclick="openUpdateHistory()">📝 更新履歴</button>
     </div>
     <div class="sum-list-wrap" id="sum-list">
       <div class="empty-msg">読み込み中…</div>
@@ -797,7 +848,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 94;
+const __UI_BUILD__  = 95;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1600,6 +1651,44 @@ async function viewOfficialDocument(docId, linkEl) {
 function closeOfficialDocument() {
   document.getElementById('doc-viewer-overlay').style.display = 'none';
   document.getElementById('doc-viewer-pages').innerHTML = '';
+}
+
+// ── 更新履歴モーダル（v0.2.85） ─────────────────────────────────────────────────
+const HISTORY_SOURCE_LABELS = {
+  'admin-import': 'AI Agentによる更新',
+  'claude-admin': 'AI Agentによる更新',
+  'LINE': 'コーチのLINE投稿による更新',
+  'mgmt-sync': 'schedule_management自動反映',
+  'app': 'アプリ上での手動編集',
+};
+
+async function openUpdateHistory() {
+  const overlay = document.getElementById('history-overlay');
+  const listEl  = document.getElementById('history-list');
+  listEl.innerHTML = '<div class="doc-viewer-msg">読込中…</div>';
+  overlay.style.display = 'flex';
+  try {
+    const res = await gasGet('api/coach-schedule/update-log');
+    if (!res.ok) throw new Error(res.error || '取得失敗');
+    const logs = res.logs || [];
+    if (!logs.length) { listEl.innerHTML = '<div class="doc-viewer-msg">履歴がありません</div>'; return; }
+    listEl.innerHTML = logs.map(row => {
+      const label = HISTORY_SOURCE_LABELS[row.source] || `${row.source || '不明'}による更新`;
+      const parts = String(row.logged_at || '').split(' ');
+      const timeStr = (parts[0] ? parts[0].replace(/-/g, '') : '') + (parts[1] ? ' ' + parts[1] : '');
+      const lines = (row.changes ? String(row.changes).split('\n') : [row.summary || '']).filter(Boolean);
+      return `<div class="history-entry">` +
+        `<div class="history-entry-head">${escHtml(timeStr)} ${escHtml(label)}</div>` +
+        lines.map(line => `<div class="history-entry-line">${escHtml(line)}</div>`).join('') +
+        `</div>`;
+    }).join('');
+  } catch (err) {
+    listEl.innerHTML = `<div class="doc-viewer-msg">取得に失敗しました: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function closeUpdateHistory() {
+  document.getElementById('history-overlay').style.display = 'none';
 }
 
 // ── 管理操作 ─────────────────────────────────────────────────────────────────
