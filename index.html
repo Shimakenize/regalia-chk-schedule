@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+  <script src="/regalia-chk-schedule/vendor/pdfjs/pdf.min.js"></script>
   <style>
     :root {
       --bg:      #070c16;
@@ -354,6 +355,44 @@
       display: flex; align-items: center; justify-content: center;
       z-index: 100;
     }
+
+    /* ── 公式資料PDFビューア（v0.2.84、pdf.jsをcanvasへ描画） ───── */
+    #doc-viewer-overlay {
+      position: fixed; inset: 0;
+      background: #2b2f36;
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+    }
+    .doc-viewer-bar {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .doc-viewer-title {
+      font-size: 12px; color: #e8eaf0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .doc-viewer-close {
+      flex-shrink: 0;
+      background: transparent; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--muted); font-size: 12px; padding: 6px 12px; cursor: pointer; font-family: inherit;
+    }
+    .doc-viewer-pages {
+      flex: 1; overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .doc-viewer-pages canvas {
+      max-width: 100%; height: auto;
+      box-shadow: 0 2px 10px rgba(0,0,0,.4);
+      background: #fff;
+    }
+    .doc-viewer-msg { color: var(--muted); font-size: 13px; padding: 24px; text-align: center; }
     .reg-card {
       background: var(--surface);
       border: 1px solid rgba(201,162,75,.3);
@@ -520,6 +559,15 @@
     <div class="reg-error" id="reg-error"></div>
     <button class="reg-submit" id="reg-submit" onclick="submitRegistration()" disabled>登録する</button>
   </div>
+</div>
+
+<!-- ── 公式資料PDFビューア（v0.2.84） ─────────────────── -->
+<div id="doc-viewer-overlay">
+  <div class="doc-viewer-bar">
+    <span class="doc-viewer-title" id="doc-viewer-title">資料を読み込み中…</span>
+    <button class="doc-viewer-close" onclick="closeOfficialDocument()">✕ 閉じる</button>
+  </div>
+  <div class="doc-viewer-pages" id="doc-viewer-pages"></div>
 </div>
 
 <!-- ── メインアプリ ─────────────────────────────────── -->
@@ -749,7 +797,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 93;
+const __UI_BUILD__  = 94;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1443,17 +1491,16 @@ function renderSchedList() {
     // 照合の根拠が公式HPスクレイプか、協会配布資料によるフォールバック確認かを表示する（v0.2.73）
     const offSourceType = e.official && e.official.sourceType;
     const offEvidenceDocId = (e.official && e.official.evidenceDocId) || '';
-    // 「公式」リンクはhp確認なら公式HPへ直接リンク。document確認の場合、Drive URLを
-    // そのまま埋め込むとGoogleログイン画面になるため、GAS側でHTMLページとして直接
-    // 返す自前エンドポイント（view-official-document、登録済みユーザーのみ）へ通常の
-    // <a target="_blank">リンクとして飛ばす。v0.2.82ではJS fetch+blob URL方式だったが、
-    // LIFF WebViewでblob URLがwindow.open先の別コンテキストに渡らず「読込完了しても
-    // 何も表示されない」不具合が判明したため、v0.2.83で通常リンク方式に変更
-    const offDocViewUrl = offEvidenceDocId
-      ? (GAS_URL + '?_path=view-official-document&userId=' + encodeURIComponent(userId) + '&doc_id=' + encodeURIComponent(offEvidenceDocId))
-      : null;
-    const offSrcUrl = (noOfficial || isTRGEntry) ? null
-      : (offSourceType === 'document' ? offDocViewUrl : (resolveOfficialSource(e.category, e.official && e.official.league).url || null));
+    // 「公式」リンクはhp確認なら公式HPへ直接リンク。document確認の場合はDrive URLを
+    // 一切埋め込まず、クリック時に同一LIFFページ内でapi/official-documentをfetch
+    // →pdf.jsでcanvas描画するモーダルを開く（viewOfficialDocument()、別タブは開かない）。
+    // v0.2.82: fetch+blob URL+window.open → LIFF WebViewでblob URLが別コンテキストに
+    //   渡らず失敗。v0.2.83: GAS側でdata URI埋め込みHTMLを返す方式 → HtmlServiceの
+    //   出力が常にGoogleのサンドボックスiframeでラップされ<embed>描画がブロックされ失敗
+    //   （実機確認）。v0.2.84: 別タブ・サンドボックスiframe・ブラウザ標準PDFプラグイン
+    //   のいずれにも依存しない同一ページ内canvas描画方式に変更
+    const offSrcUrl = (noOfficial || isTRGEntry || offSourceType === 'document') ? null
+      : (resolveOfficialSource(e.category, e.official && e.official.league).url || null);
     const offSourceBadge = (!noOfficial && offSourceType === 'document')
       ? `<span class="cmp-lbl-note" style="color:var(--gold)" title="公式HPがまだ掲載していないため、協会配布資料で確認済み">📄資料確認</span>`
       : (!noOfficial ? `<span class="cmp-lbl-note" style="color:#5a9a7a" title="公式HPスクレイプで確認済み">🌐HP確認</span>` : '');
@@ -1486,9 +1533,13 @@ function renderSchedList() {
         </div>
         <div class="cmp-col-sep"></div>
         <div class="cmp-col off-col${noOfficial?' muted':''}">
-          <div class="cmp-col-lbl">${offSrcUrl
-            ? `<a href="${offSrcUrl}" target="_blank" style="color:inherit;text-decoration:none">公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''} <span style="color:var(--gold);font-size:10px">↗</span></a>`
-            : `公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''}`} ${offSourceBadge}</div>
+          <div class="cmp-col-lbl">${
+            offSourceType === 'document' && offEvidenceDocId
+              ? `<a href="javascript:void(0)" onclick="viewOfficialDocument('${offEvidenceDocId}', this)" style="color:inherit;text-decoration:none">公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''} <span style="color:var(--gold);font-size:10px">↗</span></a>`
+              : (offSrcUrl
+                  ? `<a href="${offSrcUrl}" target="_blank" style="color:inherit;text-decoration:none">公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''} <span style="color:var(--gold);font-size:10px">↗</span></a>`
+                  : `公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''}`)
+          } ${offSourceBadge}</div>
           <div class="cmp-col-time">${noOfficial ? '—' : offTime}</div>
           <div class="cmp-col-opp">${noOfficial ? '(なし)' : offOpp}</div>
           ${!noOfficial && offVenue ? `<div class="cmp-col-venue">@ ${offVenue}</div>` : ''}
@@ -1497,6 +1548,58 @@ function renderSchedList() {
       ${diffHtml}
     </div>`;
   }).join('');
+}
+
+// 公式資料PDFを同一LIFFページ内でpdf.js（canvas描画）により表示する（v0.2.84）。
+// 別タブ・blob URL・GASのHtmlServiceサンドボックスiframe・ブラウザ標準PDFプラグインの
+// いずれにも依存しないため、iOS WKWebView（LINE内ブラウザ）でも確実に描画できる。
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/regalia-chk-schedule/vendor/pdfjs/pdf.worker.min.js';
+}
+
+async function viewOfficialDocument(docId, linkEl) {
+  const overlay  = document.getElementById('doc-viewer-overlay');
+  const titleEl  = document.getElementById('doc-viewer-title');
+  const pagesEl  = document.getElementById('doc-viewer-pages');
+  const original = linkEl.innerHTML;
+  linkEl.innerHTML = '読込中…';
+  pagesEl.innerHTML = '';
+  titleEl.textContent = '資料を読み込み中…';
+  overlay.style.display = 'flex';
+  try {
+    const res = await gasGet('api/official-document', { userId, doc_id: docId });
+    if (!res.ok) throw new Error(res.error || '取得失敗');
+    titleEl.textContent = res.filename || '公式資料';
+    const byteChars = atob(res.file_base64);
+    const bytes = new Uint8Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    const containerWidth = pagesEl.clientWidth || 320;
+    const outputScale = window.devicePixelRatio || 1;
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const displayScale = containerWidth / baseViewport.width;
+      const viewport = page.getViewport({ scale: displayScale * outputScale });
+      const canvas = document.createElement('canvas');
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width  = (viewport.width  / outputScale) + 'px';
+      canvas.style.height = (viewport.height / outputScale) + 'px';
+      pagesEl.appendChild(canvas);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    }
+  } catch (err) {
+    titleEl.textContent = '取得に失敗しました';
+    pagesEl.innerHTML = `<div class="doc-viewer-msg">資料の取得に失敗しました: ${err.message}</div>`;
+  } finally {
+    linkEl.innerHTML = original;
+  }
+}
+
+function closeOfficialDocument() {
+  document.getElementById('doc-viewer-overlay').style.display = 'none';
+  document.getElementById('doc-viewer-pages').innerHTML = '';
 }
 
 // ── 管理操作 ─────────────────────────────────────────────────────────────────
