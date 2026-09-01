@@ -749,7 +749,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 91;
+const __UI_BUILD__  = 92;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1248,7 +1248,7 @@ function buildMerged() {
       if (od && (od.opponent || od.time)) official = od;
     } else {
       const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
-      if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '', sourceType: o.source_type || 'hp', evidenceDocId: o.evidence_doc_id || '', evidenceDocUrl: o.evidence_doc_url || '' };
+      if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '', sourceType: o.source_type || 'hp', evidenceDocId: o.evidence_doc_id || '' };
     }
     // league_or_competition がOFFICIAL_SOURCES（公式HPで実際に追跡している大会）に該当するなら、
     // 公式サイトと未突合でも「非公式戦」ではなく「公式HP掲載まち（公式サイトにまだ載っていないだけ）」
@@ -1442,13 +1442,13 @@ function renderSchedList() {
     const offSrcLabel = isTRGEntry ? '' : (e.league || (e.official && e.official.league) || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || '');
     // 照合の根拠が公式HPスクレイプか、協会配布資料によるフォールバック確認かを表示する（v0.2.73）
     const offSourceType = e.official && e.official.sourceType;
-    // 「公式」リンクは確認元に応じて切り替える：document確認ならエビデンス資料（Drive）へ、
-    // hp確認なら公式HPへ。従来は資料確認済みでも常にHPリンクになっていたバグを修正（v0.2.76）
-    const offSrcUrl = noOfficial ? null : (
-      offSourceType === 'document'
-        ? ((e.official && e.official.evidenceDocUrl) || null)
-        : (isTRGEntry ? null : (resolveOfficialSource(e.category, e.official && e.official.league).url || null))
-    );
+    const offEvidenceDocId = (e.official && e.official.evidenceDocId) || '';
+    // 「公式」リンクはhp確認なら公式HPへ直接リンク。document確認の場合、Drive URLを
+    // そのまま埋め込むとGoogleログイン画面になり、かつ無認証API経由で誰でも取得できて
+    // しまうため直接リンクにはしない（クリック時に登録済みユーザーのみ閲覧可能な
+    // api/official-documentプロキシ経由で取得する。v0.2.82）
+    const offSrcUrl = (noOfficial || isTRGEntry || offSourceType === 'document') ? null
+      : (resolveOfficialSource(e.category, e.official && e.official.league).url || null);
     const offSourceBadge = (!noOfficial && offSourceType === 'document')
       ? `<span class="cmp-lbl-note" style="color:var(--gold)" title="公式HPがまだ掲載していないため、協会配布資料で確認済み">📄資料確認</span>`
       : (!noOfficial ? `<span class="cmp-lbl-note" style="color:#5a9a7a" title="公式HPスクレイプで確認済み">🌐HP確認</span>` : '');
@@ -1481,9 +1481,13 @@ function renderSchedList() {
         </div>
         <div class="cmp-col-sep"></div>
         <div class="cmp-col off-col${noOfficial?' muted':''}">
-          <div class="cmp-col-lbl">${offSrcUrl
-            ? `<a href="${offSrcUrl}" target="_blank" style="color:inherit;text-decoration:none">公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''} <span style="color:var(--gold);font-size:10px">↗</span></a>`
-            : `公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''}`} ${offSourceBadge}</div>
+          <div class="cmp-col-lbl">${
+            offSourceType === 'document' && offEvidenceDocId
+              ? `<a href="javascript:void(0)" onclick="viewOfficialDocument('${offEvidenceDocId}', this)" style="color:inherit;text-decoration:none">公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''} <span style="color:var(--gold);font-size:10px">↗</span></a>`
+              : (offSrcUrl
+                  ? `<a href="${offSrcUrl}" target="_blank" style="color:inherit;text-decoration:none">公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''} <span style="color:var(--gold);font-size:10px">↗</span></a>`
+                  : `公式${offSrcLabel ? `<span class="cmp-lbl-note">(${offSrcLabel})</span>` : ''}`)
+          } ${offSourceBadge}</div>
           <div class="cmp-col-time">${noOfficial ? '—' : offTime}</div>
           <div class="cmp-col-opp">${noOfficial ? '(なし)' : offOpp}</div>
           ${!noOfficial && offVenue ? `<div class="cmp-col-venue">@ ${offVenue}</div>` : ''}
@@ -1492,6 +1496,29 @@ function renderSchedList() {
       ${diffHtml}
     </div>`;
   }).join('');
+}
+
+// 公式資料PDFを登録済みユーザーのみ閲覧可能なプロキシ経由で取得し新規タブで開く（v0.2.82）。
+// Drive URLを直接埋め込むとGoogleログイン画面になる問題の対策。
+async function viewOfficialDocument(docId, linkEl) {
+  const win = window.open('', '_blank');
+  const original = linkEl.innerHTML;
+  linkEl.innerHTML = '読込中…';
+  try {
+    const res = await gasGet('api/official-document', { userId, doc_id: docId });
+    if (!res.ok) throw new Error(res.error || '取得失敗');
+    const byteChars = atob(res.file_base64);
+    const byteNumbers = new Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+    const blob = new Blob([new Uint8Array(byteNumbers)], { type: res.mime_type || 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    if (win) win.location.href = url; else window.open(url, '_blank');
+  } catch (err) {
+    if (win) win.close();
+    alert('資料の取得に失敗しました: ' + err.message);
+  } finally {
+    linkEl.innerHTML = original;
+  }
 }
 
 // ── 管理操作 ─────────────────────────────────────────────────────────────────
