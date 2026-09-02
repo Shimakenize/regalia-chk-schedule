@@ -519,6 +519,11 @@
     .official-link { color: var(--gold); text-decoration:none; font-weight:600; }
     .official-link:hover { text-decoration:underline; }
     .official-tbd { color: var(--dim); font-style:italic; }
+    .official-doc-link {
+      display:block; margin-top:3px; font-size:10px; color:#5a9a7a; text-decoration:none;
+      cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;
+    }
+    .official-doc-link:hover { text-decoration:underline; }
     .sc-ok      { color:#43b873; font-weight:600; }
     .sc-changed { color:#d2a649; font-weight:600; }
     .sc-none    { color:var(--dim); }
@@ -848,7 +853,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 96;
+const __UI_BUILD__  = 97;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -864,6 +869,7 @@ let schedStatusFilter = 'all';
 let summaryFilter   = 'all';
 let selectedCoach   = null;
 let scrapeLogData   = [];
+let officialDocsData = [];
 let officialDetailOpen = {};
 let feedbackData    = [];
 let fbSelectedType  = 'bug';
@@ -1146,7 +1152,7 @@ async function startMainApp(meRes) {
   coachName = meRes.coachName || null;
   document.getElementById('header-coach').textContent = coachLabel;
 
-  await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules(), loadScrapeLog(), loadFeedback(), loadCoachUpdateLog()]);
+  await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules(), loadScrapeLog(), loadOfficialDocuments(), loadFeedback(), loadCoachUpdateLog()]);
   renderSummary();
   renderCatFilter();
   renderSchedStatusFilter();
@@ -1193,6 +1199,18 @@ async function loadScrapeLog() {
     scrapeLogData = res.logs || [];
   } catch {
     scrapeLogData = [];
+  }
+}
+
+// 公式配布資料の一覧（v0.2.87）。ファイル名等の非機微メタ情報のみ返す
+// api/official-documents は無認証だが、実体の閲覧は viewOfficialDocument() 経由の
+// api/official-document（_isUserAllowed()で登録済みユーザーのみ）に限定される。
+async function loadOfficialDocuments() {
+  try {
+    const res = await gasGet('api/official-documents');
+    officialDocsData = res.docs || [];
+  } catch {
+    officialDocsData = [];
   }
 }
 
@@ -1245,7 +1263,14 @@ function renderOfficialHp() {
       ? `<a class="official-link" href="${src.url}" target="_blank">${src.label} ↗</a>`
       : `<span class="official-tbd">${src.label} (TBD)</span>`;
 
-    rows.push(`<tr><td>${nameHtml}</td><td>${changedFmt}</td><td>${resultHtml}</td><td>${checkedFmt}</td></tr>`);
+    // 公式配布資料（協会からコーチへの日程表PDF等）へのリンク。実体の閲覧は
+    // viewOfficialDocument() 経由（登録済みユーザーのみ・比較表示タブと同じ仕組み）
+    const docsHtml = officialDocsData
+      .filter(d => d.category_code === src.id)
+      .map(d => `<a href="javascript:void(0)" class="official-doc-link" onclick="viewOfficialDocument('${d.id}', this)" title="${escHtml(d.filename || '')}">📄${escHtml(d.filename || '公式資料')}</a>`)
+      .join('');
+
+    rows.push(`<tr><td>${nameHtml}${docsHtml}</td><td>${changedFmt}</td><td>${resultHtml}</td><td>${checkedFmt}</td></tr>`);
 
     if (showDetails) {
       const matches = schedData
