@@ -647,7 +647,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
     <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較表示</div>
-    <div class="tab" data-tab="official" onclick="switchTab('official')">公式HP</div>
+    <div class="tab" data-tab="official" onclick="switchTab('official')">公式HP/資料</div>
     <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE試合データ</div>
     <div class="tab" id="feedback-tab" data-tab="feedback" onclick="switchTab('feedback')">バグ・要望<span id="feedback-badge" class="tab-badge" style="display:none"></span></div>
     <div class="tab" id="admin-tab" data-tab="admin" onclick="switchTab('admin')" style="display:none;">管理</div>
@@ -853,7 +853,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 97;
+const __UI_BUILD__  = 98;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -886,7 +886,7 @@ const OFFICIAL_SOURCES = [
   { id: 'U-15_FUTSAL', label: 'U-15フットサル2部[U15参戦]',  shortLabel: 'U15FL2部[U15]', url: '' },
   { id: 'U-14_FUTSAL', label: 'U-15フットサル2部[U14参戦]',  shortLabel: 'U15FL2部[U14]', url: '' },
   { id: 'U-13_FUTSAL', label: 'U-15フットサル3部A[U13参戦]', shortLabel: 'U15FL3部A[U13]', url: '' },
-  { id: 'U-13',        label: 'S.M.A.L.L. CUP',           shortLabel: 'S.M.A.L.L.', url: 'https://smallcup-u13.web.app/final' },
+  // S.M.A.L.L. CUP（id: 'U-13'）はv0.2.88（2026-09-02）で終了に伴い削除
   { id: 'U-15_SAGAMIHARA', label: '相模原市U15リーグ',    shortLabel: '相模原U15L', url: 'http://sagamihara-fa.com/tyugaku.html' },
 ];
 const SRC_MAP = Object.fromEntries(OFFICIAL_SOURCES.map(s => [s.id, s]));
@@ -1264,9 +1264,13 @@ function renderOfficialHp() {
       : `<span class="official-tbd">${src.label} (TBD)</span>`;
 
     // 公式配布資料（協会からコーチへの日程表PDF等）へのリンク。実体の閲覧は
-    // viewOfficialDocument() 経由（登録済みユーザーのみ・比較表示タブと同じ仕組み）
+    // viewOfficialDocument() 経由（登録済みユーザーのみ・比較表示タブと同じ仕組み）。
+    // フットサル資料（U-15FLスケジュール）はU-15/U-14/U-13の3チーム分がまとめて1冊の
+    // 資料に含まれるため、_FUTSAL系カテゴリ同士はcategory_code完全一致ではなく
+    // 「同じフットサル資料ファミリー」として横断的にリンクする（v0.2.88）
+    const isFutsalSrc = String(src.id).endsWith('_FUTSAL');
     const docsHtml = officialDocsData
-      .filter(d => d.category_code === src.id)
+      .filter(d => isFutsalSrc ? String(d.category_code || '').endsWith('_FUTSAL') : d.category_code === src.id)
       .map(d => `<a href="javascript:void(0)" class="official-doc-link" onclick="viewOfficialDocument('${d.id}', this)" title="${escHtml(d.filename || '')}">📄${escHtml(d.filename || '公式資料')}</a>`)
       .join('');
 
@@ -1913,7 +1917,7 @@ async function refreshAccessLog() {
       body.innerHTML = '<div class="empty-msg" style="padding:16px 0;">該当ログなし</div>';
       return;
     }
-    const TAB_LOG_LABELS = { summary:'サマリー', sched:'比較表示', official:'公式HP', 'coach-raw':'LINE試合データ', feedback:'バグ・要望', admin:'管理' };
+    const TAB_LOG_LABELS = { summary:'サマリー', sched:'比較表示', official:'公式HP/資料', 'coach-raw':'LINE試合データ', feedback:'バグ・要望', admin:'管理' };
     body.innerHTML = `<table class="access-log-table">
       <thead><tr><th>日時</th><th>紐付け</th><th>名前</th><th>アクセス先</th></tr></thead>
       <tbody>${logs.map(l => {
