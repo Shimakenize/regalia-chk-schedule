@@ -356,6 +356,24 @@
     .fb-done-btn { width:100%; padding:7px; background:transparent; border:1px solid var(--border); border-radius:6px; color:var(--dim); font-size:11px; cursor:pointer; font-family:inherit; margin-top:4px; }
     .tab-badge { display:inline-block; background:#e0555f; color:#fff; font-size:10px; padding:1px 5px; border-radius:8px; margin-left:4px; vertical-align:middle; line-height:1.4; }
 
+    /* ── 起動中オーバーレイ（v0.2.90、黒画面で無反応に見える問題への対処） ─ */
+    #boot-loading {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px;
+      z-index: 500;
+    }
+    .boot-spinner {
+      width: 34px; height: 34px;
+      border: 3px solid rgba(201,162,75,.25);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: boot-spin 0.8s linear infinite;
+    }
+    @keyframes boot-spin { to { transform: rotate(360deg); } }
+    #boot-loading-text { color: var(--muted); font-size: 12px; letter-spacing: .02em; }
+
     /* ── Registration overlay ─────────────────────────── */
     #register-overlay {
       position: fixed; inset: 0;
@@ -592,6 +610,12 @@
   </style>
 </head>
 <body>
+
+<!-- ── 起動中オーバーレイ（初期表示から可視。JS未実行でも背景だけは出る） ── -->
+<div id="boot-loading">
+  <div class="boot-spinner"></div>
+  <div id="boot-loading-text">起動中…</div>
+</div>
 
 <!-- ── 登録オーバーレイ（初回のみ） ──────────────────── -->
 <div id="register-overlay" style="display:none;">
@@ -856,7 +880,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 99;
+const __UI_BUILD__  = 100;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -923,7 +947,13 @@ function isKnownOfficialLeague(leagueName) {
 }
 
 // ── ユーティリティ ────────────────────────────────────────────────────────────
-function setStatus(msg) { const el = document.getElementById('status-msg'); if (el) el.textContent = msg; }
+function setStatus(msg) {
+  const el = document.getElementById('status-msg'); if (el) el.textContent = msg;
+  const bootEl = document.getElementById('boot-loading-text'); if (bootEl) bootEl.textContent = msg;
+}
+function hideBootLoading() {
+  const el = document.getElementById('boot-loading'); if (el) el.style.display = 'none';
+}
 async function refreshData() {
   const btn = document.querySelector('.sum-refresh-btn');
   if (btn) btn.disabled = true;
@@ -1127,6 +1157,8 @@ async function init() {
       }
       if (String(liffErr.message || '').includes('liff.init timeout')) {
         setStatus('LINEとの通信がタイムアウトしました。再読み込みしてください。');
+        const spinner = document.querySelector('#boot-loading .boot-spinner');
+        if (spinner) spinner.style.animationPlayState = 'paused';
         return;
       }
       throw liffErr;
@@ -1165,6 +1197,7 @@ async function init() {
       document.getElementById('main-app').style.display = 'none';
       buildCoachBadges();
       document.getElementById('register-overlay').style.display = 'flex';
+      hideBootLoading();
       setStatus('初回登録が必要です');
       return;
     }
@@ -1173,6 +1206,8 @@ async function init() {
     _saveBootstrapCache(userId, bootRes);
   } catch (e) {
     setStatus('エラー: ' + e.message);
+    const spinner = document.querySelector('#boot-loading .boot-spinner');
+    if (spinner) spinner.style.animationPlayState = 'paused';
   }
 }
 
@@ -1185,6 +1220,7 @@ function applyBootstrapResult(res, opts) {
   isAllowed = res.isAllowed || false;
 
   document.getElementById('main-app').style.display = '';
+  hideBootLoading();
   if (isAdmin) document.getElementById('admin-tab').style.display = '';
 
   document.getElementById('header-user').textContent = displayName || '';
