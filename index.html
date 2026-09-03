@@ -9,7 +9,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
-  <script src="/regalia-chk-schedule/vendor/pdfjs/pdf.min.js"></script>
+  <!-- pdf.js（320KB）は起動時のブロッキング読み込みをやめ、公式資料を初めて開いた
+       瞬間にscript要素を動的挿入して遅延読み込みする（viewOfficialDocument()参照、
+       v0.2.89・パフォーマンス改善①）。PDF機能を使わないほぼ全セッションで
+       起動時間を短縮する。 -->
   <style>
     :root {
       --bg:      #070c16;
@@ -853,7 +856,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 98;
+const __UI_BUILD__  = 99;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1083,6 +1086,26 @@ async function liffLogoutThenLogin() {
   liff.login({ redirectUri: uri });
 }
 
+// 起動時データのlocalStorageキャッシュ（v0.2.89・パフォーマンス改善⑥）。
+// 前回成功したapi/bootstrap応答をユーザーごとに保存し、次回起動時は通信を待たず
+// 即座に前回データで画面を描画（stale-while-revalidate）。裏で最新データを
+// 取得できたら差し替える。localStorageが使えない環境（プライベートモード等）
+// でも致命的にならないよう必ずtry/catchで囲む。
+const BOOTSTRAP_CACHE_PREFIX = 'chk_bootstrap_';
+function _loadBootstrapCache(uid) {
+  try {
+    const raw = localStorage.getItem(BOOTSTRAP_CACHE_PREFIX + uid);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return (parsed && parsed.data && parsed.data.registered) ? parsed.data : null;
+  } catch (e) { return null; }
+}
+function _saveBootstrapCache(uid, data) {
+  try {
+    localStorage.setItem(BOOTSTRAP_CACHE_PREFIX + uid, JSON.stringify({ savedAt: Date.now(), data }));
+  } catch (e) { /* 容量超過・プライベートモード等は無視 */ }
+}
+
 async function init() {
   const urlParams  = new URLSearchParams(window.location.search);
   const initFilter = urlParams.get('filter');
@@ -1116,43 +1139,77 @@ async function init() {
     userId      = profile.userId;
     displayName = profile.displayName;
 
-    const meRes = await gasGet('auth/me', { userId, displayName });
-    isAdmin   = meRes.isAdmin   || false;
-    isAllowed = meRes.isAllowed || false;
+    // 前回データがあれば即座に表示（体感速度の改善）。この時点では未検証の
+    // 古いデータなので、必ず直後にネットワークの最新データで上書きする。
+    const cached = _loadBootstrapCache(userId);
+    const usedCache = !!cached;
+    if (cached) {
+      try { applyBootstrapResult(cached, { stale: true }); } catch (e) { /* 描画失敗は無視して通常フローへ */ }
+    }
 
-    if (!meRes.registered) {
+    setStatus(usedCache ? '最新データを取得中…' : 'データ取得中…');
+    let bootRes;
+    try {
+      bootRes = await gasGet('api/bootstrap', { userId, displayName });
+    } catch (netErr) {
+      if (usedCache) {
+        // 前回データは既に表示済みなので、致命的エラーにはしない
+        setStatus('最新データの取得に失敗しました（前回のデータを表示中）');
+        return;
+      }
+      throw netErr;
+    }
+    if (!bootRes.ok) throw new Error(bootRes.error || 'bootstrap失敗');
+
+    if (!bootRes.registered) {
+      document.getElementById('main-app').style.display = 'none';
       buildCoachBadges();
       document.getElementById('register-overlay').style.display = 'flex';
       setStatus('初回登録が必要です');
       return;
     }
 
-    await startMainApp(meRes);
+    applyBootstrapResult(bootRes, { stale: false });
+    _saveBootstrapCache(userId, bootRes);
   } catch (e) {
     setStatus('エラー: ' + e.message);
   }
 }
 
-async function startMainApp(meRes) {
-  document.getElementById('main-app').style.display = '';
+// api/bootstrap（またはそのlocalStorageキャッシュ）の結果を画面へ反映する。
+// stale-while-revalidateのため2回（キャッシュ表示→最新データ表示）呼ばれうる
+// 前提で、副作用（DOM更新・グローバル変数代入）はすべて冪等に書くこと。
+function applyBootstrapResult(res, opts) {
+  opts = opts || {};
+  isAdmin   = res.isAdmin   || false;
+  isAllowed = res.isAllowed || false;
 
+  document.getElementById('main-app').style.display = '';
   if (isAdmin) document.getElementById('admin-tab').style.display = '';
 
   document.getElementById('header-user').textContent = displayName || '';
-  document.getElementById('header-coach').textContent = '';
 
-  const cfgRes = await gasGet('config');
-  if (cfgRes.version) {
-    const verText = `v${cfgRes.version} (${__UI_BUILD__})`;
+  if (res.version) {
+    const verText = `v${res.version} (${__UI_BUILD__})`;
     document.getElementById('header-version').textContent = '· ' + verText;
     document.title = 'F.C. REGALIA match check ' + verText;
   }
 
-  const coachLabel = meRes.coachName ? meRes.coachName : (displayName || '');
-  coachName = meRes.coachName || null;
+  const coachLabel = res.coachName ? res.coachName : (displayName || '');
+  coachName = res.coachName || null;
   document.getElementById('header-coach').textContent = coachLabel;
 
-  await Promise.all([loadDiscrepancies(), loadSchedules(), loadCoachSchedules(), loadScrapeLog(), loadOfficialDocuments(), loadFeedback(), loadCoachUpdateLog()]);
+  discData         = res.discrepancies || [];
+  schedData        = (res.schedules || []).slice().sort((a, b) =>
+    normDate(a.match_date).localeCompare(normDate(b.match_date))
+  );
+  coachData         = res.coachSchedules || [];
+  scrapeLogData     = res.scrapeLogs || [];
+  officialDocsData  = res.officialDocuments || [];
+  coachUpdateLog    = res.coachUpdateLogs || [];
+  feedbackData      = res.feedback || [];
+  _updateFbBadge();
+
   renderSummary();
   renderCatFilter();
   renderSchedStatusFilter();
@@ -1165,7 +1222,7 @@ async function startMainApp(meRes) {
     document.getElementById('access-log-section').style.display = '';
   }
 
-  setStatus('読み込み完了');
+  setStatus(opts.stale ? '前回のデータを表示中（更新中…）' : '読み込み完了');
 }
 
 // ── データ読込 ───────────────────────────────────────────────────────────────
@@ -1633,8 +1690,23 @@ function renderSchedList() {
 // 公式資料PDFを同一LIFFページ内でpdf.js（canvas描画）により表示する（v0.2.84）。
 // 別タブ・blob URL・GASのHtmlServiceサンドボックスiframe・ブラウザ標準PDFプラグインの
 // いずれにも依存しないため、iOS WKWebView（LINE内ブラウザ）でも確実に描画できる。
-if (typeof pdfjsLib !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/regalia-chk-schedule/vendor/pdfjs/pdf.worker.min.js';
+// pdf.js本体（320KB）は起動時には読み込まず、初めて資料を開いた瞬間に動的
+// <script>挿入でロードする（v0.2.89・パフォーマンス改善①）。
+let _pdfjsLoadPromise = null;
+function _ensurePdfJsLoaded() {
+  if (typeof pdfjsLib !== 'undefined') return Promise.resolve();
+  if (_pdfjsLoadPromise) return _pdfjsLoadPromise;
+  _pdfjsLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = '/regalia-chk-schedule/vendor/pdfjs/pdf.min.js';
+    script.onload = () => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/regalia-chk-schedule/vendor/pdfjs/pdf.worker.min.js';
+      resolve();
+    };
+    script.onerror = () => reject(new Error('pdf.jsの読み込みに失敗しました'));
+    document.head.appendChild(script);
+  });
+  return _pdfjsLoadPromise;
 }
 
 async function viewOfficialDocument(docId, linkEl) {
@@ -1647,6 +1719,7 @@ async function viewOfficialDocument(docId, linkEl) {
   titleEl.textContent = '資料を読み込み中…';
   overlay.style.display = 'flex';
   try {
+    await _ensurePdfJsLoaded();
     const res = await gasGet('api/official-document', { userId, doc_id: docId });
     if (!res.ok) throw new Error(res.error || '取得失敗');
     titleEl.textContent = res.filename || '公式資料';
