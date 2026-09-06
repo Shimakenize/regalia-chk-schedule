@@ -880,7 +880,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 100;
+const __UI_BUILD__  = 101;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -908,11 +908,11 @@ const OFFICIAL_SOURCES = [
   { id: 'U-14',        label: 'U-14リーグ',               shortLabel: 'U14L',       url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/' },
   { id: 'U-13L',       label: 'U-13リーグ(2部)',          shortLabel: 'U13L',       url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u13league-2nddiv-2026/' },
   // v0.2.75（2026-09-01）: 2026年後期。前期昇格によりU-15/U-14はU-15フットサル2部、
-  // U-13はU-15フットサル3部Aへ編入。公式HP（matchday-live.com）の後期race IDが
-  // まだ未公開のため、公式資料PDFからのフォールバック登録のみ（url未確定のためリンク非表示）。
-  { id: 'U-15_FUTSAL', label: 'U-15フットサル2部[U15参戦]',  shortLabel: 'U15FL2部[U15]', url: '' },
-  { id: 'U-14_FUTSAL', label: 'U-15フットサル2部[U14参戦]',  shortLabel: 'U15FL2部[U14]', url: '' },
-  { id: 'U-13_FUTSAL', label: 'U-15フットサル3部A[U13参戦]', shortLabel: 'U15FL3部A[U13]', url: '' },
+  // U-13はU-15フットサル3部Aへ編入。v0.2.92（2026-09-06）で公式HP（matchday-live.com）の
+  // 後期race IDが判明したためurlを設定（2部2ndと3部A2ndはそれぞれ別race）。
+  { id: 'U-15_FUTSAL', label: 'U-15フットサル2部[U15参戦]',  shortLabel: 'U15FL2部[U15]', url: 'https://matchday-live.com/race/4SEpLADu' },
+  { id: 'U-14_FUTSAL', label: 'U-15フットサル2部[U14参戦]',  shortLabel: 'U15FL2部[U14]', url: 'https://matchday-live.com/race/4SEpLADu' },
+  { id: 'U-13_FUTSAL', label: 'U-15フットサル3部A[U13参戦]', shortLabel: 'U15FL3部A[U13]', url: 'https://matchday-live.com/race/IXBH8Dw8' },
   // S.M.A.L.L. CUP（id: 'U-13'）はv0.2.88（2026-09-02）で終了に伴い削除
   { id: 'U-15_SAGAMIHARA', label: '相模原市U15リーグ',    shortLabel: '相模原U15L', url: 'http://sagamihara-fa.com/tyugaku.html' },
 ];
