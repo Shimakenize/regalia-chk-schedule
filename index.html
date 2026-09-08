@@ -1414,6 +1414,16 @@ function _nameSim(a, b) {
   return common / Math.max(na.length, nb.length);
 }
 
+// GAS側_LEAGUES_FORCE_ALL/_matchBucketCatと同じ考え方。相模原市U-15リーグ・SFAカップは
+// 公式サイト側とコーチ側でどちらか一方だけ出場カテゴリが確定してcategory_codeが食い違っても
+// 同一試合として突き合わせられるよう、常に'all'バケットで検索する（2026-09-09指摘:
+// 片方がU-13に確定後、同じ試合がallとU-13の2行に分裂して表示される不具合で発覚）。
+const LEAGUES_FORCE_ALL = new Set(['相模原市U-15リーグ', 'SFAカップ']);
+function matchBucketCat(cat, league) {
+  if (LEAGUES_FORCE_ALL.has(String(league || '').trim())) return 'all';
+  return catBase(cat);
+}
+
 function buildMerged() {
   const today = new Intl.DateTimeFormat('sv', {timeZone: 'Asia/Tokyo'}).format(new Date());
   const discByKey = {};
@@ -1455,7 +1465,7 @@ function buildMerged() {
       return catSortKey(a.category_code) - catSortKey(b.category_code);
     });
   for (const cm of upcomingCoach) {
-    const key = normDate(cm.event_date) + '_' + catBase(cm.category_code);
+    const key = normDate(cm.event_date) + '_' + matchBucketCat(cm.category_code, cm.league_or_competition);
     const discs = (discByKey[key] || []).filter(d => !usedDiscIds.has(d.id));
     // coach_data.title が一致するディスクのみ割り当て。不一致はフォールバックせずnull
     // → 同一日付+カテゴリの複数エントリ間での誤横取りを防ぐ
@@ -1476,7 +1486,7 @@ function buildMerged() {
       const od = safeParse(matchedDiscs[0].official_data);
       if (od && (od.opponent || od.time)) official = od;
     } else {
-      const o = consumeOff(normDate(cm.event_date), cm.category_code, cm.title || cm.league_or_competition);
+      const o = consumeOff(normDate(cm.event_date), matchBucketCat(cm.category_code, cm.league_or_competition), cm.title || cm.league_or_competition);
       if (o) official = { time: o.kickoff_time, opponent: o.opponent, venue: o.venue, league: o.league_or_competition || '', sourceType: o.source_type || 'hp', evidenceDocId: o.evidence_doc_id || '' };
     }
     // league_or_competition がOFFICIAL_SOURCES（公式HPで実際に追跡している大会）に該当するなら、
