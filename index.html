@@ -887,7 +887,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 102;
+const __UI_BUILD__  = 103;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -939,7 +939,8 @@ function resolveOfficialSource(category, leagueName) {
   return SRC_MAP[category] || {};
 }
 // 括弧・空白を除去した正規化文字列で比較する（例: "U-15リーグ2部" と "U-15リーグ(2部)" を同一視）
-function _normLeagueStr(s) { return String(s || '').replace(/[()（）\s　]/g, ''); }
+// ハイフン有無の表記ゆれ（"U-15"/"U15"）を吸収するため、括弧・空白に加えハイフンも除去して比較する。
+function _normLeagueStr(s) { return String(s || '').replace(/[()（）\-\s　]/g, ''); }
 // league_or_competition が「公式HPで実際に追跡している大会名」と一致するかを判定する。
 // 単に非空・非TRGというだけでは、足柄招待のような私的招待大会（公式HPの対象外）まで
 // 「公式HP掲載まち」に誤分類してしまうため、OFFICIAL_SOURCES（categories.yamlと対応）に
