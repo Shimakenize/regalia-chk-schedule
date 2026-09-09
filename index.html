@@ -305,6 +305,13 @@
       color:#fff; font-size:13px; font-weight:700; letter-spacing:.06em;
       border:none; cursor:pointer; margin-top:14px;
     }
+    .pending-notify-row { border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:10px; background:#0a1528; }
+    .pending-notify-head { font-size:11px; color:var(--muted); margin-bottom:6px; }
+    .pending-notify-msg { white-space:pre-wrap; font-size:12px; color:#fff; background:#050c1a; border-radius:8px; padding:10px; margin:0 0 10px; line-height:1.6; }
+    .pending-notify-actions { display:flex; gap:8px; }
+    .pending-notify-actions button { flex:1; padding:9px; border-radius:8px; border:none; font-size:12px; font-weight:700; cursor:pointer; }
+    .pending-notify-approve { background:#2e7d32; color:#fff; }
+    .pending-notify-cancel  { background:#c62828; color:#fff; }
     .access-log-filter {
       width:100%; padding:10px 12px; border-radius:10px;
       background:#0a1528; color:#fff; border:1px solid var(--border);
@@ -854,6 +861,12 @@
     </div>
 
     <div id="admin-panel-logs" class="admin-panel active">
+      <div id="pending-notify-section" class="members-card" style="display:none;">
+        <div class="members-title">LINE通知レビュー待ち<span class="tab-badge" id="pending-notify-badge" style="display:none"></span></div>
+        <div class="members-meta" id="pending-notify-meta">読み込み中…</div>
+        <div id="pending-notify-body"></div>
+        <button class="members-refresh-btn" onclick="refreshPendingNotifications()">更新</button>
+      </div>
       <div id="members-section" class="members-card" style="display:none;">
         <div class="members-title">登録メンバーリスト</div>
         <div class="members-meta" id="members-meta">読み込み中…</div>
@@ -887,7 +900,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 103;
+const __UI_BUILD__  = 104;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -907,6 +920,12 @@ let officialDocsData = [];
 let officialDetailOpen = {};
 let feedbackData    = [];
 let fbSelectedType  = 'bug';
+let pendingLineNotifications = [];
+const NOTIFY_KIND_LABELS = {
+  ng_detected:     '照合NG新規検知',
+  ng_resolved:     '照合NG解消',
+  ng_and_resolved: '照合NG新規検知＋解消',
+};
 
 const OFFICIAL_SOURCES = [
   { id: 'U-15',        label: 'U-15リーグ(2部)',         shortLabel: 'U15L 2部',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-2b-2026/' },
@@ -1254,6 +1273,8 @@ function applyBootstrapResult(res, opts) {
   coachUpdateLog    = res.coachUpdateLogs || [];
   feedbackData      = res.feedback || [];
   _updateFbBadge();
+  pendingLineNotifications = res.pendingLineNotifications || [];
+  renderPendingNotifications();
 
   renderSummary();
   renderCatFilter();
@@ -1263,6 +1284,7 @@ function applyBootstrapResult(res, opts) {
   renderCoachRaw();
 
   if (isAdmin) {
+    document.getElementById('pending-notify-section').style.display = '';
     document.getElementById('members-section').style.display = '';
     document.getElementById('access-log-section').style.display = '';
   }
@@ -2027,6 +2049,62 @@ async function applyMgmtAll(btn) {
 }
 
 // ── 登録メンバー管理 ─────────────────────────────────────────────────────────
+function _escHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderPendingNotifications() {
+  const meta  = document.getElementById('pending-notify-meta');
+  const body  = document.getElementById('pending-notify-body');
+  const badge = document.getElementById('pending-notify-badge');
+  if (!meta || !body) return;
+  const pending = pendingLineNotifications.filter(r => r.status === 'pending');
+  if (badge) {
+    if (pending.length > 0) { badge.textContent = pending.length; badge.style.display = ''; }
+    else badge.style.display = 'none';
+  }
+  if (!pendingLineNotifications.length) {
+    meta.textContent = '保留中の通知はありません。';
+    body.innerHTML = '';
+    return;
+  }
+  meta.textContent = `${pending.length}件レビュー待ち（直近${pendingLineNotifications.length}件を表示）`;
+  body.innerHTML = pendingLineNotifications.map(r => {
+    const statusLabel = r.status === 'pending'   ? '⏳ レビュー待ち'
+                       : r.status === 'approved'  ? '✅ 送信済み'
+                       : '❌ キャンセル済み';
+    const kindLabel = NOTIFY_KIND_LABELS[r.kind] || r.kind;
+    const actions = r.status === 'pending'
+      ? `<div class="pending-notify-actions">
+           <button class="pending-notify-approve" onclick="decidePendingNotification('${r.id}','approve')">通知OK</button>
+           <button class="pending-notify-cancel" onclick="decidePendingNotification('${r.id}','cancel')">キャンセル</button>
+         </div>`
+      : '';
+    return `<div class="pending-notify-row">
+      <div class="pending-notify-head">${_escHtml(r.created_at)}　${_escHtml(kindLabel)}　${statusLabel}</div>
+      <pre class="pending-notify-msg">${_escHtml(r.message)}</pre>
+      ${actions}
+    </div>`;
+  }).join('');
+}
+
+async function refreshPendingNotifications() {
+  const meta = document.getElementById('pending-notify-meta');
+  if (meta) meta.textContent = '読み込み中…';
+  const res = await gasGet('api/admin/pending-line-notifications', { userId });
+  if (!res.ok) { if (meta) meta.textContent = 'エラー: ' + (res.error || ''); return; }
+  pendingLineNotifications = res.rows || [];
+  renderPendingNotifications();
+}
+
+async function decidePendingNotification(id, action) {
+  if (action === 'approve' && !confirm('LINEグループへ送信します。よろしいですか？')) return;
+  if (action === 'cancel'  && !confirm('この通知をキャンセルします。よろしいですか？')) return;
+  const res = await gasGet('api/admin/notify-decide', { userId, id, action });
+  if (!res.ok) { alert('失敗しました: ' + (res.error || '')); return; }
+  await refreshPendingNotifications();
+}
+
 async function refreshAccessLog() {
   const meta = document.getElementById('access-log-meta');
   const body = document.getElementById('access-log-body');
