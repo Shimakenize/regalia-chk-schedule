@@ -409,6 +409,41 @@
       animation: boot-spin 0.8s linear infinite;
     }
     #refresh-overlay-text { color: var(--text); font-size: 12px; letter-spacing: .02em; }
+
+    /* ── 起動ロック期限後の最新データ確認バナー（UI Build 107） ─ */
+    #stale-refresh-banner {
+      display: none;
+      position: fixed; left: 12px; right: 12px; bottom: 12px;
+      z-index: 350;
+      background: var(--surface);
+      border: 1px solid rgba(201,162,75,.45);
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.45);
+      gap: 10px;
+      align-items: flex-start;
+    }
+    #stale-refresh-banner.show { display: flex; flex-wrap: wrap; }
+    #stale-refresh-banner-text {
+      flex: 1; min-width: 0;
+      color: var(--text); font-size: 13px; line-height: 1.45;
+    }
+    #stale-refresh-banner .stale-banner-actions {
+      display: flex; gap: 8px; flex-shrink: 0; margin-top: 2px;
+    }
+    #stale-refresh-banner .stale-banner-btn {
+      font-family: inherit; font-size: 12px; font-weight: 700;
+      padding: 7px 12px; border-radius: 8px; cursor: pointer;
+    }
+    #stale-refresh-banner .stale-banner-btn.accept {
+      background: var(--gold); color: #0a1322; border: none;
+    }
+    #stale-refresh-banner .stale-banner-btn.later {
+      background: transparent; color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    body.stale-banner-visible { padding-bottom: 88px; }
+
     body.ui-locked .tabs,
     body.ui-locked .sum-hero,
     body.ui-locked .sum-grid,
@@ -667,6 +702,15 @@
   <div class="refresh-spinner-wrap">
     <div class="refresh-spinner"></div>
     <div id="refresh-overlay-text">データ更新中…</div>
+  </div>
+</div>
+
+<!-- ── 起動ロック期限後：裏で取れた最新データの適用確認（UI Build 107） ── -->
+<div id="stale-refresh-banner">
+  <div id="stale-refresh-banner-text">最新情報があります。表示を更新しますか？</div>
+  <div class="stale-banner-actions">
+    <button type="button" class="stale-banner-btn later" onclick="dismissPendingBootstrap()">あとで</button>
+    <button type="button" class="stale-banner-btn accept" onclick="acceptPendingBootstrap()">更新する</button>
   </div>
 </div>
 
@@ -943,7 +987,10 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 106;
+const __UI_BUILD__  = 107;
+const BOOTSTRAP_LOCK_MS = 12000;
+let _localDataWriteGen = 0;
+let _pendingBootstrapRes = null;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1028,6 +1075,7 @@ function hideBootLoading() {
 // データ更新中（起動後の裏更新・手動更新）はタブ/サマリーのフィルタをロックし、
 // 画面中央に更新中オーバーレイを出す。ネストして呼ばれても解除は最後の1回で
 // 効くよう、多重ロックはカウンタで管理する。
+// 起動時のロックは BOOTSTRAP_LOCK_MS で期限切れし、通信自体は裏で継続する（UI Build 107）。
 let _uiLockCount = 0;
 function lockUiForRefresh(msg) {
   _uiLockCount++;
@@ -1045,9 +1093,70 @@ function unlockUiAfterRefresh() {
   if (overlay) overlay.classList.remove('show');
 }
 
+// 起動後にユーザーがデータを書いた／自分で更新したあと、裏で完了した
+// 古い api/bootstrap で画面を上書きしないための世代番号。
+function _noteLocalDataWrite() {
+  _localDataWriteGen++;
+  _pendingBootstrapRes = null;
+  hideStaleRefreshBanner();
+}
+
+function _bootstrapFingerprint(res) {
+  if (!res) return '';
+  try {
+    return JSON.stringify({
+      registered: !!res.registered,
+      isAdmin: !!res.isAdmin,
+      isAllowed: !!res.isAllowed,
+      coachName: res.coachName || '',
+      discrepancies: res.discrepancies || [],
+      schedules: res.schedules || [],
+      coachSchedules: res.coachSchedules || [],
+      scrapeLogs: res.scrapeLogs || [],
+      officialDocuments: res.officialDocuments || [],
+      coachUpdateLogs: res.coachUpdateLogs || [],
+      feedback: res.feedback || [],
+      pendingLineNotifications: res.pendingLineNotifications || [],
+    });
+  } catch (e) {
+    return String(Date.now());
+  }
+}
+
+function showStaleRefreshBanner() {
+  const el = document.getElementById('stale-refresh-banner');
+  if (el) el.classList.add('show');
+  document.body.classList.add('stale-banner-visible');
+}
+function hideStaleRefreshBanner() {
+  const el = document.getElementById('stale-refresh-banner');
+  if (el) el.classList.remove('show');
+  document.body.classList.remove('stale-banner-visible');
+}
+function _commitBootstrapResult(res) {
+  applyBootstrapResult(res, { stale: false });
+  _saveBootstrapCache(userId, res);
+}
+function acceptPendingBootstrap() {
+  const res = _pendingBootstrapRes;
+  _pendingBootstrapRes = null;
+  hideStaleRefreshBanner();
+  if (!res || !res.ok) return;
+  _commitBootstrapResult(res);
+}
+function dismissPendingBootstrap() {
+  if (_pendingBootstrapRes && _pendingBootstrapRes.ok) {
+    _saveBootstrapCache(userId, _pendingBootstrapRes);
+  }
+  _pendingBootstrapRes = null;
+  hideStaleRefreshBanner();
+  setStatus('前回のデータを表示中');
+}
+
 async function refreshData() {
   const btn = document.querySelector('.sum-refresh-btn');
   if (btn) btn.disabled = true;
+  _noteLocalDataWrite();
   setStatus('更新中…');
   lockUiForRefresh('データ更新中…');
   try {
@@ -1249,6 +1358,7 @@ async function init() {
   }
 
   setStatus('LINE 認証中…');
+  let lockTimer = null;
   try {
     try {
       await Promise.race([
@@ -1286,21 +1396,33 @@ async function init() {
 
     // キャッシュ表示済み（main-app可視）の間に裏で最新データを取る場合のみUIをロックする。
     // キャッシュが無い初回起動は#boot-loadingが画面全体を覆っているため対象外。
-    if (usedCache) lockUiForRefresh('最新データを取得中…');
+    // ロックは BOOTSTRAP_LOCK_MS で解除し、fetch 自体は abort せず裏で継続する。
+    const writeGenAtStart = _localDataWriteGen;
+    let lockTimedOut = false;
+    if (usedCache) {
+      lockUiForRefresh('最新データを取得中…');
+      lockTimer = setTimeout(() => {
+        lockTimedOut = true;
+        unlockUiAfterRefresh();
+        setStatus('前回のデータを表示中（最新データの取得を継続…）');
+      }, BOOTSTRAP_LOCK_MS);
+    }
 
     setStatus(usedCache ? '最新データを取得中…' : 'データ取得中…');
     let bootRes;
     try {
       bootRes = await gasGet('api/bootstrap', { userId, displayName });
     } catch (netErr) {
+      if (lockTimer) clearTimeout(lockTimer);
       if (usedCache) {
-        // 前回データは既に表示済みなので、致命的エラーにはしない
+        if (!lockTimedOut) unlockUiAfterRefresh();
         setStatus('最新データの取得に失敗しました（前回のデータを表示中）');
-        unlockUiAfterRefresh();
         return;
       }
       throw netErr;
     }
+    if (lockTimer) clearTimeout(lockTimer);
+    if (usedCache && !lockTimedOut) unlockUiAfterRefresh();
     if (!bootRes.ok) throw new Error(bootRes.error || 'bootstrap失敗');
 
     if (!bootRes.registered) {
@@ -1309,14 +1431,32 @@ async function init() {
       document.getElementById('register-overlay').style.display = 'flex';
       hideBootLoading();
       setStatus('初回登録が必要です');
-      if (usedCache) unlockUiAfterRefresh();
       return;
     }
 
-    applyBootstrapResult(bootRes, { stale: false });
-    _saveBootstrapCache(userId, bootRes);
-    if (usedCache) unlockUiAfterRefresh();
+    if (!usedCache) {
+      _commitBootstrapResult(bootRes);
+      return;
+    }
+    if (!lockTimedOut) {
+      _commitBootstrapResult(bootRes);
+      return;
+    }
+    // ロック期限後：ユーザーは前回データで操作中。通信は継続済み。
+    if (_localDataWriteGen !== writeGenAtStart) {
+      setStatus('前回のデータを表示中');
+      return;
+    }
+    if (_bootstrapFingerprint(cached) === _bootstrapFingerprint(bootRes)) {
+      _saveBootstrapCache(userId, bootRes);
+      setStatus('読み込み完了');
+      return;
+    }
+    _pendingBootstrapRes = bootRes;
+    showStaleRefreshBanner();
+    setStatus('前回のデータを表示中（最新データあり）');
   } catch (e) {
+    if (lockTimer) clearTimeout(lockTimer);
     setStatus('エラー: ' + e.message);
     unlockUiAfterRefresh();
     const spinner = document.querySelector('#boot-loading .boot-spinner');
@@ -1976,12 +2116,14 @@ async function adminAction(action) {
       result.textContent = `照合完了: 新規差分 ${res.newDiscrepancies || 0}件`;
       const dr = await gasGet('api/discrepancies');
       discData = dr.discrepancies || [];
+      _noteLocalDataWrite();
       renderSummary(); renderSchedList();
     } else if (action === 'reset-compare') {
       res = await gasGet('api/admin/reset-compare', { userId });
       result.textContent = `照合リセット完了: 新規差分 ${res.newDiscrepancies || 0}件`;
       const dr = await gasGet('api/discrepancies');
       discData = dr.discrepancies || [];
+      _noteLocalDataWrite();
       renderSummary(); renderSchedList();
     } else if (action === 'trigger-scrape') {
       res = await gasGet('api/admin/trigger-scrape', { userId });
@@ -2108,6 +2250,7 @@ async function applyMgmtOne(btn, kind, idx, force) {
       return;
     }
     if (!res.ok) { alert('エラー: ' + (res.error || '不明')); btn.disabled = false; btn.textContent = orig; return; }
+    _noteLocalDataWrite();
     renderMgmtCompareResult(res);
   } catch (e) {
     alert('エラー: ' + e.message);
@@ -2125,6 +2268,7 @@ async function applyMgmtAll(btn) {
   try {
     const res = await gasGet('api/admin/mgmt-apply-all', { userId });
     if (!res.ok) { alert('エラー: ' + (res.error || '不明')); btn.disabled = false; btn.textContent = orig; return; }
+    _noteLocalDataWrite();
     renderMgmtCompareResult(res);
   } catch (e) {
     alert('エラー: ' + e.message);
@@ -2187,6 +2331,7 @@ async function decidePendingNotification(id, action) {
   if (action === 'cancel'  && !confirm('この通知をキャンセルします。よろしいですか？')) return;
   const res = await gasGet('api/admin/notify-decide', { userId, id, action });
   if (!res.ok) { alert('失敗しました: ' + (res.error || '')); return; }
+  _noteLocalDataWrite();
   await refreshPendingNotifications();
 }
 
@@ -2464,6 +2609,7 @@ function crtEdit(cell) {
         userId,
       });
       if (!res.ok) throw new Error(res.error || 'update failed');
+      _noteLocalDataWrite();
       await Promise.all([loadCoachSchedules(), loadDiscrepancies(), loadCoachUpdateLog()]);
       renderCoachRaw();
       renderSummary();
@@ -2486,6 +2632,7 @@ async function crtDelete(rowId) {
   try {
     const res = await gasGet('api/coach-schedule/delete', { row_id: rowId, userId });
     if (!res.ok) throw new Error(res.error || 'delete failed');
+    _noteLocalDataWrite();
     await Promise.all([loadCoachSchedules(), loadDiscrepancies(), loadCoachUpdateLog()]);
     renderCoachRaw();
     renderSummary();
@@ -2593,6 +2740,7 @@ async function submitFeedback() {
       type: fbSelectedType, title, body,
     });
     if (!res.ok) throw new Error(res.error || 'submit failed');
+    _noteLocalDataWrite();
     document.getElementById('fb-title-input').value = '';
     document.getElementById('fb-body-input').value = '';
     fbSelectType('bug');
@@ -2623,6 +2771,7 @@ async function _fbUpdate(id, comment, status) {
     if (status)  params.status = status;
     const res = await gasGet('api/feedback/update', params);
     if (!res.ok) throw new Error(res.error || 'update failed');
+    _noteLocalDataWrite();
     await loadFeedback();
     renderFeedback();
     setStatus('更新しました');
