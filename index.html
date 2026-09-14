@@ -596,6 +596,39 @@
       background: var(--surface); vertical-align:middle;
     }
     .official-table tr:hover td { background: rgba(201,162,75,.04); }
+
+    /* ── 順位表（2026-09-15新設） ─────────────────────── */
+    .standings-wrap { padding: 16px 16px 30px; }
+    .standings-hint { font-size: 11px; color: var(--dim); margin-bottom: 12px; padding: 0 2px; line-height:1.6; }
+    .standings-meta { font-size: 11px; color: var(--muted); margin: -4px 0 12px; padding: 0 2px; }
+    .standings-note {
+      font-size: 12px; color: var(--gold-lt); background: rgba(201,162,75,.08);
+      border: 1px solid rgba(201,162,75,.3); border-radius: 10px; padding: 10px 12px;
+      margin-bottom: 14px; line-height: 1.6;
+    }
+    .standings-table { width:100%; border-collapse:collapse; border-radius:14px; overflow:hidden; border:1px solid var(--border); margin-bottom: 8px; }
+    .standings-table th {
+      background: linear-gradient(110deg,#11305a,#0d2142);
+      color: var(--gold); font-size:10px; font-weight:700;
+      padding: 9px 8px; text-align:center; letter-spacing:.03em;
+    }
+    .standings-table th:nth-child(2) { text-align:left; }
+    .standings-table td {
+      padding: 9px 8px; font-size:12px; color:var(--sub);
+      border-top: 1px solid rgba(255,255,255,.06);
+      background: var(--surface); text-align:center; vertical-align:middle;
+    }
+    .standings-table td:nth-child(2) { text-align:left; }
+    .standings-table tr.is-regalia td { background: rgba(201,162,75,.13); color:#fff; font-weight:700; }
+    .standings-rank-badge {
+      display:inline-block; min-width:18px; padding:2px 4px; border-radius:5px;
+      font-size:11px; font-weight:700;
+    }
+    .standings-zone-dot {
+      display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle;
+    }
+    .standings-legend { display:flex; flex-wrap:wrap; gap:10px 16px; font-size:10.5px; color:var(--muted); margin-top:10px; padding:0 2px; }
+    .standings-legend-item { display:flex; align-items:center; gap:5px; }
     .official-detail-row td {
       padding: 2px 13px 10px;
       border-top: none !important;
@@ -771,6 +804,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
     <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較表示</div>
+    <div class="tab" data-tab="standings" onclick="switchTab('standings')">順位</div>
     <div class="tab" data-tab="official" onclick="switchTab('official')">公式HP/資料</div>
     <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE試合データ</div>
     <div class="tab" id="feedback-tab" data-tab="feedback" onclick="switchTab('feedback')">バグ・要望<span id="feedback-badge" class="tab-badge" style="display:none"></span></div>
@@ -834,6 +868,15 @@
     </div>
     <div class="cmp-list" id="sched-list">
       <div class="empty-msg">読み込み中…</div>
+    </div>
+  </div>
+
+  <!-- ── 順位（2026-09-15新設） ── -->
+  <div id="page-standings" class="page">
+    <div class="standings-wrap">
+      <p class="standings-hint">対象は公式HPで順位表を確認できるリーグ戦3種のみ（フットサルリーグは対象外）。公式HPの確認周期（1日4回）ごとに更新されます。</p>
+      <div class="chip-row" id="standings-cat-filter"></div>
+      <div id="standings-body"><div class="empty-msg">読み込み中…</div></div>
     </div>
   </div>
 
@@ -987,7 +1030,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 107;
+const __UI_BUILD__  = 108;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1011,6 +1054,8 @@ let officialDetailOpen = {};
 let feedbackData    = [];
 let fbSelectedType  = 'bug';
 let pendingLineNotifications = [];
+let standingsData    = null;
+let standingsActiveCat = null;
 const NOTIFY_KIND_LABELS = {
   ng_detected:     '照合NG新規検知',
   ng_resolved:     '照合NG解消',
@@ -2360,7 +2405,7 @@ async function refreshAccessLog() {
       body.innerHTML = '<div class="empty-msg" style="padding:16px 0;">該当ログなし</div>';
       return;
     }
-    const TAB_LOG_LABELS = { summary:'サマリー', sched:'比較表示', official:'公式HP/資料', 'coach-raw':'LINE試合データ', feedback:'バグ・要望', admin:'管理' };
+    const TAB_LOG_LABELS = { summary:'サマリー', sched:'比較表示', standings:'順位', official:'公式HP/資料', 'coach-raw':'LINE試合データ', feedback:'バグ・要望', admin:'管理' };
     body.innerHTML = `<table class="access-log-table">
       <thead><tr><th>日時</th><th>紐付け</th><th>名前</th><th>アクセス先</th></tr></thead>
       <tbody>${logs.map(l => {
@@ -2426,6 +2471,88 @@ async function deleteUser(lineUserId, coachName) {
   } catch(e) { setStatus('削除エラー: ' + e.message); }
 }
 
+// ── 順位表（2026-09-15新設） ──────────────────────────────────────────────────
+async function loadStandings() {
+  if (standingsData) { renderStandingsBody(); return; }
+  const body = document.getElementById('standings-body');
+  body.innerHTML = '<div class="empty-msg">読み込み中…</div>';
+  try {
+    const res = await gasGet('api/standings');
+    if (!res.ok) throw new Error(res.error || '取得失敗');
+    standingsData = res.categories || [];
+    if (!standingsActiveCat) {
+      const firstOk = standingsData.find(c => c.ok) || standingsData[0];
+      standingsActiveCat = firstOk ? firstOk.category_code : null;
+    }
+    renderStandingsCatFilter();
+    renderStandingsBody();
+  } catch (e) {
+    body.innerHTML = `<div class="empty-msg">エラー: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function renderStandingsCatFilter() {
+  const wrap = document.getElementById('standings-cat-filter');
+  wrap.innerHTML = (standingsData || []).map(c => {
+    const active = c.category_code === standingsActiveCat ? ' active' : '';
+    return `<div class="chip-btn${active}" onclick="selectStandingsCat('${c.category_code}')">${escHtml(c.label || c.category_code)}</div>`;
+  }).join('');
+}
+
+function selectStandingsCat(code) {
+  standingsActiveCat = code;
+  renderStandingsCatFilter();
+  renderStandingsBody();
+}
+
+function renderStandingsBody() {
+  const body = document.getElementById('standings-body');
+  const cat  = (standingsData || []).find(c => c.category_code === standingsActiveCat);
+  if (!cat) { body.innerHTML = '<div class="empty-msg">データがありません</div>'; return; }
+  if (!cat.ok) {
+    body.innerHTML = `<div class="empty-msg">${escHtml(cat.error || '未取得')}</div>`;
+    return;
+  }
+
+  const noteHtml = cat.note
+    ? `<div class="standings-note">${escHtml(cat.note)}</div>`
+    : '';
+  const metaHtml = `<div class="standings-meta">${escHtml(cat.group_name || '')} ／ 最終取得: ${escHtml(fmtDatetime(cat.scraped_at))}</div>`;
+
+  const rowsHtml = (cat.teams || []).map(t => {
+    const isRegalia = /REGALIA|レガリア/i.test(t.club || '');
+    const zone = (cat.zones || {})[String(t.rank)];
+    const zoneHtml = zone
+      ? `<span class="standings-zone-dot" style="background:${zone.color}"></span>${escHtml(zone.label)}`
+      : '';
+    return `<tr class="${isRegalia ? 'is-regalia' : ''}">
+      <td>${t.rank}</td>
+      <td>${escHtml(t.club)}${isRegalia ? ' ⭐' : ''}</td>
+      <td>${t.points}</td>
+      <td>${t.played}</td>
+      <td>${t.win}-${t.draw}-${t.lose}</td>
+      <td>${t.diff > 0 ? '+' + t.diff : t.diff}</td>
+      <td style="text-align:left;font-size:10.5px;">${zoneHtml}</td>
+    </tr>`;
+  }).join('');
+
+  const legendHtml = Object.keys(cat.zones || {}).length ? `<div class="standings-legend">
+    <div class="standings-legend-item"><span class="standings-zone-dot" style="background:#43b873"></span>自動昇格</div>
+    <div class="standings-legend-item"><span class="standings-zone-dot" style="background:#d2a649"></span>昇格の可能性あり</div>
+    <div class="standings-legend-item"><span class="standings-zone-dot" style="background:#e0555f"></span>自動降格</div>
+    <div class="standings-legend-item"><span class="standings-zone-dot" style="background:#d97b3f"></span>降格の可能性あり</div>
+  </div>` : '';
+
+  body.innerHTML = `${noteHtml}${metaHtml}
+    <table class="standings-table">
+      <thead><tr>
+        <th>#</th><th>クラブ</th><th>勝点</th><th>試合</th><th>勝分敗</th><th>差</th><th>状況</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    ${legendHtml}`;
+}
+
 // ── タブ切替 ─────────────────────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -2433,6 +2560,7 @@ function switchTab(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   if (name === 'coach-raw') { loadCoachUpdateLog().then(() => renderCoachRaw()); }
+  if (name === 'standings') loadStandings();
   if (name === 'feedback') renderFeedback();
   if (name === 'admin') {
     switchAdminPanel('logs');
