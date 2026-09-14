@@ -943,7 +943,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 105;
+const __UI_BUILD__  = 106;
 let userId          = null;
 let displayName     = null;
 let coachName       = null;
@@ -1088,6 +1088,17 @@ function catBadgeStyle(cat) {
   if (c.startsWith('U-13')) return 'background:#1a0e2a;color:#c07ae0';
   if (c === 'all')           return 'background:#241808;color:#e0a040';
   return 'background:#1e1a0a;color:#c9a24b';
+}
+
+// U-15フットサル2部/3部Aは年代区分としてはU-15枠だが、実際に出場するのは
+// U-13/U-14/U-15のいずれか（コーチ連絡ごとに異なる）。データ上は正式表記に統一し
+// （2026-09-14の誤検出修正）、どのカテゴリが出場するかは表示側でcategory_codeから
+// 動的に組み立てる（データには含めない）。
+function withParticipantTag(league, categoryCode) {
+  const l = String(league || '');
+  if (l !== 'U-15フットサル2部' && l !== 'U-15フットサル3部A') return l;
+  const catTag = String(categoryCode || '').replace('-', '');
+  return catTag ? `${l}[${catTag}参戦]` : l;
 }
 
 function fmtDate(ds) {
@@ -1675,7 +1686,7 @@ function renderSumList(merged) {
     // SRC_MAP[e.category]は代表1件しか持てないため誤ったリーグ名になりうる。
     // official_schedule側が持つ実際のleague_or_competition（e.official.league）が
     // あればそれを優先し、無い場合のみカテゴリ既定にフォールバックする。
-    const srcLabel = isTRG ? 'TRG' : (e.league || (e.official && e.official.league) || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || '');
+    const srcLabel = withParticipantTag(isTRG ? 'TRG' : (e.league || (e.official && e.official.league) || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || ''), e.category);
     return `<div class="sum-row" onclick="jumpToSched()">
       <div class="sum-row-left">
         <div class="sum-row-date">${fmtDate(e.date)}</div>
@@ -1782,7 +1793,7 @@ function renderSchedList() {
     // srcLabel と同様、公式HPスクレイプと突合できていない（＝交流戦等の可能性がある）
     // 場合は既定リーグ名を勝手に表示しない。league_or_competitionが分かればそれを優先し
     // （同一カテゴリに複数の公式ソースがある場合の誤表示を防ぐ）、無ければカテゴリ既定にフォールバック
-    const offSrcLabel = isTRGEntry ? '' : (e.league || (e.official && e.official.league) || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || '');
+    const offSrcLabel = withParticipantTag(isTRGEntry ? '' : (e.league || (e.official && e.official.league) || (e.official ? (SRC_MAP[e.category] || {}).shortLabel : '') || ''), e.category);
     // 照合の根拠が公式HPスクレイプか、協会配布資料によるフォールバック確認かを表示する（v0.2.73）
     const offSourceType = e.official && e.official.sourceType;
     const offEvidenceDocId = (e.official && e.official.evidenceDocId) || '';
@@ -2371,6 +2382,7 @@ function renderCoachRaw() {
     const opp    = String(r.title       || '');
     const venue  = String(r.venue       || '');
     const league = String(r.league_or_competition || '');
+    const leagueDisplay = withParticipantTag(league, r.category_code);
 
     const dateCell = mkCell(rid, 'event_date', 'text', r.event_date || '',
       date ? fmtDate(date) : '<span style="color:var(--dim)">—</span>');
@@ -2383,7 +2395,7 @@ function renderCoachRaw() {
     const venueCell = mkCell(rid, 'venue', 'text', venue,
       venue ? `@ ${escHtml(venue)}` : '<span style="color:var(--dim)">会場未登録</span>');
     const leagueCell = league
-      ? ` · ${mkCell(rid, 'league_or_competition', 'text', league, escHtml(league))}`
+      ? ` · ${mkCell(rid, 'league_or_competition', 'text', league, escHtml(leagueDisplay))}`
       : mkCell(rid, 'league_or_competition', 'text', '', '<span style="color:var(--dim)">大会名未登録</span>');
 
     return `<div class="crt-card" data-row-id="${rid}">
