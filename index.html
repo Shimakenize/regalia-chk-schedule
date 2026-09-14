@@ -601,6 +601,13 @@
     .standings-wrap { padding: 16px 16px 30px; }
     .standings-hint { font-size: 11px; color: var(--dim); margin-bottom: 12px; padding: 0 2px; line-height:1.6; }
     .standings-meta { font-size: 11px; color: var(--muted); margin: -4px 0 12px; padding: 0 2px; }
+    /* リーグ切替チップ：カテゴリ数が増えてもモバイル1行に収める（2026-09-16） */
+    #standings-cat-filter { flex-wrap: nowrap; }
+    #standings-cat-filter .chip-btn {
+      flex: 1 1 0; min-width: 0; text-align: center;
+      padding: 7px 4px; font-size: 11px; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
     .standings-note {
       font-size: 12px; color: var(--gold-lt); background: rgba(201,162,75,.08);
       border: 1px solid rgba(201,162,75,.3); border-radius: 10px; padding: 10px 12px;
@@ -619,6 +626,7 @@
       background: var(--surface); text-align:center; vertical-align:middle;
     }
     .standings-table td:nth-child(2) { text-align:left; }
+    .standings-table th:nth-child(5), .standings-table td:nth-child(5) { white-space: nowrap; padding-left:4px; padding-right:4px; }
     .standings-table tr.is-regalia td { background: rgba(201,162,75,.13); color:#fff; font-weight:700; }
     .standings-rank-badge {
       display:inline-block; min-width:18px; padding:2px 4px; border-radius:5px;
@@ -802,12 +810,12 @@
 
   <!-- Tabs -->
   <div class="tabs">
-    <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリー</div>
-    <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較表示</div>
+    <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリ</div>
+    <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較</div>
     <div class="tab" data-tab="standings" onclick="switchTab('standings')">順位</div>
-    <div class="tab" data-tab="official" onclick="switchTab('official')">公式HP/資料</div>
-    <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE試合データ</div>
-    <div class="tab" id="feedback-tab" data-tab="feedback" onclick="switchTab('feedback')">バグ・要望<span id="feedback-badge" class="tab-badge" style="display:none"></span></div>
+    <div class="tab" data-tab="official" onclick="switchTab('official')">公式</div>
+    <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE</div>
+    <div class="tab" id="feedback-tab" data-tab="feedback" onclick="switchTab('feedback')">要望<span id="feedback-badge" class="tab-badge" style="display:none"></span></div>
     <div class="tab" id="admin-tab" data-tab="admin" onclick="switchTab('admin')" style="display:none;">管理</div>
   </div>
 
@@ -874,7 +882,7 @@
   <!-- ── 順位（2026-09-15新設） ── -->
   <div id="page-standings" class="page">
     <div class="standings-wrap">
-      <p class="standings-hint">対象は公式HPで順位表を確認できるリーグ戦3種のみ（フットサルリーグは対象外）。公式HPの確認周期（1日4回）ごとに更新されます。</p>
+      <p class="standings-hint">対象は公式HPで順位表を確認できるリーグ戦のみ（フットサルリーグは対象外）。公式HPの確認周期（1日4回）ごとに更新されます。</p>
       <div class="chip-row" id="standings-cat-filter"></div>
       <div id="standings-body"><div class="empty-msg">読み込み中…</div></div>
     </div>
@@ -1030,7 +1038,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 108;
+const __UI_BUILD__  = 109;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
