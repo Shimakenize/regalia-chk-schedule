@@ -632,10 +632,12 @@
       display:inline-block; min-width:18px; padding:2px 4px; border-radius:5px;
       font-size:11px; font-weight:700;
     }
+    .standings-zone-cell { display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
     .standings-zone-dot {
-      display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle;
+      display:inline-block; width:8px; height:8px; min-width:8px; border-radius:50%; vertical-align:middle;
     }
     .standings-zone-num { font-size:11px; color:var(--sub); vertical-align:middle; }
+    .standings-table th:last-child, .standings-table td:last-child { white-space:nowrap; }
     .standings-legend { display:flex; flex-direction:column; gap:7px; font-size:11px; color:var(--muted); margin-top:12px; padding:0 2px; line-height:1.6; }
     .standings-legend-item { display:flex; align-items:flex-start; gap:5px; }
     .standings-remain-link {
@@ -1063,7 +1065,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 111;
+const __UI_BUILD__  = 112;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2569,7 +2571,7 @@ function renderStandingsBody() {
     const isRegalia = /REGALIA|レガリア/i.test(t.club || '');
     const zone = (cat.zones || {})[String(t.rank)];
     const zoneHtml = zone
-      ? `<span class="standings-zone-dot" style="background:${zone.color}"></span><span class="standings-zone-num">${CIRCLED_NUMS[footnoteNumByKind[zone.kind]] || ''}</span>`
+      ? `<span class="standings-zone-cell"><span class="standings-zone-dot" style="background:${zone.color}"></span><span class="standings-zone-num">${CIRCLED_NUMS[footnoteNumByKind[zone.kind]] || ''}</span></span>`
       : '';
     const remainCell = isRegalia
       ? `<span class="standings-remain-link" onclick="toggleStandingsUpcoming()">${t.remaining}</span>`
