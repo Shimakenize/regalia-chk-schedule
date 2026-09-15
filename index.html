@@ -637,6 +637,30 @@
     }
     .standings-legend { display:flex; flex-wrap:wrap; gap:10px 16px; font-size:10.5px; color:var(--muted); margin-top:10px; padding:0 2px; }
     .standings-legend-item { display:flex; align-items:center; gap:5px; }
+    .standings-remain-link {
+      color: var(--gold-lt); font-weight:700; text-decoration: underline dotted; cursor: pointer;
+    }
+    .standings-upcoming {
+      margin-top: 12px; padding: 10px 12px; border-radius: 10px;
+      background: rgba(255,255,255,.03); border: 1px solid var(--border);
+    }
+    .standings-upcoming-title { font-size:11px; color:var(--gold); font-weight:700; margin-bottom:8px; }
+    .standings-upcoming-row {
+      display:flex; gap:10px; font-size:12px; color:var(--sub); padding:5px 0;
+      border-top: 1px solid rgba(255,255,255,.05);
+    }
+    .standings-upcoming-row:first-of-type { border-top:none; }
+    .standings-upcoming-row span:first-child { color:var(--muted); min-width:56px; }
+    .standings-upcoming-row span:last-child { color:var(--dim); font-size:11px; margin-left:auto; text-align:right; }
+    .standings-sim { margin-top: 16px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid var(--border); }
+    .standings-sim-title { font-size:12px; color:var(--gold); font-weight:700; margin-bottom:10px; }
+    .standings-sim-block { border-radius: 8px; padding: 9px 11px; margin-bottom:8px; border:1px solid var(--border); }
+    .standings-sim-block.sim-good { background: rgba(67,184,115,.08); border-color: rgba(67,184,115,.35); }
+    .standings-sim-block.sim-bad  { background: rgba(224,85,95,.08);  border-color: rgba(224,85,95,.35); }
+    .standings-sim-block.sim-mixed { background: rgba(210,166,73,.08); border-color: rgba(210,166,73,.35); }
+    .standings-sim-head { font-size:12px; color:var(--sub); margin-bottom:4px; }
+    .standings-sim-detail { font-size:11.5px; color:var(--muted); line-height:1.6; }
+    .standings-sim-caveat { font-size:10.5px; color:var(--dim); margin-top:6px; line-height:1.5; }
     .official-detail-row td {
       padding: 2px 13px 10px;
       border-top: none !important;
@@ -1038,7 +1062,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 109;
+const __UI_BUILD__  = 110;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2533,6 +2557,9 @@ function renderStandingsBody() {
     const zoneHtml = zone
       ? `<span class="standings-zone-dot" style="background:${zone.color}"></span>${escHtml(zone.label)}`
       : '';
+    const remainCell = isRegalia
+      ? `<span class="standings-remain-link" onclick="toggleStandingsUpcoming()">${t.remaining}</span>`
+      : `${t.remaining}`;
     return `<tr class="${isRegalia ? 'is-regalia' : ''}">
       <td>${t.rank}</td>
       <td>${escHtml(t.club)}${isRegalia ? ' ⭐' : ''}</td>
@@ -2540,6 +2567,7 @@ function renderStandingsBody() {
       <td>${t.played}</td>
       <td>${t.win}-${t.draw}-${t.lose}</td>
       <td>${t.diff > 0 ? '+' + t.diff : t.diff}</td>
+      <td>${remainCell}</td>
       <td style="text-align:left;font-size:10.5px;">${zoneHtml}</td>
     </tr>`;
   }).join('');
@@ -2551,14 +2579,47 @@ function renderStandingsBody() {
     <div class="standings-legend-item"><span class="standings-zone-dot" style="background:#d97b3f"></span>降格の可能性あり</div>
   </div>` : '';
 
+  const upcoming = cat.regaliaUpcoming || [];
+  const upcomingHtml = `<div id="standings-upcoming" class="standings-upcoming" hidden>
+    <div class="standings-upcoming-title">残り対戦相手（${upcoming.length}試合）</div>
+    ${upcoming.length ? upcoming.map(m => `<div class="standings-upcoming-row">
+        <span>${escHtml(fmtDateShort(m.match_date))}</span><span>vs ${escHtml(m.opponent || '未定')}</span><span>${escHtml(m.venue || '')}</span>
+      </div>`).join('') : '<div class="standings-upcoming-row">対戦相手情報がありません</div>'}
+  </div>`;
+
+  const simHtml = renderStandingsSimulation(cat.simulation);
+
   body.innerHTML = `${noteHtml}${metaHtml}
     <table class="standings-table">
       <thead><tr>
-        <th>#</th><th>クラブ</th><th>勝点</th><th>試合</th><th>勝分敗</th><th>差</th><th>状況</th>
+        <th>#</th><th>クラブ</th><th>勝点</th><th>試合</th><th>勝分敗</th><th>差</th><th>残り</th><th>状況</th>
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
-    ${legendHtml}`;
+    ${legendHtml}
+    ${upcomingHtml}
+    ${simHtml}`;
+}
+
+function toggleStandingsUpcoming() {
+  const el = document.getElementById('standings-upcoming');
+  if (el) el.hidden = !el.hidden;
+}
+
+function renderStandingsSimulation(sim) {
+  if (!sim || !sim.blocks || !sim.blocks.length) return '';
+  const typeLabels = { relegation: '残留/降格', promotion: '昇格' };
+  const sentimentClass = { good: 'sim-good', bad: 'sim-bad', mixed: 'sim-mixed' };
+  const blocksHtml = sim.blocks.map(b => `
+    <div class="standings-sim-block ${sentimentClass[b.sentiment] || 'sim-mixed'}">
+      <div class="standings-sim-head">${typeLabels[b.type] || b.type}：<strong>${escHtml(b.verdict)}</strong></div>
+      <div class="standings-sim-detail">${escHtml(b.detail)}</div>
+    </div>`).join('');
+  return `<div class="standings-sim">
+    <div class="standings-sim-title">🔮 昇格/降格シミュレーション（残り${sim.remaining}試合、勝点${sim.regaliaMin}〜${sim.regaliaMax}点の範囲で算出）</div>
+    ${blocksHtml}
+    <div class="standings-sim-caveat">※REGALIA自身の残り試合結果（全勝〜全敗）のみを基準にした簡易シミュレーションです。相手チームの実際の対戦相手までは考慮していません。</div>
+  </div>`;
 }
 
 // ── タブ切替 ─────────────────────────────────────────────────────────────────
