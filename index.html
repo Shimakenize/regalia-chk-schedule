@@ -171,8 +171,9 @@
     .sum-row-left { flex: none; width: 56px; }
     .sum-row-date { font-size:12px; color:#fff; font-weight:600; }
     .sum-row-cat { display:inline-block; font-size:9px; padding:1px 5px; border-radius:4px; margin-top:4px; font-weight:700; }
-    .sum-row-opp { flex:1; font-size:13px; color:#dde4ef; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .sum-row-league { font-size:10px; color:var(--muted); font-weight:400; }
+    .sum-row-opp { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+    .sum-row-opp-name { font-size:13px; color:#dde4ef; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sum-row-league { font-size:10px; color:var(--muted); font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .cmp-lbl-note { font-size:10px; color:var(--muted); font-weight:400; margin-left:2px; }
 
     /* ── Compare: filter chips ────────────────────────── */
@@ -1065,7 +1066,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 112;
+const __UI_BUILD__  = 113;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1912,7 +1913,10 @@ function renderSumList(merged) {
         <div class="sum-row-date">${fmtDate(e.date)}</div>
         <div class="sum-row-cat" style="${catBadgeStyle(e.category)}">${catLabel}</div>
       </div>
-      <div class="sum-row-opp">vs ${opp}${srcLabel ? ` <span class="sum-row-league">${srcLabel}</span>` : ''}</div>
+      <div class="sum-row-opp">
+        <div class="sum-row-opp-name">vs ${opp}</div>
+        ${srcLabel ? `<div class="sum-row-league">${srcLabel}</div>` : ''}
+      </div>
       ${statusChip(e)}
     </div>`;
   }).join('');
