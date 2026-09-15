@@ -633,10 +633,11 @@
       font-size:11px; font-weight:700;
     }
     .standings-zone-dot {
-      display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle;
+      display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle;
     }
-    .standings-legend { display:flex; flex-wrap:wrap; gap:10px 16px; font-size:10.5px; color:var(--muted); margin-top:10px; padding:0 2px; }
-    .standings-legend-item { display:flex; align-items:center; gap:5px; }
+    .standings-zone-num { font-size:11px; color:var(--sub); vertical-align:middle; }
+    .standings-legend { display:flex; flex-direction:column; gap:7px; font-size:11px; color:var(--muted); margin-top:12px; padding:0 2px; line-height:1.6; }
+    .standings-legend-item { display:flex; align-items:flex-start; gap:5px; }
     .standings-remain-link {
       color: var(--gold-lt); font-weight:700; text-decoration: underline dotted; cursor: pointer;
     }
@@ -1062,7 +1063,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 110;
+const __UI_BUILD__  = 111;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2551,11 +2552,24 @@ function renderStandingsBody() {
     : '';
   const metaHtml = `<div class="standings-meta">${escHtml(cat.group_name || '')} ／ 最終取得: ${escHtml(fmtDatetime(cat.scraped_at))}</div>`;
 
+  // 状況列は色丸＋注釈番号のみ（1行に収める、2026-09-17）。同じ意味の丸（zone.kind）は
+  // 表内での初出順に①②③…を割り当て、詳細な説明文は表の下に注釈としてまとめて表示する。
+  const CIRCLED_NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+  const footnoteOrder = [];   // [{kind,label,color}, ...] 初出順
+  const footnoteNumByKind = {};
+  (cat.teams || []).forEach(t => {
+    const zone = (cat.zones || {})[String(t.rank)];
+    if (zone && footnoteNumByKind[zone.kind] === undefined) {
+      footnoteNumByKind[zone.kind] = footnoteOrder.length;
+      footnoteOrder.push(zone);
+    }
+  });
+
   const rowsHtml = (cat.teams || []).map(t => {
     const isRegalia = /REGALIA|レガリア/i.test(t.club || '');
     const zone = (cat.zones || {})[String(t.rank)];
     const zoneHtml = zone
-      ? `<span class="standings-zone-dot" style="background:${zone.color}"></span>${escHtml(zone.label)}`
+      ? `<span class="standings-zone-dot" style="background:${zone.color}"></span><span class="standings-zone-num">${CIRCLED_NUMS[footnoteNumByKind[zone.kind]] || ''}</span>`
       : '';
     const remainCell = isRegalia
       ? `<span class="standings-remain-link" onclick="toggleStandingsUpcoming()">${t.remaining}</span>`
@@ -2568,15 +2582,14 @@ function renderStandingsBody() {
       <td>${t.win}-${t.draw}-${t.lose}</td>
       <td>${t.diff > 0 ? '+' + t.diff : t.diff}</td>
       <td>${remainCell}</td>
-      <td style="text-align:left;font-size:10.5px;">${zoneHtml}</td>
+      <td>${zoneHtml}</td>
     </tr>`;
   }).join('');
 
-  const legendHtml = Object.keys(cat.zones || {}).length ? `<div class="standings-legend">
-    <div class="standings-legend-item"><span class="standings-zone-dot" style="background:#43b873"></span>自動昇格</div>
-    <div class="standings-legend-item"><span class="standings-zone-dot" style="background:#d2a649"></span>昇格の可能性あり</div>
-    <div class="standings-legend-item"><span class="standings-zone-dot" style="background:#e0555f"></span>自動降格</div>
-    <div class="standings-legend-item"><span class="standings-zone-dot" style="background:#d97b3f"></span>降格の可能性あり</div>
+  const legendHtml = footnoteOrder.length ? `<div class="standings-legend">
+    ${footnoteOrder.map((z, i) => `<div class="standings-legend-item">
+      <span class="standings-zone-dot" style="background:${z.color}"></span>${CIRCLED_NUMS[i] || ''} ${escHtml(z.label)}
+    </div>`).join('')}
   </div>` : '';
 
   const upcoming = cat.regaliaUpcoming || [];
