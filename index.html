@@ -1078,9 +1078,15 @@
 const LIFF_ID    = '2010471175-mz6PBjZx';
 const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQwAeb7U_Z2Xn-xBVRfvnv302cu_ckO-g-wyPATYuv4dPZY/exec';
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
+// ローカルファイル(file://)やlocalhostでの開発・agentデバッグ検証は、本番のGAS_URLへ
+// 実際にリクエストを飛ばしてしまう（GAS_URLが固定値のため）。userId未設定のまま
+// アクセスログ用エンドポイントを叩くと、本番のaccess_logに「未登録/null」の
+// ノイズ行が残ってしまう不具合が発覚した（2026-09-16指摘）。GAS側にもuserId形式
+// チェックを入れているが、そもそも呼ばないようにするフロント側の二重ガード。
+const IS_PREVIEW_CONTEXT = ['file:', 'data:'].includes(location.protocol) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 114;
+const __UI_BUILD__  = 115;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2671,8 +2677,8 @@ function switchTab(name) {
   if (name === 'admin') {
     switchAdminPanel('logs');
   }
-  // 管理者以外のアクセス先をログに記録（fire-and-forget）
-  if (!isAdmin) gasGet('log-tab-view', { userId, tab: name, displayName }).catch(() => {});
+  // 管理者以外のアクセス先をログに記録（fire-and-forget）。ローカル/開発プレビューでは送信しない
+  if (!isAdmin && !IS_PREVIEW_CONTEXT) gasGet('log-tab-view', { userId, tab: name, displayName }).catch(() => {});
 }
 
 function switchAdminPanel(name) {
