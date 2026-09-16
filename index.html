@@ -644,11 +644,14 @@
     .standings-remain-link {
       color: var(--gold-lt); font-weight:700; text-decoration: underline dotted; cursor: pointer;
     }
-    .standings-upcoming {
-      margin-top: 12px; padding: 10px 12px; border-radius: 10px;
-      background: rgba(255,255,255,.03); border: 1px solid var(--border);
+    #standings-upcoming-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 200;
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 20px;
     }
-    .standings-upcoming-title { font-size:11px; color:var(--gold); font-weight:700; margin-bottom:8px; }
     .standings-upcoming-row {
       display:flex; gap:10px; font-size:12px; color:var(--sub); padding:5px 0;
       border-top: 1px solid rgba(255,255,255,.05);
@@ -815,6 +818,17 @@
       <button class="history-close" onclick="closeUpdateHistory()">✕ 閉じる</button>
     </div>
     <div class="history-list" id="history-list"></div>
+  </div>
+</div>
+
+<!-- ── 順位タブ：残り対戦相手モーダル（2026-09-16、表下インラインから変更） ── -->
+<div id="standings-upcoming-overlay">
+  <div class="history-card">
+    <div class="history-bar">
+      <span class="history-title" id="standings-upcoming-title">残り対戦相手</span>
+      <button class="history-close" onclick="closeStandingsUpcoming()">✕ 閉じる</button>
+    </div>
+    <div class="history-list" id="standings-upcoming-list"></div>
   </div>
 </div>
 
@@ -1066,7 +1080,7 @@ const GAS_URL    = 'https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQL
 const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成コーチ','悠斗コーチ','その他'];
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 113;
+const __UI_BUILD__  = 114;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2578,7 +2592,7 @@ function renderStandingsBody() {
       ? `<span class="standings-zone-cell"><span class="standings-zone-dot" style="background:${zone.color}"></span><span class="standings-zone-num">${CIRCLED_NUMS[footnoteNumByKind[zone.kind]] || ''}</span></span>`
       : '';
     const remainCell = isRegalia
-      ? `<span class="standings-remain-link" onclick="toggleStandingsUpcoming()">${t.remaining}</span>`
+      ? `<span class="standings-remain-link" onclick="openStandingsUpcoming()">${t.remaining}</span>`
       : `${t.remaining}`;
     return `<tr class="${isRegalia ? 'is-regalia' : ''}">
       <td>${t.rank}</td>
@@ -2598,14 +2612,6 @@ function renderStandingsBody() {
     </div>`).join('')}
   </div>` : '';
 
-  const upcoming = cat.regaliaUpcoming || [];
-  const upcomingHtml = `<div id="standings-upcoming" class="standings-upcoming" hidden>
-    <div class="standings-upcoming-title">残り対戦相手（${upcoming.length}試合）</div>
-    ${upcoming.length ? upcoming.map(m => `<div class="standings-upcoming-row">
-        <span>${escHtml(fmtDateShort(m.match_date))}</span><span>vs ${escHtml(m.opponent || '未定')}</span><span>${escHtml(m.venue || '')}</span>
-      </div>`).join('') : '<div class="standings-upcoming-row">対戦相手情報がありません</div>'}
-  </div>`;
-
   const simHtml = renderStandingsSimulation(cat.simulation);
 
   body.innerHTML = `${noteHtml}${metaHtml}
@@ -2616,13 +2622,25 @@ function renderStandingsBody() {
       <tbody>${rowsHtml}</tbody>
     </table>
     ${legendHtml}
-    ${upcomingHtml}
     ${simHtml}`;
 }
 
-function toggleStandingsUpcoming() {
-  const el = document.getElementById('standings-upcoming');
-  if (el) el.hidden = !el.hidden;
+// 残り対戦相手は更新履歴モーダル（#history-overlay）と同じ「ページ内に重ねて表示」方式
+// （2026-09-16、以前の表下インライン表示から変更）。
+function openStandingsUpcoming() {
+  const cat = (standingsData || []).find(c => c.category_code === standingsActiveCat);
+  const upcoming = (cat && cat.regaliaUpcoming) || [];
+  document.getElementById('standings-upcoming-title').textContent = `残り対戦相手（${upcoming.length}試合）`;
+  document.getElementById('standings-upcoming-list').innerHTML = upcoming.length
+    ? upcoming.map(m => `<div class="standings-upcoming-row">
+        <span>${escHtml(fmtDateShort(m.match_date))}</span><span>vs ${escHtml(m.opponent || '未定')}</span><span>${escHtml(m.venue || '')}</span>
+      </div>`).join('')
+    : '<div class="standings-upcoming-row">対戦相手情報がありません</div>';
+  document.getElementById('standings-upcoming-overlay').style.display = 'flex';
+}
+
+function closeStandingsUpcoming() {
+  document.getElementById('standings-upcoming-overlay').style.display = 'none';
 }
 
 function renderStandingsSimulation(sim) {
