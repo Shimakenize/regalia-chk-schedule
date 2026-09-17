@@ -70,6 +70,7 @@
       background: #0a1322;
     }
     .tab {
+      position: relative;
       flex: 1; text-align: center;
       padding: 11px 0;
       border-radius: 8px;
@@ -82,6 +83,17 @@
       user-select: none;
     }
     .tab.active { background: var(--gold); color: #0a1830; border-color: var(--gold); }
+    /* タブ下に重ねる小さな「NEW」バッジ（position:absoluteのためタブ自体の枠サイズは変わらない）。
+       期限が来たらJSで自動削除する（順位タブ新設の告知用、2026-09-17）。 */
+    .tab-new-badge {
+      position: absolute;
+      bottom: -6px; left: 50%; transform: translateX(-50%);
+      background: #e0555f; color: #fff;
+      font-size: 8px; font-weight: 800; letter-spacing: .03em;
+      padding: 1px 5px; border-radius: 6px; line-height: 1.3;
+      pointer-events: none; z-index: 5;
+      box-shadow: 0 1px 3px rgba(0,0,0,.4);
+    }
 
     /* ── Pages ────────────────────────────────────────── */
     .page { display: none; }
@@ -854,7 +866,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリ</div>
     <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較</div>
-    <div class="tab" data-tab="standings" onclick="switchTab('standings')">順位</div>
+    <div class="tab" data-tab="standings" onclick="switchTab('standings')">順位<span class="tab-new-badge" id="standings-new-badge">NEW</span></div>
     <div class="tab" data-tab="official" onclick="switchTab('official')">公式</div>
     <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE</div>
     <div class="tab" id="feedback-tab" data-tab="feedback" onclick="switchTab('feedback')">要望<span id="feedback-badge" class="tab-badge" style="display:none"></span></div>
@@ -1085,8 +1097,15 @@ const COACHES     = ['翔コーチ','大樹コーチ','飛馬コーチ','大成�
 // チェックを入れているが、そもそも呼ばないようにするフロント側の二重ガード。
 const IS_PREVIEW_CONTEXT = ['file:', 'data:'].includes(location.protocol) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 
+// 順位タブ新設の告知バッジ「NEW」（2026-09-17追加）。2週間後に自動的に消えるよう、
+// 期限をハードコードして毎回チェックする（再デプロイ不要で消える）。
+const STANDINGS_NEW_BADGE_EXPIRY = new Date('2026-10-01T00:00:00+09:00');
+if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
+  document.querySelectorAll('.tab-new-badge').forEach(el => el.remove());
+}
+
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 115;
+const __UI_BUILD__  = 116;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
