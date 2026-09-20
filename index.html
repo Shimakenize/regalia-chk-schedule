@@ -660,20 +660,25 @@
        戦績表（#standings-body）と星取り表（#standings-matrix-body）を横並び
        トラックに入れ、右スワイプ（指を右へ）で戦績表→星取り表、左スワイプで戻る
        2枚のカルーセルにする。スマホ幅で列数（最大12）が収まらないため、星取り表
-       自体は行ラベル列を position:sticky で固定した横スクロール表にする。 */
-    .standings-carousel { position: relative; overflow: hidden; touch-action: pan-y; }
+       自体は行ラベル列を position:sticky で固定した横スクロール表にする。
+       切替は「戦績表｜星取り表」タブ（.standings-slide-tabs、UI Build 118）で明示。
+       タッチスワイプに加えPCではマウスドラッグでも同じ動きに対応（stMouseDown等）。 */
+    .standings-carousel { position: relative; overflow: hidden; touch-action: pan-y; cursor: grab; }
     .standings-track {
       display: flex; transform: translateX(-100%);
       /* 初期表示は2枚目（戦績表）。星取り表が1枚目 */
     }
     .standings-slide { flex: 0 0 100%; min-width: 0; }
-    .standings-swipe-hint {
-      position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-      background: rgba(201,162,75,.16); border: 1px solid rgba(201,162,75,.4);
-      border-left: none; border-radius: 0 10px 10px 0;
-      color: var(--gold-lt); font-size: 10px; font-weight: 700;
-      padding: 8px 6px 8px 8px; writing-mode: vertical-rl; letter-spacing: .05em;
-      pointer-events: none; opacity: .85;
+    .standings-slide-tabs { margin-top: -2px; }
+    .standings-rotate-hint {
+      display: none; font-size: 11px; color: var(--gold-lt);
+      background: rgba(201,162,75,.12); border: 1px solid rgba(201,162,75,.35);
+      border-radius: 8px; padding: 6px 10px; margin: -4px 0 10px;
+    }
+    /* スマホ縦持ちでは星取り表の列が見切れるため横向きを案内（PCは常に非表示）。
+       実際に横向きへ回転すると orientation:landscape になり自動で消える。 */
+    @media (max-width: 700px) and (orientation: portrait) {
+      .standings-rotate-hint { display: block; }
     }
     .standings-matrix-scroll {
       overflow-x: auto; -webkit-overflow-scrolling: touch;
@@ -694,6 +699,10 @@
       background: linear-gradient(110deg,#11305a,#0d2142); padding: 4px 3px;
     }
     .matrix-col-h img { width: 18px; height: 18px; object-fit: contain; display: block; margin: 0 auto; }
+    .matrix-col-h-txt {
+      font-size: 8.5px; font-weight: 700; color: var(--gold-lt); letter-spacing: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: clip; margin-top: 1px;
+    }
     .matrix-row-icon {
       width: 16px; height: 16px; object-fit: contain; vertical-align: -3px;
       margin-right: 4px; border-radius: 2px; background: rgba(255,255,255,.08);
@@ -991,12 +1000,15 @@
     <div class="standings-wrap">
       <p class="standings-hint">対象は公式HPで順位表を確認できるリーグ戦のみ（フットサルリーグは対象外）。公式HPの確認周期（1日4回）ごとに更新されます。</p>
       <div class="chip-row" id="standings-cat-filter"></div>
+      <div class="chip-row standings-slide-tabs" id="standings-slide-tabs">
+        <div class="chip-btn active" data-slide="1" onclick="standingsGoToSlide(1)">戦績表</div>
+        <div class="chip-btn" data-slide="0" onclick="standingsGoToSlide(0)">星取り表</div>
+      </div>
       <div class="standings-carousel" id="standings-carousel">
         <div class="standings-track" id="standings-track">
           <div class="standings-slide" id="standings-matrix-body"><div class="empty-msg">読み込み中…</div></div>
           <div class="standings-slide" id="standings-body"><div class="empty-msg">読み込み中…</div></div>
         </div>
-        <div class="standings-swipe-hint" id="standings-swipe-hint">‹ 星取り表</div>
       </div>
     </div>
   </div>
@@ -1164,7 +1176,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 117;
+const __UI_BUILD__  = 118;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2721,7 +2733,10 @@ function renderStandingsBody() {
 let standingsSlideIndex = 1;
 let standingsMatrixRendered = false;
 let stTouchStartX = 0, stTouchStartY = 0, stTouchDX = 0, stDragging = false;
+let stMouseActive = false;
 
+// タッチとマウスで同じドラッグ判定ロジックを共有（PCでもスワイプ相当の
+// ドラッグ操作に対応するため、2026-09-20 mousedown/move/up を追加）。
 function standingsCarouselInit() {
   const el = document.getElementById('standings-carousel');
   if (!el || el.dataset.swipeBound) return;
@@ -2729,21 +2744,21 @@ function standingsCarouselInit() {
   el.addEventListener('touchstart', stTouchStart, { passive: true });
   el.addEventListener('touchmove', stTouchMove, { passive: false });
   el.addEventListener('touchend', stTouchEnd, { passive: true });
+  el.addEventListener('mousedown', stMouseDown);
 }
-function stTouchStart(e) {
-  stTouchStartX = e.touches[0].clientX;
-  stTouchStartY = e.touches[0].clientY;
+function stDragStart(x, y) {
+  stTouchStartX = x; stTouchStartY = y;
   stTouchDX = 0; stDragging = false;
 }
-function stTouchMove(e) {
-  const dx = e.touches[0].clientX - stTouchStartX;
-  const dy = e.touches[0].clientY - stTouchStartY;
+function stDragMove(x, y, onDragStart) {
+  const dx = x - stTouchStartX;
+  const dy = y - stTouchStartY;
   if (!stDragging) {
     // 横方向の意図が明確になるまでは縦スクロールを優先させる
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) stDragging = true;
     else return;
   }
-  e.preventDefault();
+  if (onDragStart) onDragStart();
   stTouchDX = dx;
   const track = document.getElementById('standings-track');
   const base = -standingsSlideIndex * 100;
@@ -2751,7 +2766,7 @@ function stTouchMove(e) {
   track.style.transition = 'none';
   track.style.transform = `translateX(${pct}%)`;
 }
-function stTouchEnd() {
+function stDragEnd() {
   if (stDragging) {
     const threshold = 60;
     if (stTouchDX > threshold && standingsSlideIndex === 1) standingsGoToSlide(0);
@@ -2760,14 +2775,36 @@ function stTouchEnd() {
   }
   stDragging = false;
 }
+function stTouchStart(e) { stDragStart(e.touches[0].clientX, e.touches[0].clientY); }
+function stTouchMove(e) { stDragMove(e.touches[0].clientX, e.touches[0].clientY, () => e.preventDefault()); }
+function stTouchEnd() { stDragEnd(); }
+
+function stMouseDown(e) {
+  stMouseActive = true;
+  stDragStart(e.clientX, e.clientY);
+  document.addEventListener('mousemove', stMouseMove);
+  document.addEventListener('mouseup', stMouseUp);
+}
+function stMouseMove(e) {
+  if (!stMouseActive) return;
+  stDragMove(e.clientX, e.clientY, () => e.preventDefault());
+}
+function stMouseUp() {
+  if (!stMouseActive) return;
+  stMouseActive = false;
+  stDragEnd();
+  document.removeEventListener('mousemove', stMouseMove);
+  document.removeEventListener('mouseup', stMouseUp);
+}
 function standingsGoToSlide(idx, skipAnim) {
   standingsSlideIndex = idx;
   const track = document.getElementById('standings-track');
   if (!track) return;
   track.style.transition = skipAnim ? 'none' : 'transform .25s ease';
   track.style.transform = `translateX(${-idx * 100}%)`;
-  const hint = document.getElementById('standings-swipe-hint');
-  if (hint) hint.style.display = idx === 1 ? '' : 'none';
+  document.querySelectorAll('#standings-slide-tabs .chip-btn').forEach(b => {
+    b.classList.toggle('active', Number(b.dataset.slide) === idx);
+  });
   if (idx === 0 && !standingsMatrixRendered) {
     renderStandingsMatrixBody();
     standingsMatrixRendered = true;
@@ -2781,6 +2818,33 @@ function standingsMatrixCellHtml(v) {
   const cls = m[1] === 'W' ? 'matrix-w' : (m[1] === 'L' ? 'matrix-l' : 'matrix-d');
   return `<td class="matrix-cell ${cls}">${escHtml(m[2])}</td>`;
 }
+// 列ヘッダーのアイコン＋省略名2文字（Sony_HomeTerminal側の対応表と同一。
+// UI Build 118、2026-09-20。matrix[].club（公式サイト自身の短縮名）は勝点表側
+// の正式名と表記が一致しないため使わず、teams[i].clubをmatrixと同じ順位順
+// インデックスで対応付けて引く）。
+const STANDINGS_TEAM_ABBREV = {
+  "FC Kanaloa B": "Ka", "FC HORTENCIA": "HO", "FC厚木ジュニアユースDREAMS": "厚木D",
+  "AC等々力": "A等", "大豆戸FC JY A": "大豆", "SC相模原": "S相", "横浜FC JY B": "横B",
+  "FC湘南JY": "湘南", "F.C.REGALIA": "RE", "和光ユナイテッド 川崎FC": "和光",
+  "湘南リーヴレ・エスチーロJY": "湘南", "SCH.FC": "SCH", "Fスタジオ": "Fス",
+  "横浜ジュニオールJY": "ジュニ", "エストレーラFC インファンチル": "エスト",
+  "SUERTE FC Chigasaki": "SU", "エスペランサSC JY A": "エスペ", "横浜FTAR FC": "FTR",
+  "FC. vinculo": "vi", "FC厚木ジュニアユースMELLIZO": "厚木M", "シュートJrユースFC": "シュ",
+  "クラブテアトロJY": "テア", "FC川崎CHAMP JY": "川崎", "カルぺソール湘南": "カル",
+  "MGFアカデミー": "MGF", "P.S.T.C. LONDRINA": "LO", "AZ FCエスペランサ": "AZ",
+  "横須賀シーガルズFC": "横須", "SC相模原JY": "S相", "BANFF横浜": "BAF",
+  "JFC FUTURO": "FUT", "バオムFC川崎": "バオ", "FC CLIO川崎": "CLI",
+  "FCパルピターレJrユース": "パル"
+};
+function standingsAbbrevTeamName(name) {
+  const s = String(name || "").trim();
+  if (STANDINGS_TEAM_ABBREV[s]) return STANDINGS_TEAM_ABBREV[s];
+  const core = s
+    .replace(/^(F\.?C\.?|クラブ|A\.?C\.?|S\.?C\.?)\s*/i, "")
+    .replace(/\s*(F\.?C\.?|JY(\s*[A-Z])?|Jrユース|ジュニアユース)\s*$/i, "")
+    .trim();
+  return (core || s).slice(0, 2);
+}
 function renderStandingsMatrixBody() {
   const body = document.getElementById('standings-matrix-body');
   const cat  = (standingsData || []).find(c => c.category_code === standingsActiveCat);
@@ -2792,7 +2856,12 @@ function renderStandingsMatrixBody() {
     body.innerHTML = `${metaHtml}<div class="empty-msg">この大会の星取り表はまだ取得できていません</div>`;
     return;
   }
-  const headerHtml = matrix.map(r => `<th class="matrix-col-h">${r.icon ? `<img src="${escHtml(r.icon)}" alt="">` : ''}</th>`).join('');
+  const rotateHtml = `<div class="standings-rotate-hint">📱 端末を横向きにすると全チームが見やすくなります</div>`;
+  const headerHtml = matrix.map((r, i) => {
+    const name = (cat.teams && cat.teams[i] && cat.teams[i].club) || r.club;
+    const abbr = escHtml(standingsAbbrevTeamName(name));
+    return `<th class="matrix-col-h">${r.icon ? `<img src="${escHtml(r.icon)}" alt="">` : ''}<div class="matrix-col-h-txt">${abbr}</div></th>`;
+  }).join('');
   const rowsHtml = matrix.map(row => {
     const isRegalia = /REGALIA|レガリア/i.test(row.club || '');
     const cellsHtml = (row.cells || []).map(standingsMatrixCellHtml).join('');
@@ -2801,7 +2870,7 @@ function renderStandingsMatrixBody() {
       ${cellsHtml}
     </tr>`;
   }).join('');
-  body.innerHTML = `${metaHtml}
+  body.innerHTML = `${metaHtml}${rotateHtml}
     <div class="standings-matrix-scroll">
       <table class="standings-matrix-table">
         <thead><tr><th class="matrix-row-label-h"></th>${headerHtml}</tr></thead>
