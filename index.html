@@ -656,6 +656,59 @@
     .standings-remain-link {
       color: var(--gold-lt); font-weight:700; text-decoration: underline dotted; cursor: pointer;
     }
+    /* ── 星取り表（results-matrix、2026-09-20新設） ──────────────────────
+       戦績表（#standings-body）と星取り表（#standings-matrix-body）を横並び
+       トラックに入れ、右スワイプ（指を右へ）で戦績表→星取り表、左スワイプで戻る
+       2枚のカルーセルにする。スマホ幅で列数（最大12）が収まらないため、星取り表
+       自体は行ラベル列を position:sticky で固定した横スクロール表にする。 */
+    .standings-carousel { position: relative; overflow: hidden; touch-action: pan-y; }
+    .standings-track {
+      display: flex; transform: translateX(-100%);
+      /* 初期表示は2枚目（戦績表）。星取り表が1枚目 */
+    }
+    .standings-slide { flex: 0 0 100%; min-width: 0; }
+    .standings-swipe-hint {
+      position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+      background: rgba(201,162,75,.16); border: 1px solid rgba(201,162,75,.4);
+      border-left: none; border-radius: 0 10px 10px 0;
+      color: var(--gold-lt); font-size: 10px; font-weight: 700;
+      padding: 8px 6px 8px 8px; writing-mode: vertical-rl; letter-spacing: .05em;
+      pointer-events: none; opacity: .85;
+    }
+    .standings-matrix-scroll {
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      border-radius: 14px; border: 1px solid var(--border);
+    }
+    .standings-matrix-table { border-collapse: collapse; font-size: 10px; }
+    .standings-matrix-table th, .standings-matrix-table td {
+      padding: 5px 4px; text-align: center; border-top: 1px solid rgba(255,255,255,.06);
+      white-space: nowrap; background: var(--surface);
+    }
+    .matrix-row-label, .matrix-row-label-h {
+      position: sticky; left: 0; z-index: 2; text-align: left; font-size: 11px;
+      padding: 6px 8px; max-width: 108px; overflow: hidden; text-overflow: ellipsis;
+      border-right: 1px solid var(--border); background: var(--surface);
+    }
+    .matrix-row-label-h { background: linear-gradient(110deg,#11305a,#0d2142); z-index: 3; }
+    .standings-matrix-table th.matrix-col-h {
+      background: linear-gradient(110deg,#11305a,#0d2142); padding: 4px 3px;
+    }
+    .matrix-col-h img { width: 18px; height: 18px; object-fit: contain; display: block; margin: 0 auto; }
+    .matrix-row-icon {
+      width: 16px; height: 16px; object-fit: contain; vertical-align: -3px;
+      margin-right: 4px; border-radius: 2px; background: rgba(255,255,255,.08);
+    }
+    .matrix-cell { width: 32px; min-width: 32px; color: var(--dim); font-variant-numeric: tabular-nums; }
+    /* `.standings-matrix-table td`（要素+クラスでspecificity 0,1,1）より詳細度を
+       上げないと背景色が上書きされてしまう（実機検証で発覚、2026-09-20）ため
+       `.standings-matrix-table td.xxx` 形式にする。 */
+    .standings-matrix-table td.matrix-cell-self { background: rgba(255,255,255,.04); }
+    .standings-matrix-table td.matrix-w { background: rgba(67,184,115,.2); color: #7fe0a3; font-weight: 700; }
+    .standings-matrix-table td.matrix-l { background: rgba(224,85,95,.2); color: #f0929b; font-weight: 700; }
+    .standings-matrix-table td.matrix-d { background: rgba(210,166,73,.2); color: #e8c579; font-weight: 700; }
+    .standings-matrix-table tr.is-regalia .matrix-row-label {
+      background: rgba(201,162,75,.18); color: #fff; font-weight: 700;
+    }
     #standings-upcoming-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,.7);
@@ -938,7 +991,13 @@
     <div class="standings-wrap">
       <p class="standings-hint">対象は公式HPで順位表を確認できるリーグ戦のみ（フットサルリーグは対象外）。公式HPの確認周期（1日4回）ごとに更新されます。</p>
       <div class="chip-row" id="standings-cat-filter"></div>
-      <div id="standings-body"><div class="empty-msg">読み込み中…</div></div>
+      <div class="standings-carousel" id="standings-carousel">
+        <div class="standings-track" id="standings-track">
+          <div class="standings-slide" id="standings-matrix-body"><div class="empty-msg">読み込み中…</div></div>
+          <div class="standings-slide" id="standings-body"><div class="empty-msg">読み込み中…</div></div>
+        </div>
+        <div class="standings-swipe-hint" id="standings-swipe-hint">‹ 星取り表</div>
+      </div>
     </div>
   </div>
 
@@ -1105,7 +1164,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 116;
+const __UI_BUILD__  = 117;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2551,6 +2610,7 @@ async function deleteUser(lineUserId, coachName) {
 
 // ── 順位表（2026-09-15新設） ──────────────────────────────────────────────────
 async function loadStandings() {
+  standingsCarouselInit();
   if (standingsData) { renderStandingsBody(); return; }
   const body = document.getElementById('standings-body');
   body.innerHTML = '<div class="empty-msg">読み込み中…</div>';
@@ -2581,6 +2641,8 @@ function selectStandingsCat(code) {
   standingsActiveCat = code;
   renderStandingsCatFilter();
   renderStandingsBody();
+  standingsMatrixRendered = false;
+  standingsGoToSlide(1, true);
 }
 
 function renderStandingsBody() {
@@ -2648,6 +2710,104 @@ function renderStandingsBody() {
     </table>
     ${legendHtml}
     ${simHtml}`;
+}
+
+// ── 星取り表（results-matrix、2026-09-20新設） ──────────────────────────────
+// 戦績表（#standings-body）と2枚のカルーセルで表示。トラック順は
+// [星取り表(idx0), 戦績表(idx1・初期表示)]。戦績表から指を右へドラッグすると
+// 星取り表が左から現れる（iOSの「左端から右スワイプで戻る」と同じ向き）。
+// データはapi/standingsに既に追加済みの`matrix`/`extraGroup.matrix`をそのまま使う
+// （Sony_HomeTerminal側と同一。REGALIA_ChkMatchSchedule側のバックエンド変更は不要）。
+let standingsSlideIndex = 1;
+let standingsMatrixRendered = false;
+let stTouchStartX = 0, stTouchStartY = 0, stTouchDX = 0, stDragging = false;
+
+function standingsCarouselInit() {
+  const el = document.getElementById('standings-carousel');
+  if (!el || el.dataset.swipeBound) return;
+  el.dataset.swipeBound = '1';
+  el.addEventListener('touchstart', stTouchStart, { passive: true });
+  el.addEventListener('touchmove', stTouchMove, { passive: false });
+  el.addEventListener('touchend', stTouchEnd, { passive: true });
+}
+function stTouchStart(e) {
+  stTouchStartX = e.touches[0].clientX;
+  stTouchStartY = e.touches[0].clientY;
+  stTouchDX = 0; stDragging = false;
+}
+function stTouchMove(e) {
+  const dx = e.touches[0].clientX - stTouchStartX;
+  const dy = e.touches[0].clientY - stTouchStartY;
+  if (!stDragging) {
+    // 横方向の意図が明確になるまでは縦スクロールを優先させる
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) stDragging = true;
+    else return;
+  }
+  e.preventDefault();
+  stTouchDX = dx;
+  const track = document.getElementById('standings-track');
+  const base = -standingsSlideIndex * 100;
+  const pct = base + (dx / track.parentElement.clientWidth) * 100;
+  track.style.transition = 'none';
+  track.style.transform = `translateX(${pct}%)`;
+}
+function stTouchEnd() {
+  if (stDragging) {
+    const threshold = 60;
+    if (stTouchDX > threshold && standingsSlideIndex === 1) standingsGoToSlide(0);
+    else if (stTouchDX < -threshold && standingsSlideIndex === 0) standingsGoToSlide(1);
+    else standingsGoToSlide(standingsSlideIndex);
+  }
+  stDragging = false;
+}
+function standingsGoToSlide(idx, skipAnim) {
+  standingsSlideIndex = idx;
+  const track = document.getElementById('standings-track');
+  if (!track) return;
+  track.style.transition = skipAnim ? 'none' : 'transform .25s ease';
+  track.style.transform = `translateX(${-idx * 100}%)`;
+  const hint = document.getElementById('standings-swipe-hint');
+  if (hint) hint.style.display = idx === 1 ? '' : 'none';
+  if (idx === 0 && !standingsMatrixRendered) {
+    renderStandingsMatrixBody();
+    standingsMatrixRendered = true;
+  }
+}
+function standingsMatrixCellHtml(v) {
+  if (v === null || v === undefined) return '<td class="matrix-cell matrix-cell-self"></td>';
+  if (v === '') return '<td class="matrix-cell"></td>';
+  const m = /^([WLD])(.*)$/.exec(v);
+  if (!m) return '<td class="matrix-cell"></td>';
+  const cls = m[1] === 'W' ? 'matrix-w' : (m[1] === 'L' ? 'matrix-l' : 'matrix-d');
+  return `<td class="matrix-cell ${cls}">${escHtml(m[2])}</td>`;
+}
+function renderStandingsMatrixBody() {
+  const body = document.getElementById('standings-matrix-body');
+  const cat  = (standingsData || []).find(c => c.category_code === standingsActiveCat);
+  if (!cat) { body.innerHTML = '<div class="empty-msg">データがありません</div>'; return; }
+  if (!cat.ok) { body.innerHTML = `<div class="empty-msg">${escHtml(cat.error || '未取得')}</div>`; return; }
+  const matrix = cat.matrix;
+  const metaHtml = `<div class="standings-meta">${escHtml(cat.group_name || '')} ／ 最終取得: ${escHtml(fmtDatetime(cat.scraped_at))}</div>`;
+  if (!matrix || !matrix.length) {
+    body.innerHTML = `${metaHtml}<div class="empty-msg">この大会の星取り表はまだ取得できていません</div>`;
+    return;
+  }
+  const headerHtml = matrix.map(r => `<th class="matrix-col-h">${r.icon ? `<img src="${escHtml(r.icon)}" alt="">` : ''}</th>`).join('');
+  const rowsHtml = matrix.map(row => {
+    const isRegalia = /REGALIA|レガリア/i.test(row.club || '');
+    const cellsHtml = (row.cells || []).map(standingsMatrixCellHtml).join('');
+    return `<tr class="${isRegalia ? 'is-regalia' : ''}">
+      <td class="matrix-row-label">${row.icon ? `<img class="matrix-row-icon" src="${escHtml(row.icon)}" alt="">` : ''}${escHtml(row.club)}</td>
+      ${cellsHtml}
+    </tr>`;
+  }).join('');
+  body.innerHTML = `${metaHtml}
+    <div class="standings-matrix-scroll">
+      <table class="standings-matrix-table">
+        <thead><tr><th class="matrix-row-label-h"></th>${headerHtml}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
 }
 
 // 残り対戦相手は更新履歴モーダル（#history-overlay）と同じ「ページ内に重ねて表示」方式
