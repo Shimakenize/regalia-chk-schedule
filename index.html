@@ -1953,7 +1953,12 @@ function buildMerged() {
     const od = safeParse(d.official_data) || {};
     // 公式にはあるがLINE未報告 = 「LINE通知待ち」（v0.2.75で'ng'から分離）。
     // 照合NGは「LINE・公式両方にデータがあり内容が食い違う」場合のみとする。
-    entries.push({ date: dd, category: d.category_code, coach: null, official: od, discs: [d], status: 'line_pending' });
+    // ただし d.status === 'known_change' の場合（コーチが延期・中止と既にLINEで伝えており
+    // GAS側の_isKnownCoachChange()が検知した既知の変更）は「まだLINEで伝えていない」の意味の
+    // 「LINE通知待ち」ではなく、単に公式HP側の反映待ちである「公式HP掲載まち」として表示する
+    // （2026-09-20指摘: 「延期・中止されたものはLINE通知待ちはおかしい、公式掲載待ちでいい」）。
+    const isKnownChange = d.status === 'known_change';
+    entries.push({ date: dd, category: d.category_code, coach: null, official: od, discs: [d], status: isKnownChange ? 'pending' : 'line_pending' });
     usedDiscIds.add(d.id);
   }
   entries.sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : catSortKey(a.category) - catSortKey(b.category));
