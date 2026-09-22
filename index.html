@@ -658,12 +658,15 @@
     }
     /* ── 星取り表（results-matrix、2026-09-20新設） ──────────────────────
        戦績表（#standings-body）と星取り表（#standings-matrix-body）を横並び
-       トラックに入れ、右スワイプ（指を右へ）で戦績表→星取り表、左スワイプで戻る
-       2枚のカルーセルにする。スマホ幅で列数（最大12）が収まらないため、星取り表
-       自体は行ラベル列を position:sticky で固定した横スクロール表にする。
-       切替は「戦績表｜星取り表」タブ（.standings-slide-tabs、UI Build 118）で明示。
-       タッチスワイプに加えPCではマウスドラッグでも同じ動きに対応（stMouseDown等）。 */
-    .standings-carousel { position: relative; overflow: hidden; touch-action: pan-y; cursor: grab; }
+       トラックに入れ、「戦績表｜星取り表」タブ（.standings-slide-tabs、UI Build 118）の
+       クリック/タップのみで切り替える2枚のカルーセル。スマホ幅で列数（最大12）が
+       収まらないため、星取り表自体は行ラベル列を position:sticky で固定した
+       横スクロール表（.standings-matrix-scroll、overflow-x:auto）にする。
+       スワイプでの切替は廃止（2026-09-23）: touch-action:panyでカルーセル全体の
+       横方向タッチを奪っていたため、星取り表が縦画面で見切れていてもスワイプで
+       表内を横スクロールできなかった。タブボタンのみの切替にすることで、
+       星取り表の横スクロールへタッチジェスチャーがそのまま届くようにする。 */
+    .standings-carousel { position: relative; overflow: hidden; }
     .standings-track {
       display: flex; transform: translateX(-100%);
       /* 初期表示は2枚目（戦績表）。星取り表が1枚目 */
@@ -1176,7 +1179,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 119;
+const __UI_BUILD__  = 120;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2633,7 +2636,6 @@ async function deleteUser(lineUserId, coachName) {
 
 // ── 順位表（2026-09-15新設） ──────────────────────────────────────────────────
 async function loadStandings() {
-  standingsCarouselInit();
   if (standingsData) { renderStandingsBody(); return; }
   const body = document.getElementById('standings-body');
   body.innerHTML = '<div class="empty-msg">読み込み中…</div>';
@@ -2736,77 +2738,16 @@ function renderStandingsBody() {
 }
 
 // ── 星取り表（results-matrix、2026-09-20新設） ──────────────────────────────
-// 戦績表（#standings-body）と2枚のカルーセルで表示。トラック順は
-// [星取り表(idx0), 戦績表(idx1・初期表示)]。戦績表から指を右へドラッグすると
-// 星取り表が左から現れる（iOSの「左端から右スワイプで戻る」と同じ向き）。
+// 戦績表（#standings-body）と星取り表（#standings-matrix-body）を2枚のカルーセルで
+// 表示。トラック順は[星取り表(idx0), 戦績表(idx1・初期表示)]。
+// スワイプ/ドラッグでの切替は廃止（2026-09-23）: タブボタン（standingsGoToSlide）
+// のみで切り替える。理由は、カルーセル全体がtouch-action:panyで横方向タッチを
+// 奪っていたため、星取り表が縦画面で見切れていても表内を横スクロールできな
+// かったため（.standings-matrix-scrollのoverflow-x:autoへタッチが届かなかった）。
 // データはapi/standingsに既に追加済みの`matrix`/`extraGroup.matrix`をそのまま使う
 // （Sony_HomeTerminal側と同一。REGALIA_ChkMatchSchedule側のバックエンド変更は不要）。
 let standingsSlideIndex = 1;
 let standingsMatrixRendered = false;
-let stTouchStartX = 0, stTouchStartY = 0, stTouchDX = 0, stDragging = false;
-let stMouseActive = false;
-
-// タッチとマウスで同じドラッグ判定ロジックを共有（PCでもスワイプ相当の
-// ドラッグ操作に対応するため、2026-09-20 mousedown/move/up を追加）。
-function standingsCarouselInit() {
-  const el = document.getElementById('standings-carousel');
-  if (!el || el.dataset.swipeBound) return;
-  el.dataset.swipeBound = '1';
-  el.addEventListener('touchstart', stTouchStart, { passive: true });
-  el.addEventListener('touchmove', stTouchMove, { passive: false });
-  el.addEventListener('touchend', stTouchEnd, { passive: true });
-  el.addEventListener('mousedown', stMouseDown);
-}
-function stDragStart(x, y) {
-  stTouchStartX = x; stTouchStartY = y;
-  stTouchDX = 0; stDragging = false;
-}
-function stDragMove(x, y, onDragStart) {
-  const dx = x - stTouchStartX;
-  const dy = y - stTouchStartY;
-  if (!stDragging) {
-    // 横方向の意図が明確になるまでは縦スクロールを優先させる
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) stDragging = true;
-    else return;
-  }
-  if (onDragStart) onDragStart();
-  stTouchDX = dx;
-  const track = document.getElementById('standings-track');
-  const base = -standingsSlideIndex * 100;
-  const pct = base + (dx / track.parentElement.clientWidth) * 100;
-  track.style.transition = 'none';
-  track.style.transform = `translateX(${pct}%)`;
-}
-function stDragEnd() {
-  if (stDragging) {
-    const threshold = 60;
-    if (stTouchDX > threshold && standingsSlideIndex === 1) standingsGoToSlide(0);
-    else if (stTouchDX < -threshold && standingsSlideIndex === 0) standingsGoToSlide(1);
-    else standingsGoToSlide(standingsSlideIndex);
-  }
-  stDragging = false;
-}
-function stTouchStart(e) { stDragStart(e.touches[0].clientX, e.touches[0].clientY); }
-function stTouchMove(e) { stDragMove(e.touches[0].clientX, e.touches[0].clientY, () => e.preventDefault()); }
-function stTouchEnd() { stDragEnd(); }
-
-function stMouseDown(e) {
-  stMouseActive = true;
-  stDragStart(e.clientX, e.clientY);
-  document.addEventListener('mousemove', stMouseMove);
-  document.addEventListener('mouseup', stMouseUp);
-}
-function stMouseMove(e) {
-  if (!stMouseActive) return;
-  stDragMove(e.clientX, e.clientY, () => e.preventDefault());
-}
-function stMouseUp() {
-  if (!stMouseActive) return;
-  stMouseActive = false;
-  stDragEnd();
-  document.removeEventListener('mousemove', stMouseMove);
-  document.removeEventListener('mouseup', stMouseUp);
-}
 function standingsGoToSlide(idx, skipAnim) {
   standingsSlideIndex = idx;
   const track = document.getElementById('standings-track');
