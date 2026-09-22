@@ -677,6 +677,30 @@
     .standings-remain-link {
       color: var(--gold-lt); font-weight:700; text-decoration: underline dotted; cursor: pointer;
     }
+
+    /* ── 予定タブ（カード形式、2026-09-23新設） ─────────────────────────
+       曜日ごとに列を並べ、各列にU-15/U-14/U-13/全体の順でカードを積む。
+       7日分を横に並べるためスマホ幅では横スクロールになる。 */
+    .hl-week-range { font-size:12px; color:var(--muted); margin:8px 2px 10px; }
+    .hl-grid { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch; }
+    .hl-day-col { flex:0 0 118px; min-width:0; }
+    .hl-day-head {
+      text-align:center; font-size:13px; font-weight:700; color:#fff;
+      padding:6px 0; border-bottom:2px solid var(--border); margin-bottom:6px;
+    }
+    .hl-day-head.is-today { color: var(--gold); border-bottom-color: var(--gold); }
+    .hl-cat-row { margin-bottom:8px; }
+    .hl-cat-label { font-size:10px; color:var(--muted); font-weight:700; margin-bottom:3px; }
+    .hl-card {
+      background: var(--surface); border:1px solid var(--border); border-radius:8px;
+      padding:6px 7px; font-size:10.5px; line-height:1.5; margin-bottom:4px; overflow:hidden;
+    }
+    .hl-card-league { color: var(--gold-lt); font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hl-card-title { color:#fff; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hl-card-venue { color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hl-card-time { color:var(--muted); }
+    .hl-card-none { color:var(--muted); text-align:center; padding:10px 0; background:transparent; border-style:dashed; }
+
     /* ── 星取り表（results-matrix、2026-09-20新設） ──────────────────────
        戦績表（#standings-body）と星取り表（#standings-matrix-body）を横並び
        トラックに入れ、「戦績表｜星取り表」タブ（.standings-slide-tabs、UI Build 118）の
@@ -958,6 +982,7 @@
     <div class="tab" data-tab="standings" onclick="switchTab('standings')">順位<span class="tab-new-badge" id="standings-new-badge">NEW</span></div>
     <div class="tab" data-tab="official" onclick="switchTab('official')">公式</div>
     <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE</div>
+    <div class="tab" id="schedule-hl-tab" data-tab="schedule-hl" onclick="switchTab('schedule-hl')" style="display:none;">予定</div>
     <div class="tab" id="admin-tab" data-tab="admin" onclick="switchTab('admin')" style="display:none;">管理</div>
   </div>
 
@@ -1074,6 +1099,18 @@
       <div class="empty-msg">読み込み中…</div>
     </div>
     <p class="crt-note">※ 本日以降の試合のみ表示。修正・削除後は照合を自動実行します。</p>
+  </div>
+
+  <!-- ── 予定（2026-09-23新設。当面Kenichiro Shimadaのみ表示、いずれ全体公開）
+       イベントソースはREGALIA_ChkMatchSchedule自身のcoach_schedule（LINE報告由来の試合）
+       のみ。REGALIA_schedule_management（個人情報含む）とは一切連携しない。 ── -->
+  <div id="page-schedule-hl" class="page">
+    <div class="chip-row" id="hl-week-toggle">
+      <div class="chip-btn active" data-week="0" onclick="hlSelectWeek(0)">今週</div>
+      <div class="chip-btn" data-week="1" onclick="hlSelectWeek(1)">来週</div>
+    </div>
+    <div id="hl-week-range" class="hl-week-range"></div>
+    <div id="hl-grid" class="hl-grid"></div>
   </div>
 
   <!-- ── バグ・要望（要望タブ廃止に伴いモーダル化、2026-09-23） ── -->
@@ -1212,7 +1249,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 122;
+const __UI_BUILD__  = 123;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1702,6 +1739,9 @@ function applyBootstrapResult(res, opts) {
   document.getElementById('main-app').style.display = '';
   hideBootLoading();
   if (isAdmin) document.getElementById('admin-tab').style.display = '';
+  // 予定タブは完成度が上がるまでKenichiro Shimada（管理者）のみに限定表示
+  // （2026-09-23、いずれ全体公開する想定でisAdmin判定のみに単純化してある）
+  if (isAdmin) document.getElementById('schedule-hl-tab').style.display = '';
 
   document.getElementById('header-user').textContent = displayName || '';
 
@@ -2665,6 +2705,87 @@ async function deleteUser(lineUserId, coachName) {
   } catch(e) { setStatus('削除エラー: ' + e.message); }
 }
 
+// ── 予定タブ（2026-09-23新設、当面Kenichiro Shimadaのみ表示） ────────────────────
+// イベントソースはこのアプリ自身のcoach_schedule（LINE報告由来の試合、event_kind==='match'）
+// のみ。REGALIA_schedule_management（個人情報含む）とのコンタミネーション防止のため、
+// bootstrap時に既にフィルタ済みのcoachDataをそのまま使い、他アプリのAPIは一切呼ばない。
+let hlSelectedWeek = 0; // 0=今週, 1=来週
+const HL_CATS = [
+  { code: 'U-15', label: 'U15' },
+  { code: 'U-14', label: 'U14' },
+  { code: 'U-13', label: 'U13' },
+  { code: 'all',  label: '全体' },
+];
+
+function hlSelectWeek(w) {
+  hlSelectedWeek = w;
+  document.querySelectorAll('#hl-week-toggle .chip-btn').forEach(b => {
+    b.classList.toggle('active', Number(b.dataset.week) === w);
+  });
+  renderScheduleHighlights();
+}
+
+// dateStr（"YYYY-MM-DD"）が属する週の月曜日をDateで返す。
+function hlMondayOf(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const dow = dt.getDay(); // 0=日,1=月,...,6=土
+  dt.setDate(dt.getDate() + (dow === 0 ? -6 : 1 - dow));
+  return dt;
+}
+function hlDateStr(dt) {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const d = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function hlCardHtml(m) {
+  const league = withParticipantTag(m.league_or_competition || '', m.category_code);
+  const timeStr = String(m.event_time || '').replace(/K\/O.*$/, '').trim();
+  return `<div class="hl-card">
+    ${league ? `<div class="hl-card-league">${escHtml(league)}</div>` : ''}
+    <div class="hl-card-title">vs ${escHtml(m.title || '未定')}</div>
+    <div class="hl-card-venue">${escHtml(m.venue || '')}</div>
+    ${timeStr ? `<div class="hl-card-time">${escHtml(timeStr)}</div>` : ''}
+  </div>`;
+}
+
+function renderScheduleHighlights() {
+  const grid = document.getElementById('hl-grid');
+  const rangeEl = document.getElementById('hl-week-range');
+  if (!grid) return;
+  const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
+  const monday = hlMondayOf(todayStr);
+  monday.setDate(monday.getDate() + hlSelectedWeek * 7);
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    days.push(hlDateStr(d));
+  }
+  if (rangeEl) rangeEl.textContent = `${fmtDate(days[0])} 〜 ${fmtDate(days[6])}`;
+
+  const matches = (coachData || []).filter(m => days.includes(normDate(m.event_date)));
+
+  grid.innerHTML = days.map(day => {
+    const dayMatches = matches.filter(m => normDate(m.event_date) === day);
+    const isToday = day === todayStr;
+    const catRowsHtml = HL_CATS.map(cat => {
+      const inCat = dayMatches.filter(m => catBase(m.category_code) === cat.code);
+      const cardsHtml = inCat.length ? inCat.map(hlCardHtml).join('') : `<div class="hl-card hl-card-none">なし</div>`;
+      return `<div class="hl-cat-row">
+        <div class="hl-cat-label">${cat.label}</div>
+        ${cardsHtml}
+      </div>`;
+    }).join('');
+    return `<div class="hl-day-col">
+      <div class="hl-day-head${isToday ? ' is-today' : ''}">${fmtDate(day)}</div>
+      ${catRowsHtml}
+    </div>`;
+  }).join('');
+}
+
 // ── 順位表（2026-09-15新設） ──────────────────────────────────────────────────
 async function loadStandings() {
   if (standingsData) { renderStandingsBody(); return; }
@@ -2904,6 +3025,7 @@ function switchTab(name) {
   document.getElementById('page-' + name).classList.add('active');
   if (name === 'coach-raw') { loadCoachUpdateLog().then(() => renderCoachRaw()); }
   if (name === 'standings') loadStandings();
+  if (name === 'schedule-hl') renderScheduleHighlights();
   if (name === 'admin') {
     switchAdminPanel('logs');
   }
