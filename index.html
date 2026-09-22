@@ -58,9 +58,19 @@
     .header-wordmark { font-family:'Cormorant Garamond',serif; font-size:23px; font-weight:700; color:#fff; line-height:1; letter-spacing:.02em; }
     .header-sub { font-size:11px; color:#a9c0e0; margin-top:5px; }
     .header-sub-ver { color: var(--gold); }
-    .header-right { margin-left:auto; text-align:right; max-width:130px; flex-shrink:0; }
+    .header-right { margin-left:auto; display:flex; align-items:center; gap:8px; max-width:170px; flex-shrink:0; }
+    .header-right-text { text-align:right; min-width:0; overflow:hidden; }
     .header-user-name { font-size:11px; color:var(--muted); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
     .header-coach-name { font-size:10px; color:var(--gold); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-top:2px; }
+    /* 要望アイコン（要望タブ廃止に伴いヘッダーへ移設、2026-09-23） */
+    .header-feedback-btn {
+      position:relative; flex-shrink:0; background:rgba(255,255,255,.06); border:1px solid var(--border);
+      border-radius:8px; width:30px; height:30px; font-size:14px; line-height:1;
+      display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+    }
+    .header-feedback-btn .tab-badge {
+      position:absolute; top:-6px; right:-6px; margin-left:0; font-size:9px; padding:1px 4px;
+    }
 
     /* ── Tabs ─────────────────────────────────────────── */
     .tabs {
@@ -513,6 +523,17 @@
     }
     .doc-viewer-msg { color: var(--muted); font-size: 13px; padding: 24px; text-align: center; }
 
+    /* ── バグ・要望モーダル（要望タブ廃止に伴い新設、2026-09-23。更新履歴モーダルと同じ構造） ── */
+    #feedback-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 200;
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #feedback-overlay .history-card { max-height: 85vh; }
+
     /* ── 更新履歴モーダル（v0.2.85） ───────────────────── */
     #history-overlay {
       position: fixed; inset: 0;
@@ -922,8 +943,11 @@
       <div class="header-sub">match check <span class="header-sub-ver" id="header-version"></span></div>
     </div>
     <div class="header-right">
-      <div class="header-user-name" id="header-user"></div>
-      <div class="header-coach-name" id="header-coach"></div>
+      <button class="header-feedback-btn" onclick="openFeedbackOverlay()" title="要望">📮<span id="feedback-badge" class="tab-badge" style="display:none"></span></button>
+      <div class="header-right-text">
+        <div class="header-user-name" id="header-user"></div>
+        <div class="header-coach-name" id="header-coach"></div>
+      </div>
     </div>
   </div>
 
@@ -934,7 +958,6 @@
     <div class="tab" data-tab="standings" onclick="switchTab('standings')">順位<span class="tab-new-badge" id="standings-new-badge">NEW</span></div>
     <div class="tab" data-tab="official" onclick="switchTab('official')">公式</div>
     <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE</div>
-    <div class="tab" id="feedback-tab" data-tab="feedback" onclick="switchTab('feedback')">要望<span id="feedback-badge" class="tab-badge" style="display:none"></span></div>
     <div class="tab" id="admin-tab" data-tab="admin" onclick="switchTab('admin')" style="display:none;">管理</div>
   </div>
 
@@ -1053,9 +1076,14 @@
     <p class="crt-note">※ 本日以降の試合のみ表示。修正・削除後は照合を自動実行します。</p>
   </div>
 
-  <!-- ── バグ・要望 ── -->
-  <div id="page-feedback" class="page">
-    <div class="fb-section">
+  <!-- ── バグ・要望（要望タブ廃止に伴いモーダル化、2026-09-23） ── -->
+  <div id="feedback-overlay">
+  <div class="history-card">
+    <div class="history-bar">
+      <div class="history-title">バグ・要望</div>
+      <button class="history-close" onclick="closeFeedbackOverlay()">閉じる</button>
+    </div>
+    <div class="fb-section" style="flex:1;overflow:auto;padding:8px 16px 16px;">
       <div class="fb-form-card">
         <div class="fb-section-title">新規投稿</div>
         <div class="fb-form-label">種別</div>
@@ -1081,6 +1109,7 @@
       </div>
       <div id="fb-list"><div class="empty-msg">読み込み中…</div></div>
     </div>
+  </div>
   </div>
 
   <!-- ── 管理 ── -->
@@ -1183,7 +1212,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 121;
+const __UI_BUILD__  = 122;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2875,7 +2904,6 @@ function switchTab(name) {
   document.getElementById('page-' + name).classList.add('active');
   if (name === 'coach-raw') { loadCoachUpdateLog().then(() => renderCoachRaw()); }
   if (name === 'standings') loadStandings();
-  if (name === 'feedback') renderFeedback();
   if (name === 'admin') {
     switchAdminPanel('logs');
   }
@@ -3111,6 +3139,16 @@ function _updateFbBadge() {
 
 function _esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// 要望タブ廃止（2026-09-23）に伴い、ヘッダーのアイコンからモーダルとして開く方式に変更。
+// 中身（フォーム・投稿一覧）は変更なし。
+function openFeedbackOverlay() {
+  document.getElementById('feedback-overlay').style.display = 'flex';
+  renderFeedback();
+}
+function closeFeedbackOverlay() {
+  document.getElementById('feedback-overlay').style.display = 'none';
 }
 
 function renderFeedback() {
