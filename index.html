@@ -700,6 +700,14 @@
     .hl-card-venue { color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .hl-card-time { color:var(--muted); }
     .hl-card-none { color:var(--muted); text-align:center; padding:10px 0; background:transparent; border-style:dashed; }
+    .hl-card-wx { display:inline-block; font-size:9.5px; padding:1px 5px; border-radius:6px; margin-bottom:3px; font-weight:700; }
+    .hl-wx-sun   { background:rgba(224,160,64,.18); color:#e0a040; }
+    .hl-wx-cloud { background:rgba(154,166,189,.18); color:#9aa6bd; }
+    .hl-wx-rain  { background:rgba(90,150,220,.18); color:#7ab8f8; }
+    .hl-wx-heavy { background:rgba(224,85,95,.18); color:#f0929b; }
+    .hl-timeline-body { text-align:center; padding:8px 0; }
+    .hl-timeline-body img { max-width:100%; border-radius:10px; border:1px solid var(--border); }
+    .hl-timeline-msg { color:var(--muted); font-size:12px; padding:24px 0; }
 
     /* ── 星取り表（results-matrix、2026-09-20新設） ──────────────────────
        戦績表（#standings-body）と星取り表（#standings-matrix-body）を横並び
@@ -1109,8 +1117,18 @@
       <div class="chip-btn active" data-week="0" onclick="hlSelectWeek(0)">今週</div>
       <div class="chip-btn" data-week="1" onclick="hlSelectWeek(1)">来週</div>
     </div>
+    <div class="chip-row" id="hl-view-toggle" style="margin-top:6px">
+      <div class="chip-btn active" data-view="card" onclick="hlSelectView('card')">カード形式</div>
+      <div class="chip-btn" data-view="timeline" onclick="hlSelectView('timeline')">タイムライン形式</div>
+    </div>
     <div id="hl-week-range" class="hl-week-range"></div>
-    <div id="hl-grid" class="hl-grid"></div>
+    <div id="hl-card-view">
+      <div id="hl-grid" class="hl-grid"></div>
+    </div>
+    <div id="hl-timeline-view" style="display:none">
+      <div class="chip-row" id="hl-timeline-day-picker"></div>
+      <div id="hl-timeline-body" class="hl-timeline-body"></div>
+    </div>
   </div>
 
   <!-- ── バグ・要望（要望タブ廃止に伴いモーダル化、2026-09-23） ── -->
@@ -1249,7 +1267,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 123;
+const __UI_BUILD__  = 124;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2709,7 +2727,12 @@ async function deleteUser(lineUserId, coachName) {
 // イベントソースはこのアプリ自身のcoach_schedule（LINE報告由来の試合、event_kind==='match'）
 // のみ。REGALIA_schedule_management（個人情報含む）とのコンタミネーション防止のため、
 // bootstrap時に既にフィルタ済みのcoachDataをそのまま使い、他アプリのAPIは一切呼ばない。
+// 天気（麻溝台、tenki.jpスクレイピング＋OpenWeatherMapフォールバック）とタイムライン
+// 画像（Cloud Runレンダラー、REGALIA_schedule_managementと共用）のみサーバー側API。
 let hlSelectedWeek = 0; // 0=今週, 1=来週
+let hlSelectedView = 'card'; // 'card' | 'timeline'
+let hlWeatherData = null;
+let hlWeatherLoading = false;
 const HL_CATS = [
   { code: 'U-15', label: 'U15' },
   { code: 'U-14', label: 'U14' },
@@ -2722,6 +2745,16 @@ function hlSelectWeek(w) {
   document.querySelectorAll('#hl-week-toggle .chip-btn').forEach(b => {
     b.classList.toggle('active', Number(b.dataset.week) === w);
   });
+  renderScheduleHighlights();
+}
+
+function hlSelectView(view) {
+  hlSelectedView = view;
+  document.querySelectorAll('#hl-view-toggle .chip-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === view);
+  });
+  document.getElementById('hl-card-view').style.display = view === 'card' ? '' : 'none';
+  document.getElementById('hl-timeline-view').style.display = view === 'timeline' ? '' : 'none';
   renderScheduleHighlights();
 }
 
@@ -2739,22 +2772,7 @@ function hlDateStr(dt) {
   const d = String(dt.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
-
-function hlCardHtml(m) {
-  const league = withParticipantTag(m.league_or_competition || '', m.category_code);
-  const timeStr = String(m.event_time || '').replace(/K\/O.*$/, '').trim();
-  return `<div class="hl-card">
-    ${league ? `<div class="hl-card-league">${escHtml(league)}</div>` : ''}
-    <div class="hl-card-title">vs ${escHtml(m.title || '未定')}</div>
-    <div class="hl-card-venue">${escHtml(m.venue || '')}</div>
-    ${timeStr ? `<div class="hl-card-time">${escHtml(timeStr)}</div>` : ''}
-  </div>`;
-}
-
-function renderScheduleHighlights() {
-  const grid = document.getElementById('hl-grid');
-  const rangeEl = document.getElementById('hl-week-range');
-  if (!grid) return;
+function hlWeekDays() {
   const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
   const monday = hlMondayOf(todayStr);
   monday.setDate(monday.getDate() + hlSelectedWeek * 7);
@@ -2764,11 +2782,71 @@ function renderScheduleHighlights() {
     d.setDate(monday.getDate() + i);
     days.push(hlDateStr(d));
   }
+  return days;
+}
+
+// event_time（"13:10K/O"等）から開始時（0-23）を抜き出す。GAS側_hlParseEventMinutes()と対応。
+function hlParseEventHour(raw) {
+  const m = String(raw || '').match(/(\d{1,2}):(\d{2})/);
+  return m ? Number(m[1]) : null;
+}
+
+// 天気バッジ判定（晴れ/曇り/弱雨/雨/大雨）。GAS側_hlMatchWeatherBadge()とロジックを揃える。
+function hlWeatherBadge(dateStr, hour) {
+  if (!hlWeatherData) return null;
+  const slots = (hlWeatherData.hourly || {})[dateStr];
+  let s = null;
+  if (slots && slots.length) s = slots.find(x => x.h === hour) || slots[0];
+  if (s) {
+    if (s.rainMm > 0 || s.rainProb >= 50) return { tag: s.rainMm >= 10 ? '大雨' : (s.rainMm >= 1 ? '雨' : '弱雨'), cls: s.rainMm >= 10 ? 'hl-wx-heavy' : 'hl-wx-rain' };
+    return s.code >= 3 ? { tag: '曇り', cls: 'hl-wx-cloud' } : { tag: '晴れ', cls: 'hl-wx-sun' };
+  }
+  const day = (hlWeatherData.days || []).find(d => d.date === dateStr);
+  if (!day) return null;
+  if (day.rainMm > 0 || day.rainProb >= 50) return { tag: day.rainMm >= 10 ? '大雨' : (day.rainMm >= 1 ? '雨' : '弱雨'), cls: day.rainMm >= 10 ? 'hl-wx-heavy' : 'hl-wx-rain' };
+  return day.code >= 3 ? { tag: '曇り', cls: 'hl-wx-cloud' } : { tag: '晴れ', cls: 'hl-wx-sun' };
+}
+
+async function hlEnsureWeatherLoaded() {
+  if (hlWeatherData || hlWeatherLoading) return;
+  hlWeatherLoading = true;
+  try {
+    const res = await gasGet('api/schedule/weather-asagoudai', {});
+    if (res.ok) hlWeatherData = res.weather;
+  } catch (e) { /* 天気取得失敗時はバッジ無しで続行 */ }
+  hlWeatherLoading = false;
+}
+
+function hlCardHtml(m) {
+  const league = withParticipantTag(m.league_or_competition || '', m.category_code);
+  const timeStr = String(m.event_time || '').replace(/K\/O.*$/, '').trim();
+  const hour = hlParseEventHour(m.event_time);
+  const wx = hour != null ? hlWeatherBadge(normDate(m.event_date), hour) : null;
+  return `<div class="hl-card">
+    ${wx ? `<div class="hl-card-wx ${wx.cls}">${escHtml(wx.tag)}</div>` : ''}
+    ${league ? `<div class="hl-card-league">${escHtml(league)}</div>` : ''}
+    <div class="hl-card-title">vs ${escHtml(m.title || '未定')}</div>
+    <div class="hl-card-venue">${escHtml(m.venue || '')}</div>
+    ${timeStr ? `<div class="hl-card-time">${escHtml(timeStr)}</div>` : ''}
+  </div>`;
+}
+
+function renderScheduleHighlights() {
+  if (hlSelectedView === 'timeline') {
+    renderHlTimelinePicker();
+    return;
+  }
+  const grid = document.getElementById('hl-grid');
+  const rangeEl = document.getElementById('hl-week-range');
+  if (!grid) return;
+  const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
+  const days = hlWeekDays();
   if (rangeEl) rangeEl.textContent = `${fmtDate(days[0])} 〜 ${fmtDate(days[6])}`;
 
   const matches = (coachData || []).filter(m => days.includes(normDate(m.event_date)));
 
-  grid.innerHTML = days.map(day => {
+  const renderGrid = () => {
+    grid.innerHTML = days.map(day => {
     const dayMatches = matches.filter(m => normDate(m.event_date) === day);
     const isToday = day === todayStr;
     const catRowsHtml = HL_CATS.map(cat => {
@@ -2783,7 +2861,56 @@ function renderScheduleHighlights() {
       <div class="hl-day-head${isToday ? ' is-today' : ''}">${fmtDate(day)}</div>
       ${catRowsHtml}
     </div>`;
-  }).join('');
+    }).join('');
+  };
+  renderGrid();
+  // 天気バッジは非同期取得のため、先にバッジ無しで描画し、取得後に再描画する。
+  hlEnsureWeatherLoaded().then(renderGrid);
+}
+
+// タイムライン形式: 選択中の週のうち試合がある日だけボタンを出し、選んだ日の
+// タイムライン画像（Cloud Runレンダラー生成）を表示する。
+let hlTimelineSelectedDay = null;
+function renderHlTimelinePicker() {
+  const picker = document.getElementById('hl-timeline-day-picker');
+  const body = document.getElementById('hl-timeline-body');
+  if (!picker || !body) return;
+  const days = hlWeekDays();
+  const daysWithMatches = days.filter(day => (coachData || []).some(m => normDate(m.event_date) === day));
+  if (!daysWithMatches.length) {
+    picker.innerHTML = '';
+    body.innerHTML = '<div class="hl-timeline-msg">この期間は試合がありません</div>';
+    hlTimelineSelectedDay = null;
+    return;
+  }
+  if (!hlTimelineSelectedDay || !daysWithMatches.includes(hlTimelineSelectedDay)) {
+    hlTimelineSelectedDay = daysWithMatches[0];
+  }
+  picker.innerHTML = daysWithMatches.map(day =>
+    `<div class="chip-btn${day === hlTimelineSelectedDay ? ' active' : ''}" onclick="hlSelectTimelineDay('${day}')">${fmtDate(day)}</div>`
+  ).join('');
+  hlLoadTimelineImage(hlTimelineSelectedDay);
+}
+
+function hlSelectTimelineDay(day) {
+  hlTimelineSelectedDay = day;
+  document.querySelectorAll('#hl-timeline-day-picker .chip-btn').forEach((b, i) => {
+    b.classList.toggle('active', b.textContent === fmtDate(day));
+  });
+  hlLoadTimelineImage(day);
+}
+
+async function hlLoadTimelineImage(day) {
+  const body = document.getElementById('hl-timeline-body');
+  if (!body) return;
+  body.innerHTML = '<div class="hl-timeline-msg">画像を生成中…</div>';
+  try {
+    const res = await gasGet('api/schedule/timeline-image', { userId, date: day });
+    if (!res.ok) { body.innerHTML = `<div class="hl-timeline-msg">生成失敗: ${escHtml(res.error || '')}</div>`; return; }
+    body.innerHTML = `<img src="${escHtml(res.image_url)}" alt="${escHtml(fmtDate(day))}のタイムライン">`;
+  } catch (e) {
+    body.innerHTML = `<div class="hl-timeline-msg">生成エラー: ${escHtml(e.message)}</div>`;
+  }
 }
 
 // ── 順位表（2026-09-15新設） ──────────────────────────────────────────────────
