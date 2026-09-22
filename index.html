@@ -1087,6 +1087,7 @@
   <div id="page-admin" class="page">
     <div class="admin-subtabs">
       <button class="admin-subtab active" data-admin-panel="logs" onclick="switchAdminPanel('logs')">メンバー/ログ</button>
+      <button class="admin-subtab" data-admin-panel="notify" onclick="switchAdminPanel('notify')">通知レビュー<span class="tab-badge" id="pending-notify-badge" style="display:none"></span></button>
       <button class="admin-subtab" data-admin-panel="actions" onclick="switchAdminPanel('actions')">操作</button>
       <button class="admin-subtab" data-admin-panel="compare" onclick="switchAdminPanel('compare')">照合</button>
     </div>
@@ -1126,13 +1127,16 @@
       </div>
     </div>
 
-    <div id="admin-panel-logs" class="admin-panel active">
-      <div id="pending-notify-section" class="members-card" style="display:none;">
-        <div class="members-title">LINE通知レビュー待ち<span class="tab-badge" id="pending-notify-badge" style="display:none"></span></div>
+    <div id="admin-panel-notify" class="admin-panel">
+      <div id="pending-notify-section" class="members-card">
+        <div class="members-title">LINE通知レビュー待ち</div>
         <div class="members-meta" id="pending-notify-meta">読み込み中…</div>
         <div id="pending-notify-body"></div>
         <button class="members-refresh-btn" onclick="refreshPendingNotifications()">更新</button>
       </div>
+    </div>
+
+    <div id="admin-panel-logs" class="admin-panel active">
       <div id="members-section" class="members-card" style="display:none;">
         <div class="members-title">登録メンバーリスト</div>
         <div class="members-meta" id="members-meta">読み込み中…</div>
@@ -1179,7 +1183,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 120;
+const __UI_BUILD__  = 121;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1703,7 +1707,6 @@ function applyBootstrapResult(res, opts) {
   renderCoachRaw();
 
   if (isAdmin) {
-    document.getElementById('pending-notify-section').style.display = '';
     document.getElementById('members-section').style.display = '';
     document.getElementById('access-log-section').style.display = '';
   }
@@ -2490,6 +2493,11 @@ function _escHtml(s) {
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// 通知レビューは常にレビュー待ち（status:'pending'）のみを表示する。決定済み
+// （approved/cancelled）の行はGAS側_decidePendingNotification()が決定と同時に
+// 削除するため、通常はpendingLineNotifications自体がpendingのみになる
+// （2026-09-23: 「メンバー・ログに混在しているLINE通知レビューを分離し、レビュー
+// 待ちのもの以外が残らない様に徹底する」との指示を受け、表示側もpendingのみに限定）。
 function renderPendingNotifications() {
   const meta  = document.getElementById('pending-notify-meta');
   const body  = document.getElementById('pending-notify-body');
@@ -2500,27 +2508,21 @@ function renderPendingNotifications() {
     if (pending.length > 0) { badge.textContent = pending.length; badge.style.display = ''; }
     else badge.style.display = 'none';
   }
-  if (!pendingLineNotifications.length) {
-    meta.textContent = '保留中の通知はありません。';
+  if (!pending.length) {
+    meta.textContent = 'レビュー待ちの通知はありません。';
     body.innerHTML = '';
     return;
   }
-  meta.textContent = `${pending.length}件レビュー待ち（直近${pendingLineNotifications.length}件を表示）`;
-  body.innerHTML = pendingLineNotifications.map(r => {
-    const statusLabel = r.status === 'pending'   ? '⏳ レビュー待ち'
-                       : r.status === 'approved'  ? '✅ 送信済み'
-                       : '❌ キャンセル済み';
+  meta.textContent = `${pending.length}件レビュー待ち`;
+  body.innerHTML = pending.map(r => {
     const kindLabel = NOTIFY_KIND_LABELS[r.kind] || r.kind;
-    const actions = r.status === 'pending'
-      ? `<div class="pending-notify-actions">
-           <button class="pending-notify-approve" onclick="decidePendingNotification('${r.id}','approve')">通知OK</button>
-           <button class="pending-notify-cancel" onclick="decidePendingNotification('${r.id}','cancel')">キャンセル</button>
-         </div>`
-      : '';
     return `<div class="pending-notify-row">
-      <div class="pending-notify-head">${_escHtml(r.created_at)}　${_escHtml(kindLabel)}　${statusLabel}</div>
+      <div class="pending-notify-head">${_escHtml(r.created_at)}　${_escHtml(kindLabel)}　⏳ レビュー待ち</div>
       <pre class="pending-notify-msg">${_escHtml(r.message)}</pre>
-      ${actions}
+      <div class="pending-notify-actions">
+        <button class="pending-notify-approve" onclick="decidePendingNotification('${r.id}','approve')">通知OK</button>
+        <button class="pending-notify-cancel" onclick="decidePendingNotification('${r.id}','cancel')">キャンセル</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -2891,6 +2893,7 @@ function switchAdminPanel(name) {
 
   if (!isAdmin) return;
   if (name === 'compare') loadMgmtCompareResult();
+  if (name === 'notify') refreshPendingNotifications();
   if (name === 'logs') {
     refreshMembers();
     // アクセスログはアコーディオン展開時に読み込む（折りたたみ時は取得しない）
