@@ -705,9 +705,66 @@
     .hl-wx-cloud { background:rgba(154,166,189,.18); color:#9aa6bd; }
     .hl-wx-rain  { background:rgba(90,150,220,.18); color:#7ab8f8; }
     .hl-wx-heavy { background:rgba(224,85,95,.18); color:#f0929b; }
-    .hl-timeline-body { text-align:center; padding:8px 0; }
-    .hl-timeline-body img { max-width:100%; border-radius:10px; border:1px solid var(--border); }
-    .hl-timeline-msg { color:var(--muted); font-size:12px; padding:24px 0; }
+    .hl-timeline-body { text-align:left; padding:8px 0; }
+    .hl-timeline-msg { color:var(--muted); font-size:12px; padding:24px 0; text-align:center; }
+
+    /* ── タイムライン形式（Sony_HomeTerminalのタイムライン表示を移植、2026-09-23） ──
+       時間軸グリッド＋日付列＋試合カード（集合/出発〜本体〜解散のスタック区分）＋
+       麻溝台1時間天気レール。フットサル併合（同日複数試合を1枚に集約）も含めて
+       完全移植。Sony側はTV用の複数日・複数拠点天気だが、ChkMatchは選択した1日・
+       麻溝台1拠点のみのため、日付列は可変長(1列でも複数列でも動作)、天気レールは
+       1本のみに簡略化。is-cancelled(display_status)はコード上は存在するが
+       ChkMatch自身の書き込み経路では常に'active'のまま変化しないため、この移植では
+       意図的に対象外（発生しえない状態への防御コードを持ち込まない）。 */
+    .hl-tl-root { display:flex; }
+    .hl-tl-hourcol { flex:0 0 26px; position:relative; }
+    .hl-tl-hourcol-head { height:34px; }
+    .hl-tl-hourcol-plot { position:relative; }
+    .hl-tl-hour-lab { position:absolute; right:2px; font-size:9.5px; color:var(--muted); transform:translateY(-50%); }
+    .hl-tl-days { flex:1; display:grid; gap:5px; min-width:0; }
+    .hl-tl-day { min-width:0; }
+    .hl-tl-dayhead {
+      text-align:center; font-size:12px; font-weight:700; color:#fff; height:34px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      border-bottom:2px solid var(--border);
+    }
+    .hl-tl-dayhead.is-today { color:var(--gold); border-bottom-color:var(--gold); }
+    .hl-tl-dayhead.is-sat .hl-tl-dow { color:#7ab8f8; }
+    .hl-tl-dayhead.is-sun .hl-tl-dow { color:#f0929b; }
+    .hl-tl-dow { font-size:10px; color:var(--muted); }
+    .hl-tl-daybody { position:relative; display:flex; }
+    .hl-tl-wxrail { flex:0 0 34px; position:relative; border-right:1px solid var(--border); }
+    .hl-tl-wxrail-tag { position:absolute; top:2px; left:0; right:0; text-align:center; font-size:8px; color:var(--muted); z-index:1; }
+    .hl-tl-wxhour {
+      position:absolute; left:0; right:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; font-size:8px; color:var(--muted);
+      border-top:1px solid var(--border); opacity:.85; gap:1px;
+    }
+    .hl-tl-wxhour svg { width:14px; height:14px; }
+    .hl-tl-wxhour.rain-light { background:rgba(90,150,220,.10); }
+    .hl-tl-wxhour.rain-mid   { background:rgba(90,150,220,.18); }
+    .hl-tl-wxhour.rain-heavy { background:rgba(224,85,95,.18); }
+    .hl-tl-canvas { flex:1; position:relative; min-width:0; background:rgba(255,255,255,.02); }
+    .hl-tl-hgrid { position:absolute; left:0; right:0; border-top:1px solid var(--border); opacity:.5; }
+    .hl-tl-now { position:absolute; left:0; right:0; border-top:2px solid var(--gold); z-index:3; }
+    .hl-tl-block {
+      position:absolute; border-radius:6px; overflow:hidden; display:flex; flex-direction:column;
+      box-shadow:0 1px 3px rgba(0,0,0,.4);
+    }
+    .hl-tl-seg { padding:2px 5px; font-size:10px; line-height:1.25; overflow:hidden; }
+    .hl-tl-seg-time { font-weight:700; display:block; }
+    .hl-tl-seg-sub { font-size:9.5px; display:block; }
+    .hl-tl-seg-venue { font-size:9px; opacity:.85; display:block; }
+    .hl-tl-seg-regalia { font-size:9.5px; font-weight:700; color:#fde68a; white-space:pre-line; display:block; }
+    .hl-tl-block--narrow .hl-tl-seg-regalia { font-size:8.5px; }
+    .hl-tl-seg--main { background:#1e3a5f; color:#e5e7eb; position:relative; }
+    .hl-tl-seg--departure { background:#6b8fc9; color:#f8fafc; }
+    .hl-tl-seg--assembly { background:#3d5f8f; color:#f1f5f9; }
+    .hl-tl-seg--postmark { background:#4a6fa0; color:#f1f5f9; text-align:right; }
+    .hl-tl-rain-badge {
+      position:absolute; top:2px; right:2px; font-size:8px; padding:0 4px; border-radius:4px;
+      font-weight:700; z-index:2;
+    }
 
     /* ── 星取り表（results-matrix、2026-09-20新設） ──────────────────────
        戦績表（#standings-body）と星取り表（#standings-matrix-body）を横並び
@@ -1267,7 +1324,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 124;
+const __UI_BUILD__  = 125;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2889,7 +2946,7 @@ function renderHlTimelinePicker() {
   picker.innerHTML = daysWithMatches.map(day =>
     `<div class="chip-btn${day === hlTimelineSelectedDay ? ' active' : ''}" onclick="hlSelectTimelineDay('${day}')">${fmtDate(day)}</div>`
   ).join('');
-  hlLoadTimelineImage(hlTimelineSelectedDay);
+  hlTlRenderDay(hlTimelineSelectedDay);
 }
 
 function hlSelectTimelineDay(day) {
@@ -2897,20 +2954,351 @@ function hlSelectTimelineDay(day) {
   document.querySelectorAll('#hl-timeline-day-picker .chip-btn').forEach((b, i) => {
     b.classList.toggle('active', b.textContent === fmtDate(day));
   });
-  hlLoadTimelineImage(day);
+  hlTlRenderDay(day);
 }
 
-async function hlLoadTimelineImage(day) {
+// ── タイムライン形式（Sony_HomeTerminal/web/app.jsのrenderTimeline()系を移植、2026-09-23）
+// Cloud Run画像生成（旧hlLoadTimelineImage）を廃止し、Sonyと同じ「時間軸グリッド＋
+// 集合/出発〜本体〜解散のスタックカード＋レーン分割＋天気レール」をこのページ内で
+// 直接HTML/CSS描画する方式に置き換えた。フットサル同日複数試合の1枚併合も移植。
+// ChkMatchは麻溝台1拠点のみ・「試合」イベントのみのため、Sony側の2拠点天気レール・
+// 塾/私用/合宿/マリノス戦などの種別分岐は持ち込まない（このアプリのデータに存在しない）。
+const HL_TL_HOUR0 = 6, HL_TL_HOUR1 = 22;
+let hlTlHour0 = HL_TL_HOUR0, hlTlHour1 = HL_TL_HOUR1;
+
+function hlTlPad(n) { return (n < 10 ? '0' : '') + n; }
+function hlTlHm(min) { return hlTlPad(Math.floor(min / 60)) + ':' + hlTlPad(((min % 60) + 60) % 60); }
+function hlTlStripNotes(s) {
+  return String(s || '').replace(/（[^（）]*）/g, ' ').replace(/\([^()]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function hlTlParseCore(eventTime) {
+  let s = String(eventTime || '').trim();
+  s = s.replace(/(\d{1,2}\s*[:：]\s*[0-5]\d)\s*TR/gi, '$1');
+  const ko = s.match(/([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*k\s*[/／]\s*o/i);
+  if (ko) { const ks = Number(ko[1]) * 60 + Number(ko[2]); return { start: ks, end: ks + 120 }; }
+  const stripped = hlTlStripNotes(s);
+  const m = stripped.match(/([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*[-–—〜~]\s*([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)/)
+    || s.match(/([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*[-–—〜~]\s*([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)/);
+  if (m) {
+    const st = Number(m[1]) * 60 + Number(m[2]);
+    let en = Number(m[3]) * 60 + Number(m[4]);
+    if (en <= st) en += 24 * 60;
+    return { start: st, end: en };
+  }
+  const m2 = stripped.match(/([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)/);
+  if (!m2) return null;
+  const st2 = Number(m2[1]) * 60 + Number(m2[2]);
+  return { start: st2, end: st2 + 120 };
+}
+function hlTlTrimAuxLabel(raw) {
+  let s = String(raw || '');
+  s = s.replace(/（[^（）]*）/g, ' ').replace(/\([^()]*\)/g, ' ');
+  s = s.replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  s = s.replace(/^[\s·・、,，/／\-–—〜~:：]+/, '').replace(/[\s·・、,，/／]+$/, '');
+  if (!s || /^[-–—〜~:：]+$/.test(s) || /^(k\s*[/／]?\s*o|ko)$/i.test(s) || /^まで[）)]?$/.test(s)) return '';
+  if (/^([01]?\d|2[0-3])[:：][0-5]\d$/.test(s)) return '';
+  return s;
+}
+function hlTlLabeledTimes(src) {
+  const s = String(src || '');
+  const out = [];
+  const re = /([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)/g;
+  const hits = [];
+  let m;
+  while ((m = re.exec(s))) hits.push({ start: m.index, end: re.lastIndex, m: Number(m[1]) * 60 + Number(m[2]) });
+  for (let i = 0; i < hits.length; i++) {
+    const cur = hits[i];
+    const prevEnd = i > 0 ? hits[i - 1].end : 0;
+    const nextStart = i + 1 < hits.length ? hits[i + 1].start : s.length;
+    const after = hlTlTrimAuxLabel(s.slice(cur.end, nextStart));
+    let before = hlTlTrimAuxLabel(s.slice(prevEnd, cur.start));
+    if (before && before.indexOf(' ') >= 0) before = before.split(/\s+/).pop() || '';
+    const label = after || before;
+    if (label) out.push({ m: cur.m, label });
+  }
+  return out;
+}
+function hlTlAllMins(src) {
+  const s = String(src || '');
+  const out = [];
+  const re = /([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)/g;
+  let m;
+  while ((m = re.exec(s))) out.push(Number(m[1]) * 60 + Number(m[2]));
+  return out;
+}
+function hlTlPreSrc(ev) { return ev.pre_event_coach || String(ev.event_time || ''); }
+function hlTlPostSrc(ev) { return ev.post_event_coach || ''; }
+function hlTlDisplayRange(ev) {
+  const core = hlTlParseCore(ev.event_time);
+  if (!core) return null;
+  let start = core.start, end = core.end;
+  const pre = hlTlPreSrc(ev), post = hlTlPostSrc(ev);
+  hlTlLabeledTimes(pre).forEach(x => { if (x.m < start) start = x.m; });
+  hlTlAllMins(pre).forEach(t => { if (t < start) start = t; });
+  hlTlLabeledTimes(post).forEach(x => { if (x.m > end) end = x.m; });
+  hlTlAllMins(post).forEach(t => { if (t > end) end = t; });
+  return { start, end, core };
+}
+function hlTlSegClass(label, isPost) {
+  const s = String(label || '');
+  if (/出発/.test(s)) return 'hl-tl-seg--departure';
+  if (/集合/.test(s)) return 'hl-tl-seg--assembly';
+  return isPost ? 'hl-tl-seg--postmark' : 'hl-tl-seg--assembly';
+}
+function hlTlPackLanes(list) {
+  const placed = [];
+  list.sort((a, b) => a._ds - b._ds || a._de - b._de);
+  list.forEach(ev => {
+    let lane = 0;
+    while (placed.some(p => p._lane === lane && p._ds < ev._de && ev._ds < p._de)) lane++;
+    ev._lane = lane;
+    placed.push(ev);
+  });
+  let n = 1;
+  placed.forEach(ev => { if (ev._lane + 1 > n) n = ev._lane + 1; });
+  placed.forEach(ev => { ev._lanes = n; });
+  return placed;
+}
+function hlTlHourTop(minFromMidnight, canvasH) {
+  const m0 = hlTlHour0 * 60;
+  const span = Math.max(60, (hlTlHour1 - hlTlHour0) * 60);
+  const padTop = 4, padBot = Math.max(16, Math.round(canvasH * 0.06));
+  const usable = Math.max(1, canvasH - padTop - padBot);
+  return padTop + ((minFromMidnight - m0) / span) * usable;
+}
+function hlTlSetHourWindow(events, dayIso, today) {
+  let minM = 24 * 60, maxM = 0;
+  events.forEach(ev => {
+    const rng = hlTlDisplayRange(ev);
+    if (!rng) return;
+    minM = Math.min(minM, rng.start);
+    maxM = Math.max(maxM, rng.end);
+  });
+  if (dayIso === today) {
+    const n = new Date();
+    const nowM = n.getHours() * 60 + n.getMinutes();
+    minM = Math.min(minM, nowM);
+    maxM = Math.max(maxM, nowM + 20);
+  }
+  if (maxM <= minM) { hlTlHour0 = HL_TL_HOUR0; hlTlHour1 = HL_TL_HOUR1; return; }
+  hlTlHour0 = Math.max(HL_TL_HOUR0, Math.floor(minM / 60));
+  hlTlHour1 = Math.min(HL_TL_HOUR1, Math.max(hlTlHour0 + 3, Math.ceil((maxM + 50) / 60)));
+}
+// フットサルは category_code に "_FUTSAL" サフィックスが付く（chk_scrape.py側で確定
+// 済みの構造化シグナル）ため、Sony側のリーグ名テキスト正規表現より確実に判定できる。
+function hlTlIsFutsalEv(ev) { return /_FUTSAL$/.test(String(ev.category_code || '')); }
+function hlTlUniqueNonempty(values) {
+  const seen = {}; const out = [];
+  (values || []).forEach(x => { x = String(x || '').trim(); if (!x || seen[x]) return; seen[x] = 1; out.push(x); });
+  return out;
+}
+function hlTlSharedLeagueLabel(rows) {
+  const labels = hlTlUniqueNonempty(rows.map(ev => ev.league_or_competition || ''));
+  if (!labels.length) return 'フットサルリーグ';
+  if (labels.length === 1) return labels[0];
+  return labels.join(' / ');
+}
+function hlTlAbbrevTeamName(name, maxLen) {
+  const s = String(name || '').trim(); const n = maxLen || 5;
+  return s.length > n ? s.slice(0, n) + '…' : s;
+}
+function hlTlMergeFutsalGroup(rows) {
+  const first = rows[0];
+  const sorted = rows.slice().sort((a, b) => {
+    const ca = hlTlParseCore(a.event_time), cb = hlTlParseCore(b.event_time);
+    return (ca ? ca.start : 0) - (cb ? cb.start : 0);
+  });
+  const cores = sorted.map(ev => hlTlParseCore(ev.event_time)).filter(Boolean);
+  const envStart = cores.length ? Math.min(...cores.map(c => c.start)) : null;
+  const envEnd = cores.length ? Math.max(...cores.map(c => c.end)) : null;
+  const mergedTime = (envStart !== null && envEnd !== null) ? (hlTlHm(envStart) + '-' + hlTlHm(envEnd)) : first.event_time;
+  return {
+    id: first.id,
+    event_date: first.event_date,
+    title: '',
+    league_or_competition: hlTlSharedLeagueLabel(rows),
+    venue: hlTlUniqueNonempty(rows.map(ev => ev.venue)).join(' / '),
+    event_time: mergedTime,
+    category_code: first.category_code,
+    pre_event_coach: first.pre_event_coach,
+    post_event_coach: first.post_event_coach,
+    groupEvents: sorted
+  };
+}
+function hlTlCollapseFutsal(rows) {
+  const list = rows.slice();
+  const futsal = list.filter(hlTlIsFutsalEv);
+  if (futsal.length < 2) return list;
+  const out = []; let placed = false;
+  list.forEach(ev => {
+    if (!hlTlIsFutsalEv(ev)) { out.push(ev); return; }
+    if (!placed) { out.push(hlTlMergeFutsalGroup(futsal)); placed = true; }
+  });
+  return out;
+}
+function hlTlCardText(ev) { return ev.title ? ('vs ' + ev.title) : ''; }
+function hlTlCardTextGroup(ev) {
+  if (!ev.groupEvents || ev.groupEvents.length < 2) return hlTlCardText(ev);
+  return ev.groupEvents.map(sub => {
+    const core = hlTlParseCore(sub.event_time);
+    const prefix = core ? (hlTlHm(core.start) + '-' + hlTlHm(core.end) + ' ') : '';
+    const line = hlTlCardText(sub).replace(/^vs\s*(.+)$/i, (_, name) => 'vs ' + hlTlAbbrevTeamName(name, 3));
+    return prefix + line;
+  }).join('\n');
+}
+function hlTlMainSub(ev) {
+  const league = String(ev.league_or_competition || '').trim();
+  const title = String(ev.title || '').trim();
+  return league ? (league + ' · ' + title) : title;
+}
+// Sony側rainVisual()の単一時間帯クラス分けを移植（麻溝台1地点、1時間スロット単位）。
+function hlTlHourVisual(s) {
+  if (!s) return null;
+  const mm = Number(s.rainMm) || 0, prob = Number(s.rainProb) || 0, code = Number(s.code) || 0;
+  let kind = 'none';
+  if (mm >= 3) kind = 'heavy';
+  else if (mm >= 1) kind = 'mid';
+  else if (mm >= 0.5) kind = 'light';
+  else if (mm > 0 && prob >= 51) kind = 'light';
+  if (kind === 'heavy') return { kind, ico: 'heavy', tag: '大雨' };
+  if (kind === 'mid') return { kind, ico: 'mid', tag: '雨' };
+  if (kind === 'light') return { kind, ico: 'light', tag: '弱雨' };
+  const trace = mm > 0 && mm < 0.5;
+  return { kind: 'none', ico: (code >= 3 || trace) ? 'cloud' : 'sun', tag: '' };
+}
+function hlTlWxIcoSvg(name) {
+  if (name === 'sun') return '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="6.5" fill="#fbbf24"/><g stroke="#f59e0b" stroke-width="2" stroke-linecap="round" fill="none"><path d="M16 3.5v3.5M16 25v3.5M3.5 16h3.5M25 16h3.5M7 7l2.4 2.4M22.6 22.6L25 25M7 25l2.4-2.4M22.6 9.4L25 7"/></g></svg>';
+  if (name === 'light') return '<svg viewBox="0 0 32 32"><path fill="#94a3b8" d="M9.2 18.2h14a4.6 4.6 0 0 0 .2-9.2 6.3 6.3 0 0 0-12.2-1.7A4.5 4.5 0 0 0 9.2 18.2z"/><g stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"><path d="M12 21.2v3.2M16.2 21.6v3.6M20.4 21.2v3.2"/></g></svg>';
+  if (name === 'mid') return '<svg viewBox="0 0 32 32"><path fill="#64748b" d="M9.2 17.4h14a4.6 4.6 0 0 0 .2-9.2 6.3 6.3 0 0 0-12.2-1.7A4.5 4.5 0 0 0 9.2 17.4z"/><g stroke="#60a5fa" stroke-width="2" stroke-linecap="round"><path d="M11.6 21v4M16 21.4v4.4M20.4 21v4"/></g></svg>';
+  if (name === 'heavy') return '<svg viewBox="0 0 32 32"><path fill="#475569" d="M8.8 16.8h15a5 5 0 0 0 .2-9.8 6.6 6.6 0 0 0-13-1.8A4.8 4.8 0 0 0 8.8 16.8z"/><g stroke="#f87171" stroke-width="2" stroke-linecap="round"><path d="M11 20.6v5M15.2 21v5.4M19.4 20.6v5M23 21.2v4.6"/></g></svg>';
+  return '<svg viewBox="0 0 32 32"><path fill="#cbd5e1" d="M9.5 22.5h14.2a4.8 4.8 0 0 0 .2-9.6 6.6 6.6 0 0 0-12.7-1.8A4.7 4.7 0 0 0 9.5 22.5z"/></svg>';
+}
+function hlTlRainBadgeHtml(ev) {
+  const hour = hlParseEventHour(ev.event_time);
+  if (hour == null) return '';
+  const wx = hlWeatherBadge(normDate(ev.event_date), hour);
+  if (!wx) return '';
+  return `<div class="hl-tl-rain-badge ${wx.cls}">${escHtml(wx.tag)}</div>`;
+}
+function hlTlStackedInner(ev) {
+  const core = ev._range.core;
+  let preMarks = hlTlLabeledTimes(hlTlPreSrc(ev)).filter(x => x.m < core.start).sort((a, b) => a.m - b.m);
+  if (!preMarks.length && ev._range.start < core.start) preMarks = [{ m: ev._range.start, label: '集合' }];
+  let postMarks = hlTlLabeledTimes(hlTlPostSrc(ev)).filter(x => x.m > core.end).sort((a, b) => a.m - b.m);
+  if (!postMarks.length && ev._range.end > core.end) postMarks = [{ m: ev._range.end, label: '解散' }];
+  let h = '';
+  preMarks.forEach(p => {
+    h += `<div class="hl-tl-seg ${hlTlSegClass(p.label, false)}">${escHtml(hlTlHm(p.m) + p.label)}</div>`;
+  });
+  const isGroup = !!(ev.groupEvents && ev.groupEvents.length > 1);
+  const cardText = hlTlCardTextGroup(ev);
+  h += `<div class="hl-tl-seg hl-tl-seg--main" style="flex:1 1 auto">
+    ${hlTlRainBadgeHtml(ev)}
+    <span class="hl-tl-seg-time">${escHtml(hlTlHm(core.start) + (core.end > core.start ? '-' + hlTlHm(core.end) : ''))}</span>
+    ${isGroup ? '' : `<span class="hl-tl-seg-sub">${escHtml(hlTlMainSub(ev))}</span>`}
+    ${ev.venue ? `<span class="hl-tl-seg-venue">${escHtml(ev.venue)}</span>` : ''}
+    ${cardText ? `<span class="hl-tl-seg-regalia">${escHtml(cardText)}</span>` : ''}
+  </div>`;
+  postMarks.forEach(p => {
+    h += `<div class="hl-tl-seg ${hlTlSegClass(p.label, true)}">${escHtml(hlTlHm(p.m) + p.label)}</div>`;
+  });
+  return h;
+}
+
+async function hlTlRenderDay(day) {
   const body = document.getElementById('hl-timeline-body');
   if (!body) return;
-  body.innerHTML = '<div class="hl-timeline-msg">画像を生成中…</div>';
-  try {
-    const res = await gasGet('api/schedule/timeline-image', { userId, date: day });
-    if (!res.ok) { body.innerHTML = `<div class="hl-timeline-msg">生成失敗: ${escHtml(res.error || '')}</div>`; return; }
-    body.innerHTML = `<img src="${escHtml(res.image_url)}" alt="${escHtml(fmtDate(day))}のタイムライン">`;
-  } catch (e) {
-    body.innerHTML = `<div class="hl-timeline-msg">生成エラー: ${escHtml(e.message)}</div>`;
+  await hlEnsureWeatherLoaded();
+  const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
+  const dayEvents = hlTlCollapseFutsal((coachData || []).filter(m => normDate(m.event_date) === day));
+  if (!dayEvents.length) {
+    body.innerHTML = '<div class="hl-timeline-msg">この日は試合がありません</div>';
+    return;
   }
+  hlTlSetHourWindow(dayEvents, day, todayStr);
+
+  const d = new Date(day + 'T00:00:00');
+  const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+  const dayCls = 'hl-tl-dayhead' + (day === todayStr ? ' is-today' : '') + (d.getDay() === 6 ? ' is-sat' : d.getDay() === 0 ? ' is-sun' : '');
+
+  let hourLabsHtml = '';
+  for (let hh = hlTlHour0; hh <= hlTlHour1; hh++) hourLabsHtml += `<div class="hl-tl-hour-lab" data-h="${hh}">${hh}</div>`;
+
+  body.innerHTML = `<div class="hl-tl-root">
+    <div class="hl-tl-hourcol">
+      <div class="hl-tl-hourcol-head"></div>
+      <div class="hl-tl-hourcol-plot" id="hl-tl-hourplot">${hourLabsHtml}</div>
+    </div>
+    <div class="hl-tl-days" style="grid-template-columns:1fr">
+      <div class="hl-tl-day">
+        <div class="${dayCls}"><div>${d.getMonth() + 1}/${d.getDate()}日</div><div class="hl-tl-dow">${dow}</div></div>
+        <div class="hl-tl-daybody">
+          <div class="hl-tl-wxrail" id="hl-tl-wxrail"><div class="hl-tl-wxrail-tag">麻溝台</div></div>
+          <div class="hl-tl-canvas" id="hl-tl-canvas"></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  const canvas = document.getElementById('hl-tl-canvas');
+  const ch = Math.max(320, Math.min(560, dayEvents.length * 90 + 120));
+  canvas.style.height = ch + 'px';
+  document.getElementById('hl-tl-wxrail').style.height = ch + 'px';
+
+  document.querySelectorAll('#hl-tl-hourplot .hl-tl-hour-lab').forEach(el => {
+    el.style.top = hlTlHourTop(Number(el.dataset.h) * 60, ch) + 'px';
+  });
+
+  let grids = '';
+  for (let hh = hlTlHour0; hh <= hlTlHour1; hh++) {
+    grids += `<div class="hl-tl-hgrid" style="top:${hlTlHourTop(hh * 60, ch)}px"></div>`;
+  }
+  if (day === todayStr) {
+    const now = new Date();
+    const mins = now.getHours() * 60 + now.getMinutes();
+    if (mins >= hlTlHour0 * 60 && mins <= hlTlHour1 * 60) {
+      grids += `<div class="hl-tl-now" style="top:${hlTlHourTop(mins, ch)}px"></div>`;
+    }
+  }
+
+  const positioned = dayEvents.map(ev => {
+    const rng = hlTlDisplayRange(ev);
+    if (!rng) return null;
+    const ds = Math.max(hlTlHour0 * 60, rng.start), de = Math.min(hlTlHour1 * 60, rng.end);
+    if (de <= ds) return null;
+    ev._range = rng; ev._ds = ds; ev._de = de;
+    return ev;
+  }).filter(Boolean);
+  hlTlPackLanes(positioned);
+
+  let blocks = '';
+  positioned.forEach(ev => {
+    const top = hlTlHourTop(ev._ds, ch);
+    const rawH = hlTlHourTop(ev._de, ch) - top;
+    const ht = Math.min(Math.max(44, rawH), Math.max(20, ch - top - 6));
+    const w = 100 / ev._lanes, left = ev._lane * w;
+    const cls = 'hl-tl-block' + (ev._lanes > 1 ? ' hl-tl-block--narrow' : '');
+    blocks += `<div class="${cls}" style="top:${top}px;height:${ht}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${hlTlStackedInner(ev)}</div>`;
+  });
+  canvas.innerHTML = grids + blocks;
+
+  // 天気レール（麻溝台、1時間ごと）
+  const slots = (hlWeatherData && hlWeatherData.hourly && hlWeatherData.hourly[day]) || [];
+  const byH = {}; slots.forEach(s => { byH[s.h] = s; });
+  let wxHtml = '<div class="hl-tl-wxrail-tag">麻溝台</div>';
+  for (let hh = hlTlHour0; hh <= hlTlHour1; hh++) {
+    const top = hlTlHourTop(hh * 60, ch);
+    const ht = Math.max(8, hlTlHourTop((hh + 1) * 60, ch) - top);
+    const rv = hlTlHourVisual(byH[hh]);
+    let cls = 'hl-tl-wxhour';
+    let inner = '';
+    if (rv) {
+      if (rv.kind !== 'none') cls += ' rain-' + rv.kind;
+      inner = hlTlWxIcoSvg(rv.ico) + (byH[hh].temp != null ? `<span>${byH[hh].temp}°</span>` : '');
+    }
+    wxHtml += `<div class="${cls}" style="top:${top}px;height:${ht}px">${inner}</div>`;
+  }
+  document.getElementById('hl-tl-wxrail').innerHTML = wxHtml;
 }
 
 // ── 順位表（2026-09-15新設） ──────────────────────────────────────────────────
