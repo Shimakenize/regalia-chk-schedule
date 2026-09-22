@@ -1176,7 +1176,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 118;
+const __UI_BUILD__  = 119;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1939,8 +1939,14 @@ function buildMerged() {
       notes: cm.notes || '',
       coach: { time: cm.event_time, title: cm.title || cm.league_or_competition, venue: cm.venue },
       official, discs: matchedDiscs,
+      // status:'known_change' が付いたNG（time/venue/opponent_mismatch）は、
+      // 「公式が誤り・LINEが正しいと確認済み、公式側の訂正待ち」の意味であり実際の
+      // 食い違いではないため、照合NGではなく公式HP掲載まちとして表示する
+      // （coach_cancellations由来のofficial_only側known_changeと同じstatus値・同じ意味を共有。
+      // 2026-09-23指摘: 「公式が誤り。LINEが正しい。公式更新待ちにして」）。
       status: matchedDiscs.length > 0
-        ? (matchedDiscs.some(d => NG_TYPES.has(d.type)) ? 'ng'
+        ? (matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status !== 'known_change') ? 'ng'
+           : matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status === 'known_change') ? 'pending'
            : matchedDiscs.some(d => d.type === 'official_pending') ? 'official_pending'
            : unmatchedStatus)
         : (official ? 'ok' : unmatchedStatus),
