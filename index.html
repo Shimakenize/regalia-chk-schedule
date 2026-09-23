@@ -255,6 +255,7 @@
     .card-diff.line_pending { color:#9370db; }
     .card-diff.official_pending { color:#d97b3f; }
     .card-diff.other  { color:#d2a649; }
+    .card-diff.ok-note { color:#43b873; }
 
 
     /* ── Admin ────────────────────────────────────────── */
@@ -1343,7 +1344,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 128;
+const __UI_BUILD__  = 129;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2113,12 +2114,19 @@ function buildMerged() {
       // 食い違いではないため、照合NGではなく公式HP掲載まちとして表示する
       // （coach_cancellations由来のofficial_only側known_changeと同じstatus値・同じ意味を共有。
       // 2026-09-23指摘: 「公式が誤り。LINEが正しい。公式更新待ちにして」）。
+      // status:'known_change_ok'（2026-09-24新設）は同様に公式側の記載誤りが判明済みだが、
+      // 公式PDF等の独立ソースとLINE報告が一致していることまで確認できたケース。この場合は
+      // 「公式HP掲載まち」ではなく「照合OK」として扱い、注記を添えて表示する
+      // （指摘: 「HPでは10:00、公式PDFでは9:00でLINE通知と一致。照合OKにすること。
+      // ただし公式HPと公式PDFが異なることは今後も出てくるので、その旨を注記する」）。
       status: matchedDiscs.length > 0
-        ? (matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status !== 'known_change') ? 'ng'
+        ? (matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status !== 'known_change' && d.status !== 'known_change_ok') ? 'ng'
            : matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status === 'known_change') ? 'pending'
+           : matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status === 'known_change_ok') ? 'ok'
            : matchedDiscs.some(d => d.type === 'official_pending') ? 'official_pending'
            : unmatchedStatus)
         : (official ? 'ok' : unmatchedStatus),
+      note: matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status === 'known_change_ok') ? '照合OKとしたが、公式HPは更新待ち' : '',
     });
   }
   for (const d of discData) {
@@ -2206,6 +2214,7 @@ function renderSumList(merged) {
       <div class="sum-row-opp">
         <div class="sum-row-opp-name">vs ${opp}</div>
         ${srcLabel ? `<div class="sum-row-league">${srcLabel}</div>` : ''}
+        ${e.note ? `<div class="sum-row-league" style="color:#43b873">✅ ${escHtml(e.note)}</div>` : ''}
       </div>
       ${statusChip(e)}
     </div>`;
@@ -2326,7 +2335,12 @@ function renderSchedList() {
       : (!noOfficial ? `<span class="cmp-lbl-note" style="color:#5a9a7a" title="公式HPスクレイプで確認済み">🌐HP確認</span>` : '');
 
     let diffHtml;
-    if (!e.discs || !e.discs.length) {
+    if (e.note) {
+      // status:'known_change_ok'（公式HPと公式PDF等が食い違うが、独立ソース側とLINE
+      // 報告が一致し照合OKとした試合）は、種別ラベルではなく注記そのものを表示する
+      // （2026-09-24新設。「照合OKとしたが、公式HPは更新待ち」）。
+      diffHtml = `<div class="card-diff ok-note">✅ ${escHtml(e.note)}</div>`;
+    } else if (!e.discs || !e.discs.length) {
       diffHtml = `<div class="card-diff ok-match">差分無し</div>`;
     } else {
       const cls = (e.status === 'ng' || e.status === 'pending' || e.status === 'line_pending' || e.status === 'official_pending') ? e.status : 'other';
