@@ -212,6 +212,12 @@
       transition: all .15s;
     }
     .chip-btn.active { background: var(--gold); color: #1a1206; border-color: var(--gold); }
+    /* 予定タブの日にち選択ボタン用の土日・祝日カラーコーディング（2026-09-23）。
+       祝日は日曜と同じ色にする（ユーザー指示）。 */
+    .chip-btn.hl-daybtn-sat { color:#7ab8f8; border-color:rgba(122,184,248,.35); }
+    .chip-btn.hl-daybtn-sun { color:#f0929b; border-color:rgba(240,146,155,.35); }
+    .chip-btn.hl-daybtn-sat.active { background:#2f5f8f; color:#fff; border-color:#2f5f8f; }
+    .chip-btn.hl-daybtn-sun.active { background:#8a3540; color:#fff; border-color:#8a3540; }
 
     /* ── Compare: cards ───────────────────────────────── */
     .cmp-list { padding: 4px 16px 30px; }
@@ -690,7 +696,10 @@
     }
     .hl-day-head.is-today { color: var(--gold); border-bottom-color: var(--gold); }
     .hl-cat-row { margin-bottom:8px; }
-    .hl-cat-label { font-size:10px; color:var(--muted); font-weight:700; margin-bottom:3px; }
+    .hl-cat-label {
+      display:inline-block; font-size:10px; font-weight:700; margin-bottom:3px;
+      padding:1px 6px; border-radius:3px;
+    }
     .hl-card {
       background: var(--surface); border:1px solid var(--border); border-radius:8px;
       padding:6px 7px; font-size:10.5px; line-height:1.5; margin-bottom:4px; overflow:hidden;
@@ -749,8 +758,14 @@
     .hl-tl-now { position:absolute; left:0; right:0; border-top:2px solid var(--gold); z-index:3; }
     .hl-tl-block {
       position:absolute; border-radius:6px; overflow:hidden; display:flex; flex-direction:column;
-      box-shadow:0 1px 3px rgba(0,0,0,.4);
+      box-shadow:0 1px 3px rgba(0,0,0,.4); border-left:4px solid transparent;
     }
+    /* カテゴリ別カラーコーディング（Sony_HomeTerminalのtl-cat-*を参考に、色自体は
+       このアプリ既存のcatBadgeStyle()の配色と統一。2026-09-23）。 */
+    .hl-tl-block.hl-tl-cat-u15 { border-left-color:#7ab8f8; }
+    .hl-tl-block.hl-tl-cat-u14 { border-left-color:#50c080; }
+    .hl-tl-block.hl-tl-cat-u13 { border-left-color:#c07ae0; }
+    .hl-tl-block.hl-tl-cat-all { border-left-color:#e0a040; }
     .hl-tl-seg { padding:2px 5px; font-size:10px; line-height:1.25; overflow:hidden; }
     .hl-tl-seg-time { font-weight:700; display:block; }
     .hl-tl-seg-sub { font-size:9.5px; display:block; }
@@ -1324,7 +1339,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 125;
+const __UI_BUILD__  = 126;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2790,6 +2805,15 @@ let hlSelectedWeek = 0; // 0=今週, 1=来週
 let hlSelectedView = 'card'; // 'card' | 'timeline'
 let hlWeatherData = null;
 let hlWeatherLoading = false;
+let hlHolidayIsos = [];
+function hlIsHoliday(dateStr) { return hlHolidayIsos.includes(dateStr); }
+// 日にち選択ボタン・タイムラインの日付見出し共通の土日・祝日クラス（祝日は日曜と同じ扱い）。
+function hlDayColorClass(dateStr) {
+  const dow = new Date(dateStr + 'T00:00:00').getDay();
+  if (dow === 0 || hlIsHoliday(dateStr)) return 'hl-daybtn-sun';
+  if (dow === 6) return 'hl-daybtn-sat';
+  return '';
+}
 const HL_CATS = [
   { code: 'U-15', label: 'U15' },
   { code: 'U-14', label: 'U14' },
@@ -2869,7 +2893,7 @@ async function hlEnsureWeatherLoaded() {
   hlWeatherLoading = true;
   try {
     const res = await gasGet('api/schedule/weather-asagoudai', {});
-    if (res.ok) hlWeatherData = res.weather;
+    if (res.ok) { hlWeatherData = res.weather; hlHolidayIsos = res.holiday_isos || []; }
   } catch (e) { /* 天気取得失敗時はバッジ無しで続行 */ }
   hlWeatherLoading = false;
 }
@@ -2910,7 +2934,7 @@ function renderScheduleHighlights() {
       const inCat = dayMatches.filter(m => catBase(m.category_code) === cat.code);
       const cardsHtml = inCat.length ? inCat.map(hlCardHtml).join('') : `<div class="hl-card hl-card-none">なし</div>`;
       return `<div class="hl-cat-row">
-        <div class="hl-cat-label">${cat.label}</div>
+        <div class="hl-cat-label" style="${catBadgeStyle(cat.code)}">${cat.label}</div>
         ${cardsHtml}
       </div>`;
     }).join('');
@@ -2928,10 +2952,11 @@ function renderScheduleHighlights() {
 // タイムライン形式: 選択中の週のうち試合がある日だけボタンを出し、選んだ日の
 // タイムライン画像（Cloud Runレンダラー生成）を表示する。
 let hlTimelineSelectedDay = null;
-function renderHlTimelinePicker() {
+async function renderHlTimelinePicker() {
   const picker = document.getElementById('hl-timeline-day-picker');
   const body = document.getElementById('hl-timeline-body');
   if (!picker || !body) return;
+  await hlEnsureWeatherLoaded(); // holiday_isosも同じ応答に含まれるため、チップの色分け判定に必要
   const days = hlWeekDays();
   const daysWithMatches = days.filter(day => (coachData || []).some(m => normDate(m.event_date) === day));
   if (!daysWithMatches.length) {
@@ -2944,7 +2969,7 @@ function renderHlTimelinePicker() {
     hlTimelineSelectedDay = daysWithMatches[0];
   }
   picker.innerHTML = daysWithMatches.map(day =>
-    `<div class="chip-btn${day === hlTimelineSelectedDay ? ' active' : ''}" onclick="hlSelectTimelineDay('${day}')">${fmtDate(day)}</div>`
+    `<div class="chip-btn ${hlDayColorClass(day)}${day === hlTimelineSelectedDay ? ' active' : ''}" onclick="hlSelectTimelineDay('${day}')">${fmtDate(day)}</div>`
   ).join('');
   hlTlRenderDay(hlTimelineSelectedDay);
 }
@@ -3146,6 +3171,14 @@ function hlTlCardTextGroup(ev) {
     return prefix + line;
   }).join('\n');
 }
+function hlTlCatClass(categoryCode) {
+  const base = catBase(categoryCode);
+  if (base === 'U-15') return 'hl-tl-cat-u15';
+  if (base === 'U-14') return 'hl-tl-cat-u14';
+  if (base === 'U-13') return 'hl-tl-cat-u13';
+  if (base === 'all') return 'hl-tl-cat-all';
+  return '';
+}
 function hlTlMainSub(ev) {
   const league = String(ev.league_or_competition || '').trim();
   const title = String(ev.title || '').trim();
@@ -3180,27 +3213,49 @@ function hlTlRainBadgeHtml(ev) {
   if (!wx) return '';
   return `<div class="hl-tl-rain-badge ${wx.cls}">${escHtml(wx.tag)}</div>`;
 }
+// 各セグメント（集合/出発〜本体〜解散）のflexウェイトを実際の時間幅に比例させる
+// （Sonyのstackedinner()と同じ方式）。これを一律flex:1 1 autoにしてしまうと、
+// セグメント同士の縦位置が実時間ではなくテキスト量で決まってしまい、外側の時間軸
+// （hl-tl-hgrid/hl-tl-hour-lab）とブロック内部の表示がずれる（2026-09-23指摘・修正）。
 function hlTlStackedInner(ev) {
   const core = ev._range.core;
+  const clipDs = ev._ds, clipDe = ev._de;
   let preMarks = hlTlLabeledTimes(hlTlPreSrc(ev)).filter(x => x.m < core.start).sort((a, b) => a.m - b.m);
   if (!preMarks.length && ev._range.start < core.start) preMarks = [{ m: ev._range.start, label: '集合' }];
   let postMarks = hlTlLabeledTimes(hlTlPostSrc(ev)).filter(x => x.m > core.end).sort((a, b) => a.m - b.m);
   if (!postMarks.length && ev._range.end > core.end) postMarks = [{ m: ev._range.end, label: '解散' }];
   let h = '';
-  preMarks.forEach(p => {
-    h += `<div class="hl-tl-seg ${hlTlSegClass(p.label, false)}">${escHtml(hlTlHm(p.m) + p.label)}</div>`;
+  let cursor = clipDs;
+  preMarks.forEach((p, i) => {
+    const next = i + 1 < preMarks.length ? preMarks[i + 1].m : core.start;
+    const a = Math.max(cursor, clipDs);
+    const b = Math.min(next, clipDe, core.start);
+    if (b > a) {
+      h += `<div class="hl-tl-seg ${hlTlSegClass(p.label, false)}" style="flex:${Math.max(1, b - a)} 1 0">${escHtml(hlTlHm(p.m) + p.label)}</div>`;
+    }
+    cursor = Math.max(cursor, next);
   });
   const isGroup = !!(ev.groupEvents && ev.groupEvents.length > 1);
   const cardText = hlTlCardTextGroup(ev);
-  h += `<div class="hl-tl-seg hl-tl-seg--main" style="flex:1 1 auto">
-    ${hlTlRainBadgeHtml(ev)}
-    <span class="hl-tl-seg-time">${escHtml(hlTlHm(core.start) + (core.end > core.start ? '-' + hlTlHm(core.end) : ''))}</span>
-    ${isGroup ? '' : `<span class="hl-tl-seg-sub">${escHtml(hlTlMainSub(ev))}</span>`}
-    ${ev.venue ? `<span class="hl-tl-seg-venue">${escHtml(ev.venue)}</span>` : ''}
-    ${cardText ? `<span class="hl-tl-seg-regalia">${escHtml(cardText)}</span>` : ''}
-  </div>`;
-  postMarks.forEach(p => {
-    h += `<div class="hl-tl-seg ${hlTlSegClass(p.label, true)}">${escHtml(hlTlHm(p.m) + p.label)}</div>`;
+  const mainS = Math.max(clipDs, core.start), mainE = Math.min(clipDe, core.end);
+  if (mainE > mainS) {
+    let mainWeight = Math.max(1, mainE - mainS);
+    if (isGroup) mainWeight *= ev.groupEvents.length;
+    h += `<div class="hl-tl-seg hl-tl-seg--main" style="flex:${mainWeight} 1 0">
+      ${hlTlRainBadgeHtml(ev)}
+      <span class="hl-tl-seg-time">${escHtml(hlTlHm(core.start) + (core.end > core.start ? '-' + hlTlHm(core.end) : ''))}</span>
+      ${isGroup ? '' : `<span class="hl-tl-seg-sub">${escHtml(hlTlMainSub(ev))}</span>`}
+      ${ev.venue ? `<span class="hl-tl-seg-venue">${escHtml(ev.venue)}</span>` : ''}
+      ${cardText ? `<span class="hl-tl-seg-regalia">${escHtml(cardText)}</span>` : ''}
+    </div>`;
+  }
+  postMarks.forEach((p, i) => {
+    const pa = i === 0 ? core.end : postMarks[i - 1].m;
+    const pb = p.m;
+    const qa = Math.max(pa, clipDs), qb = Math.min(pb, clipDe);
+    if (qb > qa) {
+      h += `<div class="hl-tl-seg ${hlTlSegClass(p.label, true)}" style="flex:${Math.max(1, qb - qa)} 1 0">${escHtml(hlTlHm(p.m) + p.label)}</div>`;
+    }
   });
   return h;
 }
@@ -3219,7 +3274,9 @@ async function hlTlRenderDay(day) {
 
   const d = new Date(day + 'T00:00:00');
   const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
-  const dayCls = 'hl-tl-dayhead' + (day === todayStr ? ' is-today' : '') + (d.getDay() === 6 ? ' is-sat' : d.getDay() === 0 ? ' is-sun' : '');
+  const dayColorCls = hlDayColorClass(day);
+  const dayCls = 'hl-tl-dayhead' + (day === todayStr ? ' is-today' : '') +
+    (dayColorCls === 'hl-daybtn-sat' ? ' is-sat' : dayColorCls === 'hl-daybtn-sun' ? ' is-sun' : '');
 
   let hourLabsHtml = '';
   for (let hh = hlTlHour0; hh <= hlTlHour1; hh++) hourLabsHtml += `<div class="hl-tl-hour-lab" data-h="${hh}">${hh}</div>`;
@@ -3277,7 +3334,7 @@ async function hlTlRenderDay(day) {
     const rawH = hlTlHourTop(ev._de, ch) - top;
     const ht = Math.min(Math.max(44, rawH), Math.max(20, ch - top - 6));
     const w = 100 / ev._lanes, left = ev._lane * w;
-    const cls = 'hl-tl-block' + (ev._lanes > 1 ? ' hl-tl-block--narrow' : '');
+    const cls = 'hl-tl-block ' + hlTlCatClass(ev.category_code) + (ev._lanes > 1 ? ' hl-tl-block--narrow' : '');
     blocks += `<div class="${cls}" style="top:${top}px;height:${ht}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${hlTlStackedInner(ev)}</div>`;
   });
   canvas.innerHTML = grids + blocks;
