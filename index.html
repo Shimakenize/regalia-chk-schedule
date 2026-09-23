@@ -1339,7 +1339,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 126;
+const __UI_BUILD__  = 127;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3109,9 +3109,16 @@ function hlTlSetHourWindow(events, dayIso, today) {
   hlTlHour0 = Math.max(HL_TL_HOUR0, Math.floor(minM / 60));
   hlTlHour1 = Math.min(HL_TL_HOUR1, Math.max(hlTlHour0 + 3, Math.ceil((maxM + 50) / 60)));
 }
-// フットサルは category_code に "_FUTSAL" サフィックスが付く（chk_scrape.py側で確定
-// 済みの構造化シグナル）ため、Sony側のリーグ名テキスト正規表現より確実に判定できる。
-function hlTlIsFutsalEv(ev) { return /_FUTSAL$/.test(String(ev.category_code || '')); }
+// 実データ確認の結果、coach_schedule（LINE報告由来）のフットサル行はcategory_codeが
+// 実際に出場するカテゴリ（"U-13"等、_FUTSALサフィックス無し）のままで、フットサルで
+// あることの識別は league_or_competition（"U-15フットサル2部"/"U-15フットサル3部A"）
+// にしか現れない。category_codeサフィックスで判定する初期実装は誤りだった
+// （2026-09-23、「同じ日で同じカテゴリーのフットサルリーグの結合ができてない」と指摘され
+// coach_schedule実データを確認して発覚）。Sony側と同じくリーグ名/タイトルのテキストで判定する。
+function hlTlIsFutsalEv(ev) {
+  const s = String(ev.league_or_competition || '') + ' ' + String(ev.title || '');
+  return /フットサル/.test(s) || /U-?\d+FL\b/i.test(s);
+}
 function hlTlUniqueNonempty(values) {
   const seen = {}; const out = [];
   (values || []).forEach(x => { x = String(x || '').trim(); if (!x || seen[x]) return; seen[x] = 1; out.push(x); });
@@ -3150,14 +3157,30 @@ function hlTlMergeFutsalGroup(rows) {
     groupEvents: sorted
   };
 }
+// 同じフットサルリーグ名でも実際に出場するカテゴリ（category_code）は試合ごとに
+// 異なりうる（例: 同日にU-14出場分とU-15出場分が両方ある）ため、併合は
+// 「同じ日（呼び出し元で既にフィルタ済み）かつ同じカテゴリ」の単位で行う
+// （2026-09-23、「同じ日で同じカテゴリーのフットサルリーグの結合ができてない」との
+// 指摘を受け修正。修正前はカテゴリを無視して当日の全フットサル行を1枚に混ぜていた）。
 function hlTlCollapseFutsal(rows) {
   const list = rows.slice();
-  const futsal = list.filter(hlTlIsFutsalEv);
-  if (futsal.length < 2) return list;
-  const out = []; let placed = false;
+  const groups = {};
+  list.forEach(ev => {
+    if (!hlTlIsFutsalEv(ev)) return;
+    const key = catBase(ev.category_code);
+    (groups[key] = groups[key] || []).push(ev);
+  });
+  const mergedByKey = {};
+  Object.keys(groups).forEach(key => {
+    if (groups[key].length >= 2) mergedByKey[key] = hlTlMergeFutsalGroup(groups[key]);
+  });
+  if (!Object.keys(mergedByKey).length) return list;
+  const out = []; const placed = {};
   list.forEach(ev => {
     if (!hlTlIsFutsalEv(ev)) { out.push(ev); return; }
-    if (!placed) { out.push(hlTlMergeFutsalGroup(futsal)); placed = true; }
+    const key = catBase(ev.category_code);
+    if (!mergedByKey[key]) { out.push(ev); return; }
+    if (!placed[key]) { out.push(mergedByKey[key]); placed[key] = true; }
   });
   return out;
 }
