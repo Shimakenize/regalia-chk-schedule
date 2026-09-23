@@ -753,6 +753,10 @@
     .hl-tl-wxhour.rain-light { background:rgba(90,150,220,.10); }
     .hl-tl-wxhour.rain-mid   { background:rgba(90,150,220,.18); }
     .hl-tl-wxhour.rain-heavy { background:rgba(224,85,95,.18); }
+    /* 1時間天気が無い日（tenki.jpの直近数日を超えた日）は日次サマリーをレール全体に1件表示 */
+    .hl-tl-wxhour--daily { justify-content:flex-start; padding-top:6px; border-top:1px dashed var(--border); }
+    .hl-tl-wxhour--daily svg { width:18px; height:18px; }
+    .hl-tl-wxhour--daily span { font-size:9px; }
     .hl-tl-canvas { flex:1; position:relative; min-width:0; background:rgba(255,255,255,.02); }
     .hl-tl-hgrid { position:absolute; left:0; right:0; border-top:1px solid var(--border); opacity:.5; }
     .hl-tl-now { position:absolute; left:0; right:0; border-top:2px solid var(--gold); z-index:3; }
@@ -776,9 +780,9 @@
     .hl-tl-seg--departure { background:#6b8fc9; color:#f8fafc; }
     .hl-tl-seg--assembly { background:#3d5f8f; color:#f1f5f9; }
     .hl-tl-seg--postmark { background:#4a6fa0; color:#f1f5f9; text-align:right; }
-    .hl-tl-rain-badge {
-      position:absolute; top:2px; right:2px; font-size:8px; padding:0 4px; border-radius:4px;
-      font-weight:700; z-index:2;
+    .hl-tl-seg-badges { display:flex; gap:3px; margin-bottom:1px; flex-wrap:wrap; }
+    .hl-tl-rain-badge, .hl-tl-cat-badge {
+      display:inline-block; font-size:8px; padding:0 4px; border-radius:4px; font-weight:700;
     }
 
     /* ── 星取り表（results-matrix、2026-09-20新設） ──────────────────────
@@ -1339,7 +1343,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 127;
+const __UI_BUILD__  = 128;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3202,6 +3206,18 @@ function hlTlCatClass(categoryCode) {
   if (base === 'all') return 'hl-tl-cat-all';
   return '';
 }
+// 左ボーダーの色だけでは覚えにくいとの指摘（2026-09-23）を受け、サマリ・試合一覧・
+// カード形式と同じcatBadgeStyle()のバッジをタイムラインの各カードにも明示表示する。
+function hlTlCatLabel(categoryCode) {
+  const base = catBase(categoryCode);
+  const found = HL_CATS.find(c => c.code === base);
+  return found ? found.label : (base || '');
+}
+function hlTlCatBadgeHtml(categoryCode) {
+  const label = hlTlCatLabel(categoryCode);
+  if (!label) return '';
+  return `<span class="hl-tl-cat-badge" style="${catBadgeStyle(categoryCode)}">${escHtml(label)}</span>`;
+}
 function hlTlMainSub(ev) {
   const league = String(ev.league_or_competition || '').trim();
   const title = String(ev.title || '').trim();
@@ -3265,7 +3281,7 @@ function hlTlStackedInner(ev) {
     let mainWeight = Math.max(1, mainE - mainS);
     if (isGroup) mainWeight *= ev.groupEvents.length;
     h += `<div class="hl-tl-seg hl-tl-seg--main" style="flex:${mainWeight} 1 0">
-      ${hlTlRainBadgeHtml(ev)}
+      <div class="hl-tl-seg-badges">${hlTlCatBadgeHtml(ev.category_code)}${hlTlRainBadgeHtml(ev)}</div>
       <span class="hl-tl-seg-time">${escHtml(hlTlHm(core.start) + (core.end > core.start ? '-' + hlTlHm(core.end) : ''))}</span>
       ${isGroup ? '' : `<span class="hl-tl-seg-sub">${escHtml(hlTlMainSub(ev))}</span>`}
       ${ev.venue ? `<span class="hl-tl-seg-venue">${escHtml(ev.venue)}</span>` : ''}
@@ -3362,21 +3378,37 @@ async function hlTlRenderDay(day) {
   });
   canvas.innerHTML = grids + blocks;
 
-  // 天気レール（麻溝台、1時間ごと）
+  // 天気レール（麻溝台、1時間ごと）。tenki.jpの「1時間天気」は直近2〜3日分しか
+  // 時間別データを持たない（実機確認: 2026-09-23取得時点で9/23〜9/25の3日分のみ）ため、
+  // それより先の日を選択すると1時間天気レールが空欄になっていた（2026-09-23指摘）。
+  // 時間別データが無い日は、日次サマリー（hlWeatherData.days、全日程分そろっている）
+  // 1件をレール全体に表示するフォールバックを追加する。
   const slots = (hlWeatherData && hlWeatherData.hourly && hlWeatherData.hourly[day]) || [];
   const byH = {}; slots.forEach(s => { byH[s.h] = s; });
   let wxHtml = '<div class="hl-tl-wxrail-tag">麻溝台</div>';
-  for (let hh = hlTlHour0; hh <= hlTlHour1; hh++) {
-    const top = hlTlHourTop(hh * 60, ch);
-    const ht = Math.max(8, hlTlHourTop((hh + 1) * 60, ch) - top);
-    const rv = hlTlHourVisual(byH[hh]);
-    let cls = 'hl-tl-wxhour';
-    let inner = '';
-    if (rv) {
-      if (rv.kind !== 'none') cls += ' rain-' + rv.kind;
-      inner = hlTlWxIcoSvg(rv.ico) + (byH[hh].temp != null ? `<span>${byH[hh].temp}°</span>` : '');
+  if (slots.length) {
+    for (let hh = hlTlHour0; hh <= hlTlHour1; hh++) {
+      const top = hlTlHourTop(hh * 60, ch);
+      const ht = Math.max(8, hlTlHourTop((hh + 1) * 60, ch) - top);
+      const rv = hlTlHourVisual(byH[hh]);
+      let cls = 'hl-tl-wxhour';
+      let inner = '';
+      if (rv) {
+        if (rv.kind !== 'none') cls += ' rain-' + rv.kind;
+        inner = hlTlWxIcoSvg(rv.ico) + (byH[hh].temp != null ? `<span>${byH[hh].temp}°</span>` : '');
+      }
+      wxHtml += `<div class="${cls}" style="top:${top}px;height:${ht}px">${inner}</div>`;
     }
-    wxHtml += `<div class="${cls}" style="top:${top}px;height:${ht}px">${inner}</div>`;
+  } else {
+    const dayInfo = (hlWeatherData && hlWeatherData.days || []).find(d => d.date === day);
+    if (dayInfo) {
+      const rv = hlTlHourVisual(dayInfo);
+      let cls = 'hl-tl-wxhour hl-tl-wxhour--daily';
+      if (rv && rv.kind !== 'none') cls += ' rain-' + rv.kind;
+      const inner = (rv ? hlTlWxIcoSvg(rv.ico) : '') +
+        `<span>${dayInfo.tmax}°/${dayInfo.tmin}°</span>`;
+      wxHtml += `<div class="${cls}" style="top:${hlTlHourTop(hlTlHour0 * 60, ch)}px;height:${ch - hlTlHourTop(hlTlHour0 * 60, ch) - 6}px">${inner}</div>`;
+    }
   }
   document.getElementById('hl-tl-wxrail').innerHTML = wxHtml;
 }
