@@ -1344,7 +1344,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 130;
+const __UI_BUILD__  = 131;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2978,8 +2978,10 @@ function hlScrollGridToToday() {
   if (colEl) grid.scrollLeft = colEl.offsetLeft;
 }
 
-// タイムライン形式: 選択中の週のうち試合がある日だけボタンを出し、選んだ日の
-// タイムライン画像（Cloud Runレンダラー生成）を表示する。
+// タイムライン形式: カード形式と同様、選択中の週の7日すべてをボタンとして出し、
+// 試合が無い日を選んだ場合はhlTlRenderDay()側の空表示（この日は試合がありません）に
+// 委ねる（2026-09-24指摘: 「カード形式同様に試合が無い日も表示させること」。従来は
+// 試合がある日だけをボタンにしていた）。
 let hlTimelineSelectedDay = null;
 async function renderHlTimelinePicker() {
   const picker = document.getElementById('hl-timeline-day-picker');
@@ -2988,20 +2990,13 @@ async function renderHlTimelinePicker() {
   await hlEnsureWeatherLoaded(); // holiday_isosも同じ応答に含まれるため、チップの色分け判定に必要
   const days = hlWeekDays();
   const daysWithMatches = days.filter(day => (coachData || []).some(m => normDate(m.event_date) === day));
-  if (!daysWithMatches.length) {
-    picker.innerHTML = '';
-    body.innerHTML = '<div class="hl-timeline-msg">この期間は試合がありません</div>';
-    hlTimelineSelectedDay = null;
-    return;
-  }
-  if (!hlTimelineSelectedDay || !daysWithMatches.includes(hlTimelineSelectedDay)) {
-    // 初期表示位置は本日にする（2026-09-24指摘）。本日に試合が無ければ、本日以降で
-    // 直近に試合がある日を優先し、それも無ければ（今週の残りが全て過去等）先頭にフォールバック。
+  if (!hlTimelineSelectedDay || !days.includes(hlTimelineSelectedDay)) {
+    // 初期表示位置は本日にする（2026-09-24指摘）。本日がこの週に含まれなければ
+    // （来週表示時等）、試合がある最初の日、それも無ければ先頭日にフォールバック。
     const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
-    hlTimelineSelectedDay = daysWithMatches.includes(todayStr) ? todayStr
-      : (daysWithMatches.find(d => d >= todayStr) || daysWithMatches[0]);
+    hlTimelineSelectedDay = days.includes(todayStr) ? todayStr : (daysWithMatches[0] || days[0]);
   }
-  picker.innerHTML = daysWithMatches.map(day =>
+  picker.innerHTML = days.map(day =>
     `<div class="chip-btn ${hlDayColorClass(day)}${day === hlTimelineSelectedDay ? ' active' : ''}" onclick="hlSelectTimelineDay('${day}')">${fmtDate(day)}</div>`
   ).join('');
   hlTlRenderDay(hlTimelineSelectedDay);
