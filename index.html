@@ -1344,7 +1344,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 129;
+const __UI_BUILD__  = 130;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2963,8 +2963,19 @@ function renderScheduleHighlights() {
     }).join('');
   };
   renderGrid();
+  // 初期表示位置は本日にする（2026-09-24指摘）。天気再描画のたびにスクロール位置を
+  // 戻すと閲覧中の位置が飛んでしまうため、最初の描画時のみ本日の列へスクロールする。
+  if (hlSelectedWeek === 0) hlScrollGridToToday();
   // 天気バッジは非同期取得のため、先にバッジ無しで描画し、取得後に再描画する。
   hlEnsureWeatherLoaded().then(renderGrid);
+}
+
+function hlScrollGridToToday() {
+  const grid = document.getElementById('hl-grid');
+  if (!grid) return;
+  const todayHead = grid.querySelector('.hl-day-head.is-today');
+  const colEl = todayHead && todayHead.closest('.hl-day-col');
+  if (colEl) grid.scrollLeft = colEl.offsetLeft;
 }
 
 // タイムライン形式: 選択中の週のうち試合がある日だけボタンを出し、選んだ日の
@@ -2984,7 +2995,11 @@ async function renderHlTimelinePicker() {
     return;
   }
   if (!hlTimelineSelectedDay || !daysWithMatches.includes(hlTimelineSelectedDay)) {
-    hlTimelineSelectedDay = daysWithMatches[0];
+    // 初期表示位置は本日にする（2026-09-24指摘）。本日に試合が無ければ、本日以降で
+    // 直近に試合がある日を優先し、それも無ければ（今週の残りが全て過去等）先頭にフォールバック。
+    const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
+    hlTimelineSelectedDay = daysWithMatches.includes(todayStr) ? todayStr
+      : (daysWithMatches.find(d => d >= todayStr) || daysWithMatches[0]);
   }
   picker.innerHTML = daysWithMatches.map(day =>
     `<div class="chip-btn ${hlDayColorClass(day)}${day === hlTimelineSelectedDay ? ' active' : ''}" onclick="hlSelectTimelineDay('${day}')">${fmtDate(day)}</div>`
