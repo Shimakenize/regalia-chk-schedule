@@ -710,6 +710,8 @@
     .hl-card-venue { color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .hl-card-time { color:var(--muted); }
     .hl-card-none { color:var(--muted); text-align:center; padding:10px 0; background:transparent; border-style:dashed; }
+    .hl-card-tr { border-left:3px solid #4a8f5c; background:rgba(74,143,92,.08); }
+    .hl-card-tr .hl-card-title { color:#8fd6a3; }
     .hl-card-wx { display:inline-block; font-size:9.5px; padding:1px 5px; border-radius:6px; margin-bottom:3px; font-weight:700; }
     .hl-wx-sun   { background:rgba(224,160,64,.18); color:#e0a040; }
     .hl-wx-cloud { background:rgba(154,166,189,.18); color:#9aa6bd; }
@@ -1351,7 +1353,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 133;
+const __UI_BUILD__  = 134;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1363,6 +1365,7 @@ let isAllowed       = false;
 let discData        = [];
 let schedData       = [];
 let coachData       = [];
+let trainingData    = []; // 予定タブ専用（練習TR）。coachDataとは分離し、比較・サマリには使わない
 let coachUpdateLog  = [];
 let catFilter       = '全て';
 let crtCatFilter    = '全て';
@@ -1862,6 +1865,7 @@ function applyBootstrapResult(res, opts) {
     normDate(a.match_date).localeCompare(normDate(b.match_date))
   );
   coachData         = res.coachSchedules || [];
+  trainingData      = res.trainingSchedules || [];
   scrapeLogData     = res.scrapeLogs || [];
   officialDocsData  = res.officialDocuments || [];
   coachUpdateLog    = res.coachUpdateLogs || [];
@@ -2924,14 +2928,15 @@ async function hlEnsureWeatherLoaded() {
 }
 
 function hlCardHtml(m) {
-  const league = withParticipantTag(m.league_or_competition || '', m.category_code);
+  const isTr = m.event_kind === 'TR';
+  const league = isTr ? '' : withParticipantTag(m.league_or_competition || '', m.category_code);
   const timeStr = String(m.event_time || '').replace(/K\/O.*$/, '').trim();
   const hour = hlParseEventHour(m.event_time);
   const wx = hour != null ? hlWeatherBadge(normDate(m.event_date), hour) : null;
-  return `<div class="hl-card">
+  return `<div class="hl-card${isTr ? ' hl-card-tr' : ''}">
     ${wx ? `<div class="hl-card-wx ${wx.cls}">${escHtml(wx.tag)}</div>` : ''}
     ${league ? `<div class="hl-card-league">${escHtml(league)}</div>` : ''}
-    <div class="hl-card-title">vs ${escHtml(m.title || '未定')}</div>
+    <div class="hl-card-title">${isTr ? escHtml(m.title || '練習') : 'vs ' + escHtml(m.title || '未定')}</div>
     <div class="hl-card-venue">${escHtml(m.venue || '')}</div>
     ${timeStr ? `<div class="hl-card-time">${escHtml(timeStr)}</div>` : ''}
   </div>`;
@@ -2949,7 +2954,9 @@ function renderScheduleHighlights() {
   const days = hlWeekDays();
   if (rangeEl) rangeEl.textContent = `${fmtDate(days[0])} 〜 ${fmtDate(days[6])}`;
 
-  const matches = (coachData || []).filter(m => days.includes(normDate(m.event_date)));
+  // 練習(TR)はカード形式（予定タブ）にのみ混在表示する。タイムライン形式・サマリ・
+  // 比較（compareSchedules）には一切反映しない（2026-09-24指示）。
+  const matches = (coachData || []).concat(trainingData || []).filter(m => days.includes(normDate(m.event_date)));
 
   const renderGrid = () => {
     grid.innerHTML = days.map(day => {
