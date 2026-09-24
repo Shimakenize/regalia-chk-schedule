@@ -1351,7 +1351,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 132;
+const __UI_BUILD__  = 133;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3649,9 +3649,11 @@ function openStandingsUpcoming() {
   const cat = (standingsData || []).find(c => c.category_code === standingsActiveCat);
   const upcoming = (cat && cat.regaliaUpcoming) || [];
   document.getElementById('standings-upcoming-title').textContent = `残り対戦相手（${upcoming.length}試合）`;
+  // 対戦相手の先頭に現在の順位を表示する（2026-09-24指摘: 「昇格・降格で相手がどの
+  // 位置のチームなのか理解するため」）。順位が取れない相手（別グループ等）は無表示。
   document.getElementById('standings-upcoming-list').innerHTML = upcoming.length
     ? upcoming.map(m => `<div class="standings-upcoming-row">
-        <span>${escHtml(fmtDateShort(m.match_date))}</span><span>vs ${escHtml(m.opponent || '未定')}</span><span>${escHtml(m.venue || '')}</span>
+        <span>${escHtml(fmtDateShort(m.match_date))}</span><span>vs ${m.rank ? `${m.rank}位 ` : ''}${escHtml(m.opponent || '未定')}</span><span>${escHtml(m.venue || '')}</span>
       </div>`).join('')
     : '<div class="standings-upcoming-row">対戦相手情報がありません</div>';
   document.getElementById('standings-upcoming-overlay').style.display = 'flex';
