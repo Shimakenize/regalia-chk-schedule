@@ -781,8 +781,15 @@
     .hl-tl-seg--departure { background:#6b8fc9; color:#f8fafc; }
     .hl-tl-seg--assembly { background:#3d5f8f; color:#f1f5f9; }
     .hl-tl-seg--postmark { background:#4a6fa0; color:#f1f5f9; text-align:right; }
-    .hl-tl-seg-badges { display:flex; gap:3px; margin-bottom:1px; flex-wrap:wrap; }
-    .hl-tl-rain-badge, .hl-tl-cat-badge {
+    /* カテゴリバッジは行を消費せず右上に重ねて表示（2026-09-24指摘: 「カテゴリーで
+       1行使うのではなく右上にバッジ表示、行を節約する」）。カード全体（.hl-tl-block、
+       既にposition:absoluteのため配置基準になる）の右上隅に固定。 */
+    .hl-tl-cat-badge {
+      position:absolute; top:2px; right:2px; z-index:3;
+      font-size:8px; padding:0 4px; border-radius:4px; font-weight:700;
+    }
+    .hl-tl-seg-timerow { display:flex; align-items:center; gap:4px; }
+    .hl-tl-rain-badge {
       display:inline-block; font-size:8px; padding:0 4px; border-radius:4px; font-weight:700;
     }
 
@@ -1344,7 +1351,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 131;
+const __UI_BUILD__  = 132;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3305,8 +3312,10 @@ function hlTlStackedInner(ev) {
     let mainWeight = Math.max(1, mainE - mainS);
     if (isGroup) mainWeight *= ev.groupEvents.length;
     h += `<div class="hl-tl-seg hl-tl-seg--main" style="flex:${mainWeight} 1 0">
-      <div class="hl-tl-seg-badges">${hlTlCatBadgeHtml(ev.category_code)}${hlTlRainBadgeHtml(ev)}</div>
-      <span class="hl-tl-seg-time">${escHtml(hlTlHm(core.start) + (core.end > core.start ? '-' + hlTlHm(core.end) : ''))}</span>
+      <div class="hl-tl-seg-timerow">
+        <span class="hl-tl-seg-time">${escHtml(hlTlHm(core.start) + (core.end > core.start ? '-' + hlTlHm(core.end) : ''))}</span>
+        ${hlTlRainBadgeHtml(ev)}
+      </div>
       ${isGroup ? '' : `<span class="hl-tl-seg-sub">${escHtml(hlTlMainSub(ev))}</span>`}
       ${ev.venue ? `<span class="hl-tl-seg-venue">${escHtml(ev.venue)}</span>` : ''}
       ${cardText ? `<span class="hl-tl-seg-regalia">${escHtml(cardText)}</span>` : ''}
@@ -3398,7 +3407,7 @@ async function hlTlRenderDay(day) {
     const ht = Math.min(Math.max(44, rawH), Math.max(20, ch - top - 6));
     const w = 100 / ev._lanes, left = ev._lane * w;
     const cls = 'hl-tl-block ' + hlTlCatClass(ev.category_code) + (ev._lanes > 1 ? ' hl-tl-block--narrow' : '');
-    blocks += `<div class="${cls}" style="top:${top}px;height:${ht}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${hlTlStackedInner(ev)}</div>`;
+    blocks += `<div class="${cls}" style="top:${top}px;height:${ht}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${hlTlCatBadgeHtml(ev.category_code)}${hlTlStackedInner(ev)}</div>`;
   });
   canvas.innerHTML = grids + blocks;
 
