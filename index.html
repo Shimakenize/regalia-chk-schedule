@@ -1353,7 +1353,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 134;
+const __UI_BUILD__  = 135;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3003,7 +3003,12 @@ async function renderHlTimelinePicker() {
   if (!picker || !body) return;
   await hlEnsureWeatherLoaded(); // holiday_isosも同じ応答に含まれるため、チップの色分け判定に必要
   const days = hlWeekDays();
-  const daysWithMatches = days.filter(day => (coachData || []).some(m => normDate(m.event_date) === day));
+  // カード形式は既にcoachData+trainingData（練習TR）を合わせて表示しているが、
+  // タイムライン形式はcoachDataのみを見ていたため、予定タブに追加したTRがタイムラインの
+  // 日にち選択ボタン・本体どちらにも一切現れなかった（2026-09-25指摘）。カード形式と
+  // 同じ合算方式に揃える。
+  const allEvents = (coachData || []).concat(trainingData || []);
+  const daysWithMatches = days.filter(day => allEvents.some(m => normDate(m.event_date) === day));
   if (!hlTimelineSelectedDay || !days.includes(hlTimelineSelectedDay)) {
     // 初期表示位置は本日にする（2026-09-24指摘）。本日がこの週に含まれなければ
     // （来週表示時等）、試合がある最初の日、それも無ければ先頭日にフォールバック。
@@ -3226,7 +3231,10 @@ function hlTlCollapseFutsal(rows) {
   });
   return out;
 }
-function hlTlCardText(ev) { return ev.title ? ('vs ' + ev.title) : ''; }
+// TR（練習）には対戦相手が無いため「vs 練習」のような表示にはしない。タイトルは
+// hlTlMainSub()側（league・titleの行）で既に「練習」と表示されるため、カード形式
+// （hlCardHtml()のisTr分岐）と同様ここでは空にして二重表示を避ける。
+function hlTlCardText(ev) { return (ev.event_kind === 'TR' || !ev.title) ? '' : ('vs ' + ev.title); }
 function hlTlCardTextGroup(ev) {
   if (!ev.groupEvents || ev.groupEvents.length < 2) return hlTlCardText(ev);
   return ev.groupEvents.map(sub => {
@@ -3344,7 +3352,8 @@ async function hlTlRenderDay(day) {
   if (!body) return;
   await hlEnsureWeatherLoaded();
   const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
-  const dayEvents = hlTlCollapseFutsal((coachData || []).filter(m => normDate(m.event_date) === day));
+  // カード形式と同じくcoachData+trainingData（練習TR）を合算する（2026-09-25指摘）。
+  const dayEvents = hlTlCollapseFutsal((coachData || []).concat(trainingData || []).filter(m => normDate(m.event_date) === day));
   if (!dayEvents.length) {
     body.innerHTML = '<div class="hl-timeline-msg">この日は試合がありません</div>';
     return;
