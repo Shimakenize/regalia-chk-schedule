@@ -710,8 +710,13 @@
     .hl-card-venue { color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .hl-card-time { color:var(--muted); }
     .hl-card-none { color:var(--muted); text-align:center; padding:10px 0; background:transparent; border-style:dashed; }
-    .hl-card-tr { border-left:3px solid #4a8f5c; background:rgba(74,143,92,.08); }
-    .hl-card-tr .hl-card-title { color:#8fd6a3; }
+    /* Sony_HomeTerminalの「今週のHL」ボード（brief-chip.k-*）と同じ種別カラーコーディング
+       （2026-09-25新設）。カテゴリ色（カード形式は行のラベルバッジ、タイムライン形式は
+       左ボーダー）とは別軸。 */
+    .hl-card.hl-kind-match  { border-left:3px solid #ec4899; background:rgba(236,72,153,.14); }
+    .hl-card.hl-kind-futsal { border-left:3px solid #f97316; background:rgba(217,119,6,.14); }
+    .hl-card.hl-kind-trg    { border-left:3px solid #0ea5e9; background:rgba(14,165,233,.14); }
+    .hl-card.hl-kind-tr     { border-left:3px solid #10b981; background:rgba(16,185,129,.14); }
     .hl-card-wx { display:inline-block; font-size:9.5px; padding:1px 5px; border-radius:6px; margin-bottom:3px; font-weight:700; }
     .hl-wx-sun   { background:rgba(224,160,64,.18); color:#e0a040; }
     .hl-wx-cloud { background:rgba(154,166,189,.18); color:#9aa6bd; }
@@ -780,6 +785,13 @@
     .hl-tl-seg-regalia { font-size:9.5px; font-weight:700; color:#fde68a; white-space:pre-line; display:block; }
     .hl-tl-block--narrow .hl-tl-seg-regalia { font-size:8.5px; }
     .hl-tl-seg--main { background:#1e3a5f; color:#e5e7eb; position:relative; }
+    /* Sony_HomeTerminalの「今週のHL」ボード（brief-chip.k-*）と同じ種別カラーコーディングを
+       本編セグメントに適用（2026-09-25指摘）。カテゴリ色（.hl-tl-cat-u15等、カードの左
+       ボーダー）はそのまま残し、こちらは種別（試合/フットサル/TRG/練習）の別軸。 */
+    .hl-tl-seg--main.hl-kind-match  { background:rgba(236,72,153,.30); color:#fce7f3; }
+    .hl-tl-seg--main.hl-kind-futsal { background:rgba(217,119,6,.30); color:#ffedd5; }
+    .hl-tl-seg--main.hl-kind-trg    { background:rgba(14,165,233,.30); color:#e0f2fe; }
+    .hl-tl-seg--main.hl-kind-tr     { background:rgba(16,185,129,.30); color:#d1fae5; }
     .hl-tl-seg--departure { background:#6b8fc9; color:#f8fafc; }
     .hl-tl-seg--assembly { background:#3d5f8f; color:#f1f5f9; }
     .hl-tl-seg--postmark { background:#4a6fa0; color:#f1f5f9; text-align:right; }
@@ -1355,7 +1367,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 136;
+const __UI_BUILD__  = 137;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2929,13 +2941,30 @@ async function hlEnsureWeatherLoaded() {
   hlWeatherLoading = false;
 }
 
+// Sony_HomeTerminalの「今週のHL」ボード（brief-chip、kindChipClass()）と同じ種別ごとの
+// カラーコーディングを移植（2026-09-25指摘: 「イベントカードの色をSonyHomeの今週のHLと
+// 同じカラーコーディングにして。今は全部一緒で見にくい。左側のカテゴリーを示す
+// カラーコーディングはそのまま残す事」）。カテゴリ色（timelineの左ボーダー）とは別軸の、
+// 試合/フットサル/TRG/練習を示す背景色。ChkMatchのデータにはSony側のjuku/private/
+// マリノス戦等は存在しないため移植対象外、この4種のみ。
+function hlIsTrgEv(m) {
+  if (String(m.league_or_competition || '').trim() === 'TRG') return true;
+  return String(m.notes || '').split('\n').some(n => n.trim() === 'TRG');
+}
+function hlEventKindClass(m) {
+  if (m.event_kind === 'TR') return 'hl-kind-tr';
+  if (hlTlIsFutsalEv(m)) return 'hl-kind-futsal';
+  if (hlIsTrgEv(m)) return 'hl-kind-trg';
+  return 'hl-kind-match';
+}
+
 function hlCardHtml(m) {
   const isTr = m.event_kind === 'TR';
   const league = isTr ? '' : withParticipantTag(m.league_or_competition || '', m.category_code);
   const timeStr = String(m.event_time || '').replace(/K\/O.*$/, '').trim();
   const hour = hlParseEventHour(m.event_time);
   const wx = hour != null ? hlWeatherBadge(normDate(m.event_date), hour) : null;
-  return `<div class="hl-card${isTr ? ' hl-card-tr' : ''}">
+  return `<div class="hl-card ${hlEventKindClass(m)}">
     ${wx ? `<div class="hl-card-wx ${wx.cls}">${escHtml(wx.tag)}</div>` : ''}
     ${league ? `<div class="hl-card-league">${escHtml(league)}</div>` : ''}
     <div class="hl-card-title">${isTr ? escHtml(m.title || '練習') : 'vs ' + escHtml(m.title || '未定')}</div>
@@ -3384,7 +3413,7 @@ function hlTlStackedInner(ev) {
   if (mainE > mainS) {
     let mainWeight = Math.max(1, mainE - mainS);
     if (isGroup) mainWeight *= ev.groupEvents.length;
-    h += `<div class="hl-tl-seg hl-tl-seg--main" style="flex:${mainWeight} 1 0">
+    h += `<div class="hl-tl-seg hl-tl-seg--main ${hlEventKindClass(ev)}" style="flex:${mainWeight} 1 0">
       <div class="hl-tl-seg-timerow">
         <span class="hl-tl-seg-time">${escHtml(hlTlHm(core.start) + (core.end > core.start ? '-' + hlTlHm(core.end) : ''))}</span>
         ${hlTlRainBadgeHtml(ev)}
