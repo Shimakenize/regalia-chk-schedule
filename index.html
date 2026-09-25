@@ -766,6 +766,19 @@
     .hl-tl-wxhour--daily svg { width:18px; height:18px; }
     .hl-tl-wxhour--daily span { font-size:9px; }
     .hl-tl-canvas { flex:1; position:relative; min-width:0; background:rgba(255,255,255,.02); }
+    /* カテゴリー専用の固定3列（U13→U14→U15、2026-09-25新設）。試合の重なりで動的に
+       列を増やすのではなく、カテゴリーそのものを列として固定する（指摘: 「予定タブの
+       タイムライン表示、カテゴリーごとに3列作るようにして。U13 1列 U14 1列 U15 1列」）。
+       列見出しはhl-tl-wxrail-tagと同じく絶対配置でキャンバス上部に重ねる（新規の行を
+       追加すると時間軸ハウザーとの高さがずれるため、時間軸ずれバグの再発を避ける）。 */
+    .hl-tl-catcols { flex:1; display:flex; min-width:0; gap:2px; }
+    .hl-tl-catcol { flex:1; position:relative; min-width:0; border-left:1px solid var(--border); }
+    .hl-tl-catcol:first-child { border-left:none; }
+    .hl-tl-catcol-head {
+      position:absolute; top:2px; left:0; right:0; z-index:2; text-align:center;
+      font-size:9px; font-weight:700; pointer-events:none;
+    }
+    .hl-tl-catcol .hl-tl-canvas { width:100%; }
     .hl-tl-hgrid { position:absolute; left:0; right:0; border-top:1px solid var(--border); opacity:.5; }
     .hl-tl-now { position:absolute; left:0; right:0; border-top:2px solid var(--gold); z-index:3; }
     .hl-tl-block {
@@ -1367,7 +1380,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 137;
+const __UI_BUILD__  = 138;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3456,6 +3469,21 @@ function hlTlStackedInnerTrGroup(ev) {
   return h;
 }
 
+// カテゴリー専用の固定3列（U13→U14→U15の昇順、2026-09-25指摘のご指定順）。
+// 「全体」（force-all運用リーグ等）はU-13列にまとめる（force-allリーグは実運用上
+// ほぼ全てU-13連絡のため。ブロック自身の左ボーダー・カテゴリバッジは本来の
+// category_code（例:'all'）のまま表示されるので、どの列にまとまっているかは
+// 視覚的に区別できる）。
+const HL_TL_CAT_COLUMNS = [
+  { code: 'U-13', label: 'U13' },
+  { code: 'U-14', label: 'U14' },
+  { code: 'U-15', label: 'U15' },
+];
+function hlTlCatColumnKey(categoryCode) {
+  const base = catBase(categoryCode);
+  return (base === 'U-14' || base === 'U-15') ? base : 'U-13';
+}
+
 async function hlTlRenderDay(day) {
   const body = document.getElementById('hl-timeline-body');
   if (!body) return;
@@ -3478,6 +3506,15 @@ async function hlTlRenderDay(day) {
   let hourLabsHtml = '';
   for (let hh = hlTlHour0; hh <= hlTlHour1; hh++) hourLabsHtml += `<div class="hl-tl-hour-lab" data-h="${hh}">${hh}</div>`;
 
+  const catGroups = { 'U-13': [], 'U-14': [], 'U-15': [] };
+  dayEvents.forEach(ev => { catGroups[hlTlCatColumnKey(ev.category_code)].push(ev); });
+
+  const colsHtml = HL_TL_CAT_COLUMNS.map(col => `
+    <div class="hl-tl-catcol">
+      <div class="hl-tl-catcol-head" style="${catBadgeStyle(col.code)}">${col.label}</div>
+      <div class="hl-tl-canvas" data-cat-col="${col.code}"></div>
+    </div>`).join('');
+
   body.innerHTML = `<div class="hl-tl-root">
     <div class="hl-tl-hourcol">
       <div class="hl-tl-hourcol-head"></div>
@@ -3488,55 +3525,61 @@ async function hlTlRenderDay(day) {
         <div class="${dayCls}"><div>${d.getMonth() + 1}/${d.getDate()}日</div><div class="hl-tl-dow">${dow}</div></div>
         <div class="hl-tl-daybody">
           <div class="hl-tl-wxrail" id="hl-tl-wxrail"><div class="hl-tl-wxrail-tag">麻溝台</div></div>
-          <div class="hl-tl-canvas" id="hl-tl-canvas"></div>
+          <div class="hl-tl-catcols">${colsHtml}</div>
         </div>
       </div>
     </div>
   </div>`;
 
-  const canvas = document.getElementById('hl-tl-canvas');
-  const ch = Math.max(320, Math.min(560, dayEvents.length * 90 + 120));
-  canvas.style.height = ch + 'px';
+  // 3列とも同じ高さで揃える（時間軸を一致させるため）。各列の最大イベント数から算出。
+  const maxCount = Math.max(1, ...HL_TL_CAT_COLUMNS.map(col => catGroups[col.code].length));
+  const ch = Math.max(320, Math.min(560, maxCount * 90 + 120));
   document.getElementById('hl-tl-wxrail').style.height = ch + 'px';
+  document.querySelectorAll('.hl-tl-catcol .hl-tl-canvas').forEach(c => { c.style.height = ch + 'px'; });
 
   document.querySelectorAll('#hl-tl-hourplot .hl-tl-hour-lab').forEach(el => {
     el.style.top = hlTlHourTop(Number(el.dataset.h) * 60, ch) + 'px';
   });
 
-  let grids = '';
+  let baseGrids = '';
   for (let hh = hlTlHour0; hh <= hlTlHour1; hh++) {
-    grids += `<div class="hl-tl-hgrid" style="top:${hlTlHourTop(hh * 60, ch)}px"></div>`;
+    baseGrids += `<div class="hl-tl-hgrid" style="top:${hlTlHourTop(hh * 60, ch)}px"></div>`;
   }
+  let nowLine = '';
   if (day === todayStr) {
     const now = new Date();
     const mins = now.getHours() * 60 + now.getMinutes();
     if (mins >= hlTlHour0 * 60 && mins <= hlTlHour1 * 60) {
-      grids += `<div class="hl-tl-now" style="top:${hlTlHourTop(mins, ch)}px"></div>`;
+      nowLine = `<div class="hl-tl-now" style="top:${hlTlHourTop(mins, ch)}px"></div>`;
     }
   }
 
-  const positioned = dayEvents.map(ev => {
-    const rng = hlTlDisplayRange(ev);
-    if (!rng) return null;
-    const ds = Math.max(hlTlHour0 * 60, rng.start), de = Math.min(hlTlHour1 * 60, rng.end);
-    if (de <= ds) return null;
-    ev._range = rng; ev._ds = ds; ev._de = de;
-    return ev;
-  }).filter(Boolean);
-  hlTlPackLanes(positioned);
+  HL_TL_CAT_COLUMNS.forEach(col => {
+    const canvas = document.querySelector(`.hl-tl-canvas[data-cat-col="${col.code}"]`);
+    if (!canvas) return;
+    const positioned = catGroups[col.code].map(ev => {
+      const rng = hlTlDisplayRange(ev);
+      if (!rng) return null;
+      const ds = Math.max(hlTlHour0 * 60, rng.start), de = Math.min(hlTlHour1 * 60, rng.end);
+      if (de <= ds) return null;
+      ev._range = rng; ev._ds = ds; ev._de = de;
+      return ev;
+    }).filter(Boolean);
+    hlTlPackLanes(positioned);
 
-  let blocks = '';
-  positioned.forEach(ev => {
-    const top = hlTlHourTop(ev._ds, ch);
-    const rawH = hlTlHourTop(ev._de, ch) - top;
-    const ht = Math.min(Math.max(44, rawH), Math.max(20, ch - top - 6));
-    const w = 100 / ev._lanes, left = ev._lane * w;
-    const cls = 'hl-tl-block ' + hlTlCatClass(ev.category_code) + (ev._lanes > 1 ? ' hl-tl-block--narrow' : '');
-    const isTrGroup = ev.event_kind === 'TR' && ev.groupEvents && ev.groupEvents.length > 1;
-    const innerHtml = isTrGroup ? hlTlStackedInnerTrGroup(ev) : hlTlStackedInner(ev);
-    blocks += `<div class="${cls}" style="top:${top}px;height:${ht}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${hlTlCatBadgeHtml(ev.category_code)}${innerHtml}</div>`;
+    let blocks = '';
+    positioned.forEach(ev => {
+      const top = hlTlHourTop(ev._ds, ch);
+      const rawH = hlTlHourTop(ev._de, ch) - top;
+      const ht = Math.min(Math.max(44, rawH), Math.max(20, ch - top - 6));
+      const w = 100 / ev._lanes, left = ev._lane * w;
+      const cls = 'hl-tl-block ' + hlTlCatClass(ev.category_code) + (ev._lanes > 1 ? ' hl-tl-block--narrow' : '');
+      const isTrGroup = ev.event_kind === 'TR' && ev.groupEvents && ev.groupEvents.length > 1;
+      const innerHtml = isTrGroup ? hlTlStackedInnerTrGroup(ev) : hlTlStackedInner(ev);
+      blocks += `<div class="${cls}" style="top:${top}px;height:${ht}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${hlTlCatBadgeHtml(ev.category_code)}${innerHtml}</div>`;
+    });
+    canvas.innerHTML = baseGrids + nowLine + blocks;
   });
-  canvas.innerHTML = grids + blocks;
 
   // 天気レール（麻溝台、1時間ごと）。tenki.jpの「1時間天気」は直近2〜3日分しか
   // 時間別データを持たない（実機確認: 2026-09-23取得時点で9/23〜9/25の3日分のみ）ため、
