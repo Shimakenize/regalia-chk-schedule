@@ -1231,14 +1231,14 @@
       <div class="chip-btn" data-week="1" onclick="hlSelectWeek(1)">来週</div>
     </div>
     <div class="chip-row" id="hl-view-toggle" style="margin-top:6px">
-      <div class="chip-btn active" data-view="card" onclick="hlSelectView('card')">カード形式</div>
-      <div class="chip-btn" data-view="timeline" onclick="hlSelectView('timeline')">タイムライン形式</div>
+      <div class="chip-btn active" data-view="timeline" onclick="hlSelectView('timeline')">タイムライン形式</div>
+      <div class="chip-btn" data-view="card" onclick="hlSelectView('card')">カード形式</div>
     </div>
     <div id="hl-week-range" class="hl-week-range"></div>
-    <div id="hl-card-view">
+    <div id="hl-card-view" style="display:none">
       <div id="hl-grid" class="hl-grid"></div>
     </div>
-    <div id="hl-timeline-view" style="display:none">
+    <div id="hl-timeline-view">
       <div class="chip-row" id="hl-timeline-day-picker"></div>
       <div id="hl-timeline-body" class="hl-timeline-body"></div>
     </div>
@@ -1380,7 +1380,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 138;
+const __UI_BUILD__  = 139;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2858,7 +2858,7 @@ async function deleteUser(lineUserId, coachName) {
 // 天気（麻溝台、tenki.jpスクレイピング＋OpenWeatherMapフォールバック）とタイムライン
 // 画像（Cloud Runレンダラー、REGALIA_schedule_managementと共用）のみサーバー側API。
 let hlSelectedWeek = 0; // 0=今週, 1=来週
-let hlSelectedView = 'card'; // 'card' | 'timeline'
+let hlSelectedView = 'timeline'; // 'card' | 'timeline'（2026-09-26: 既定をタイムラインに変更、指摘）
 let hlWeatherData = null;
 let hlWeatherLoading = false;
 let hlHolidayIsos = [];
@@ -3522,7 +3522,7 @@ async function hlTlRenderDay(day) {
     </div>
     <div class="hl-tl-days" style="grid-template-columns:1fr">
       <div class="hl-tl-day">
-        <div class="${dayCls}"><div>${d.getMonth() + 1}/${d.getDate()}日</div><div class="hl-tl-dow">${dow}</div></div>
+        <div class="${dayCls}"><div>${d.getMonth() + 1}/${d.getDate()}</div><div class="hl-tl-dow">${dow}</div></div>
         <div class="hl-tl-daybody">
           <div class="hl-tl-wxrail" id="hl-tl-wxrail"><div class="hl-tl-wxrail-tag">麻溝台</div></div>
           <div class="hl-tl-catcols">${colsHtml}</div>
