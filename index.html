@@ -646,8 +646,16 @@
     #standings-cat-filter { flex-wrap: nowrap; }
     #standings-cat-filter .chip-btn {
       flex: 1 1 0; min-width: 0; text-align: center; position: relative;
-      padding: 7px 4px; font-size: 11px; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
+      padding: 7px 4px; font-size: 11px;
+    }
+    /* テキストの省略記号はラベル用の内側spanだけに適用する（2026-09-26修正）。
+       .chip-btn自体にoverflow:hiddenを付けていた旧実装では、枠の外側(top:-6px)に
+       絶対配置するNEWバッジがその親のoverflow:hiddenで上端を切り取られ、緑の
+       細い断片しか見えず実質非表示になっていた（「Newバッジが見えない」指摘、
+       2026-09-26）。ラベル側にだけoverflow:hiddenを閉じ込めることで、バッジは
+       クリップされず全体が表示される。 */
+    #standings-cat-filter .chip-btn .chip-label {
+      display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     /* 直近6時間の定期スクレイプ（scrape.yml、JST 3/9/15/21時）で実際に更新された
        リーグにだけ表示する「NEW」バッジ（2026-09-26新設: 「前回の更新タイミング=
@@ -1393,7 +1401,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 141;
+const __UI_BUILD__  = 142;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3669,7 +3677,7 @@ function renderStandingsCatFilter() {
   wrap.innerHTML = (standingsData || []).map(c => {
     const active = c.category_code === standingsActiveCat ? ' active' : '';
     const freshBadge = hlStandingsIsFresh(c.content_changed_at) ? '<span class="standings-cat-new-badge">NEW</span>' : '';
-    return `<div class="chip-btn${active}" onclick="selectStandingsCat('${c.category_code}')">${escHtml(c.label || c.category_code)}${freshBadge}</div>`;
+    return `<div class="chip-btn${active}" onclick="selectStandingsCat('${c.category_code}')"><span class="chip-label">${escHtml(c.label || c.category_code)}</span>${freshBadge}</div>`;
   }).join('');
 }
 
