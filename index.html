@@ -645,9 +645,22 @@
     /* リーグ切替チップ：カテゴリ数が増えてもモバイル1行に収める（2026-09-16） */
     #standings-cat-filter { flex-wrap: nowrap; }
     #standings-cat-filter .chip-btn {
-      flex: 1 1 0; min-width: 0; text-align: center;
+      flex: 1 1 0; min-width: 0; text-align: center; position: relative;
       padding: 7px 4px; font-size: 11px; white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis;
+    }
+    /* 直近6時間の定期スクレイプ（scrape.yml、JST 3/9/15/21時）で実際に更新された
+       リーグにだけ表示する「NEW」バッジ（2026-09-26新設: 「前回の更新タイミング=
+       6時間周期で更新された場合は、そのリーグにNewバッジを表示すること」）。
+       .tab-new-badge（新機能告知用・赤・期限付き）とは別物、こちらは常設で
+       毎回のデータ更新ごとに動的に判定する。 */
+    .standings-cat-new-badge {
+      position: absolute; top: -6px; right: -3px;
+      background: #43b873; color: #0d1a12;
+      font-size: 7px; font-weight: 800; letter-spacing: .02em;
+      padding: 1px 4px; border-radius: 6px; line-height: 1.3;
+      pointer-events: none; z-index: 5;
+      box-shadow: 0 1px 3px rgba(0,0,0,.4);
     }
     .standings-note {
       font-size: 12px; color: var(--gold-lt); background: rgba(201,162,75,.08);
@@ -1380,7 +1393,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 139;
+const __UI_BUILD__  = 140;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3636,11 +3649,24 @@ async function loadStandings() {
   }
 }
 
+// scraped_at（"YYYY-MM-DD HH:MM"、JST）が直近6時間以内かを判定する（2026-09-26新設）。
+// 定期スクレイプは6時間周期（scrape.yml、JST 3/9/15/21時）で全リーグを再取得するため、
+// 直近6時間以内に更新されていれば「今回のサイクルで実際に更新された」とみなせる。
+// 何らかの理由でそのリーグだけ更新に失敗した場合はscraped_atが古いままになるため、
+// NEWバッジが付かないことでその異常にも気付ける。
+function hlStandingsIsFresh(scrapedAt) {
+  if (!scrapedAt) return false;
+  const t = new Date(String(scrapedAt).trim().replace(' ', 'T') + '+09:00').getTime();
+  if (isNaN(t)) return false;
+  return (Date.now() - t) <= 6 * 60 * 60 * 1000;
+}
+
 function renderStandingsCatFilter() {
   const wrap = document.getElementById('standings-cat-filter');
   wrap.innerHTML = (standingsData || []).map(c => {
     const active = c.category_code === standingsActiveCat ? ' active' : '';
-    return `<div class="chip-btn${active}" onclick="selectStandingsCat('${c.category_code}')">${escHtml(c.label || c.category_code)}</div>`;
+    const freshBadge = hlStandingsIsFresh(c.scraped_at) ? '<span class="standings-cat-new-badge">NEW</span>' : '';
+    return `<div class="chip-btn${active}" onclick="selectStandingsCat('${c.category_code}')">${escHtml(c.label || c.category_code)}${freshBadge}</div>`;
   }).join('');
 }
 
