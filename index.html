@@ -1393,7 +1393,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 140;
+const __UI_BUILD__  = 141;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3649,14 +3649,17 @@ async function loadStandings() {
   }
 }
 
-// scraped_at（"YYYY-MM-DD HH:MM"、JST）が直近6時間以内かを判定する（2026-09-26新設）。
-// 定期スクレイプは6時間周期（scrape.yml、JST 3/9/15/21時）で全リーグを再取得するため、
-// 直近6時間以内に更新されていれば「今回のサイクルで実際に更新された」とみなせる。
-// 何らかの理由でそのリーグだけ更新に失敗した場合はscraped_atが古いままになるため、
-// NEWバッジが付かないことでその異常にも気付ける。
-function hlStandingsIsFresh(scrapedAt) {
-  if (!scrapedAt) return false;
-  const t = new Date(String(scrapedAt).trim().replace(' ', 'T') + '+09:00').getTime();
+// content_changed_at（"YYYY-MM-DD HH:MM"、JST）が直近6時間以内かを判定する
+// （2026-09-26新設、同日中に修正）。定期スクレイプは6時間周期（scrape.yml、
+// JST 3/9/15/21時）で全リーグを再取得するが、scraped_atは取得に成功しただけで
+// 毎回必ず更新されてしまうため、「6時間サイクルで内容（順位表・星取り表）が
+// 実際に変わっていたらNewにしてほしい」という要件には使えなかった（指摘:
+// 「そういうことじゃない」）。GAS `_ingestStandings()` が順位表の中身を前回分と
+// 比較し、実際に変化があったときだけ`content_changed_at`を更新するようにしたため、
+// フロント側はそちらを見る。
+function hlStandingsIsFresh(contentChangedAt) {
+  if (!contentChangedAt) return false;
+  const t = new Date(String(contentChangedAt).trim().replace(' ', 'T') + '+09:00').getTime();
   if (isNaN(t)) return false;
   return (Date.now() - t) <= 6 * 60 * 60 * 1000;
 }
@@ -3665,7 +3668,7 @@ function renderStandingsCatFilter() {
   const wrap = document.getElementById('standings-cat-filter');
   wrap.innerHTML = (standingsData || []).map(c => {
     const active = c.category_code === standingsActiveCat ? ' active' : '';
-    const freshBadge = hlStandingsIsFresh(c.scraped_at) ? '<span class="standings-cat-new-badge">NEW</span>' : '';
+    const freshBadge = hlStandingsIsFresh(c.content_changed_at) ? '<span class="standings-cat-new-badge">NEW</span>' : '';
     return `<div class="chip-btn${active}" onclick="selectStandingsCat('${c.category_code}')">${escHtml(c.label || c.category_code)}${freshBadge}</div>`;
   }).join('');
 }
