@@ -709,6 +709,23 @@
     /* ── 予定タブ（カード形式、2026-09-23新設） ─────────────────────────
        曜日ごとに列を並べ、各列にU-15/U-14/U-13/全体の順でカードを積む。
        7日分を横に並べるためスマホ幅では横スクロールになる。 */
+    /* 今週/来週チップ（左）＋表示形式スイッチ（右端）の1行ツールバー（2026-09-26） */
+    .hl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .hl-toolbar .chip-row { margin-bottom:0; flex-wrap:nowrap; }
+    .hl-view-switch { display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none; flex-shrink:0; }
+    .hl-view-switch-label { font-size:11px; font-weight:600; color:var(--muted); transition:color .15s; }
+    .hl-view-switch-label.active { color:var(--gold); }
+    .hl-view-switch-track {
+      position:relative; width:36px; height:20px; border-radius:10px;
+      background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.09);
+      transition:background .15s;
+    }
+    .hl-view-switch-knob {
+      position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%;
+      background:#fff; transition:transform .15s;
+    }
+    .hl-view-switch.on .hl-view-switch-track { background:var(--gold); border-color:var(--gold); }
+    .hl-view-switch.on .hl-view-switch-knob { transform:translateX(16px); }
     .hl-week-range { font-size:12px; color:var(--muted); margin:8px 2px 10px; }
     .hl-grid { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch; }
     .hl-day-col { flex:0 0 118px; min-width:0; }
@@ -1247,13 +1264,20 @@
        イベントソースはREGALIA_ChkMatchSchedule自身のcoach_schedule（LINE報告由来の試合）
        のみ。REGALIA_schedule_management（個人情報含む）とは一切連携しない。 ── -->
   <div id="page-schedule-hl" class="page">
-    <div class="chip-row" id="hl-week-toggle">
-      <div class="chip-btn active" data-week="0" onclick="hlSelectWeek(0)">今週</div>
-      <div class="chip-btn" data-week="1" onclick="hlSelectWeek(1)">来週</div>
-    </div>
-    <div class="chip-row" id="hl-view-toggle" style="margin-top:6px">
-      <div class="chip-btn active" data-view="timeline" onclick="hlSelectView('timeline')">タイムライン形式</div>
-      <div class="chip-btn" data-view="card" onclick="hlSelectView('card')">カード形式</div>
+    <!-- 今週/来週チップと表示形式スイッチを1行に同居（2026-09-26、1行削減の指示）。
+         スイッチON=タイムライン（既定）、OFF=カード。 -->
+    <div class="hl-toolbar">
+      <div class="chip-row" id="hl-week-toggle">
+        <div class="chip-btn active" data-week="0" onclick="hlSelectWeek(0)">今週</div>
+        <div class="chip-btn" data-week="1" onclick="hlSelectWeek(1)">来週</div>
+      </div>
+      <div class="hl-view-switch on" id="hl-view-toggle" role="switch" aria-checked="true" aria-label="タイムライン表示" tabindex="0"
+           onclick="hlSelectView(hlSelectedView === 'timeline' ? 'card' : 'timeline')"
+           onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}">
+        <span class="hl-view-switch-label" data-view="card">カード</span>
+        <span class="hl-view-switch-track"><span class="hl-view-switch-knob"></span></span>
+        <span class="hl-view-switch-label active" data-view="timeline">タイムライン</span>
+      </div>
     </div>
     <div id="hl-week-range" class="hl-week-range"></div>
     <div id="hl-card-view" style="display:none">
@@ -1401,7 +1425,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 142;
+const __UI_BUILD__  = 143;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2908,8 +2932,11 @@ function hlSelectWeek(w) {
 
 function hlSelectView(view) {
   hlSelectedView = view;
-  document.querySelectorAll('#hl-view-toggle .chip-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.view === view);
+  const sw = document.getElementById('hl-view-toggle');
+  sw.classList.toggle('on', view === 'timeline');
+  sw.setAttribute('aria-checked', view === 'timeline' ? 'true' : 'false');
+  sw.querySelectorAll('.hl-view-switch-label').forEach(l => {
+    l.classList.toggle('active', l.dataset.view === view);
   });
   document.getElementById('hl-card-view').style.display = view === 'card' ? '' : 'none';
   document.getElementById('hl-timeline-view').style.display = view === 'timeline' ? '' : 'none';
