@@ -1425,7 +1425,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 143;
+const __UI_BUILD__  = 144;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1472,6 +1472,10 @@ const OFFICIAL_SOURCES = [
   { id: 'U-13_FUTSAL', label: 'U-15フットサル3部A[U13参戦]', shortLabel: 'U15FL3部A[U13]', url: 'https://matchday-live.com/race/IXBH8Dw8' },
   // S.M.A.L.L. CUP（id: 'U-13'）はv0.2.88（2026-09-02）で終了に伴い削除
   { id: 'U-15_SAGAMIHARA', label: '相模原市U15リーグ',    shortLabel: '相模原U15L', url: 'http://sagamihara-fa.com/tyugaku.html' },
+  // v0.2.151（2026-09-27）: 新規大会「GFL(U13)」追加。正式名称Growth Future League
+  // Group B（U-13）。ページが「Coming Soon」で日程・結果とも未掲載のため、公式タブに
+  // 枠（リンク付き・「未記録」表示）だけ用意。自動スクレイプはcategories.yaml側でdisabled。
+  { id: 'U-13_GFL',    label: 'Growth Future League(Group B)', shortLabel: 'GFL', url: 'https://growth-fl.com/muchresult-groupb-2026/' },
 ];
 const SRC_MAP = Object.fromEntries(OFFICIAL_SOURCES.map(s => [s.id, s]));
 
@@ -1616,7 +1620,7 @@ function normDate(v)  { return String(v || '').substring(0, 10); }
 // official_schedule側は同一カテゴリに複数の公式ソースがある場合、idを通常カテゴリ名と
 // 揃えられないスクレイパーがある（例: U-13はS.M.A.L.L. CUPが既にid="U-13"のため、
 // U-13リーグ(2部)はid="U-13L"）。coach_schedule側の通常カテゴリと照合できるようエイリアスを解決する。
-const CAT_ALIAS = { 'U-13L': 'U-13', 'U-15_TKMD': 'U-15', 'U-15_SAGAMIHARA': 'U-15', 'CJY_U14': 'U-14', 'U-15_4B': 'U-14' };
+const CAT_ALIAS = { 'U-13L': 'U-13', 'U-13_GFL': 'U-13', 'U-15_TKMD': 'U-15', 'U-15_SAGAMIHARA': 'U-15', 'CJY_U14': 'U-14', 'U-15_4B': 'U-14' };
 function catBase(cat) {
   const c = String(cat || '').replace(/_FUTSAL$/, '');
   return CAT_ALIAS[c] || c;
