@@ -809,7 +809,14 @@
        タイムライン表示、カテゴリーごとに3列作るようにして。U13 1列 U14 1列 U15 1列」）。
        列見出しはhl-tl-wxrail-tagと同じく絶対配置でキャンバス上部に重ねる（新規の行を
        追加すると時間軸ハウザーとの高さがずれるため、時間軸ずれバグの再発を避ける）。 */
-    .hl-tl-catcols { flex:1; display:flex; min-width:0; gap:2px; }
+    /* 同一カテゴリー内で試合が重なり複数レーンになっても、1レーンの幅は「全カテゴリーが
+       1列ずつのときの列幅」に固定し、はみ出した分は横スクロールで見る（2026-09-27指摘）。
+       スクロールするのはカテゴリー列の領域だけで、左の時刻軸と天気レールはこの外側に
+       あるため固定表示のまま。各列の幅はhlTlApplyLaneWidths()が描画後に設定する。 */
+    .hl-tl-catcols {
+      flex:1; display:flex; min-width:0; gap:2px;
+      overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+    }
     .hl-tl-catcol { flex:1; position:relative; min-width:0; border-left:1px solid var(--border); }
     .hl-tl-catcol:first-child { border-left:none; }
     .hl-tl-catcol-head {
@@ -834,7 +841,6 @@
     .hl-tl-seg-sub { font-size:9.5px; display:block; }
     .hl-tl-seg-venue { font-size:9px; opacity:.85; display:block; }
     .hl-tl-seg-regalia { font-size:9.5px; font-weight:700; color:#fde68a; white-space:pre-line; display:block; }
-    .hl-tl-block--narrow .hl-tl-seg-regalia { font-size:8.5px; }
     .hl-tl-seg--main { background:#1e3a5f; color:#e5e7eb; position:relative; }
     /* Sony_HomeTerminalの「今週のHL」ボード（brief-chip.k-*）と同じ種別カラーコーディングを
        本編セグメントに適用（2026-09-25指摘）。カテゴリ色（.hl-tl-cat-u15等、カードの左
@@ -1425,7 +1431,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 145;
+const __UI_BUILD__  = 146;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3537,7 +3543,32 @@ function hlTlCatColumnKey(categoryCode) {
   return (base === 'U-14' || base === 'U-15') ? base : 'U-13';
 }
 
+// 各カテゴリー列の幅を「レーン数 × 1レーン幅」に設定する（2026-09-27指摘）。1レーン幅は
+// カテゴリー列の表示領域を3等分した幅＝全カテゴリーが1列ずつのときと同じ幅で、
+// 複数レーンのカテゴリーがあると全体が表示領域を超え、横スクロールになる。
+// 画面の回転などで表示領域の幅が変わったら測り直す。
+function hlTlApplyLaneWidths() {
+  const wrap = document.querySelector('#hl-timeline-body .hl-tl-catcols');
+  if (!wrap) return;
+  const cols = [...wrap.querySelectorAll('.hl-tl-catcol')];
+  const gap = 2;
+  const laneW = Math.floor((wrap.clientWidth - gap * (cols.length - 1)) / cols.length);
+  if (laneW <= 0) return;
+  cols.forEach(c => {
+    const n = Number(c.dataset.lanes) || 1;
+    c.style.flex = `0 0 ${laneW * n + gap * (n - 1)}px`;
+  });
+}
+let hlTlResizeBound = false;
+function hlTlBindResize() {
+  if (hlTlResizeBound) return;
+  hlTlResizeBound = true;
+  let t = null;
+  window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(hlTlApplyLaneWidths, 150); });
+}
+
 async function hlTlRenderDay(day) {
+  hlTlBindResize();
   const body = document.getElementById('hl-timeline-body');
   if (!body) return;
   await hlEnsureWeatherLoaded();
@@ -3619,6 +3650,7 @@ async function hlTlRenderDay(day) {
       return ev;
     }).filter(Boolean);
     hlTlPackLanes(positioned);
+    canvas.parentElement.dataset.lanes = positioned.length ? positioned[0]._lanes : 1;
 
     let blocks = '';
     positioned.forEach(ev => {
@@ -3626,13 +3658,14 @@ async function hlTlRenderDay(day) {
       const rawH = hlTlHourTop(ev._de, ch) - top;
       const ht = Math.min(Math.max(44, rawH), Math.max(20, ch - top - 6));
       const w = 100 / ev._lanes, left = ev._lane * w;
-      const cls = 'hl-tl-block ' + hlTlCatClass(ev.category_code) + (ev._lanes > 1 ? ' hl-tl-block--narrow' : '');
+      const cls = 'hl-tl-block ' + hlTlCatClass(ev.category_code);
       const isTrGroup = ev.event_kind === 'TR' && ev.groupEvents && ev.groupEvents.length > 1;
       const innerHtml = isTrGroup ? hlTlStackedInnerTrGroup(ev) : hlTlStackedInner(ev);
       blocks += `<div class="${cls}" style="top:${top}px;height:${ht}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${hlTlCatBadgeHtml(ev.category_code)}${innerHtml}</div>`;
     });
     canvas.innerHTML = baseGrids + nowLine + blocks;
   });
+  hlTlApplyLaneWidths();
 
   // 天気レール（麻溝台、1時間ごと）。tenki.jpの「1時間天気」は直近2〜3日分しか
   // 時間別データを持たない（実機確認: 2026-09-23取得時点で9/23〜9/25の3日分のみ）ため、
