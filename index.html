@@ -913,7 +913,7 @@
       /* 初期表示は2枚目（戦績表）。星取り表が1枚目 */
     }
     .standings-slide { flex: 0 0 100%; min-width: 0; }
-    .standings-slide-tabs { margin-top: -2px; }
+    .standings-view-switch-row { margin: -2px 0 10px; }
     .standings-rotate-hint {
       display: none; font-size: 11px; color: var(--gold-lt);
       background: rgba(201,162,75,.12); border: 1px solid rgba(201,162,75,.35);
@@ -1247,9 +1247,17 @@
     <div class="standings-wrap">
       <p class="standings-hint">対象は公式HPで順位表を確認できるリーグ戦のみ（フットサルリーグは対象外）。公式HPの確認周期（1日4回）ごとに更新されます。</p>
       <div class="chip-row" id="standings-cat-filter"></div>
-      <div class="chip-row standings-slide-tabs" id="standings-slide-tabs">
-        <div class="chip-btn active" data-slide="1" onclick="standingsGoToSlide(1)">戦績表</div>
-        <div class="chip-btn" data-slide="0" onclick="standingsGoToSlide(0)">星取り表</div>
+      <!-- 「戦績表/星取り表」の2チップ切替を、予定タブのカード/タイムラインと同じ
+           トグルスイッチに統一（2026-09-27指示）。表現も「順位表」「星取表」に変更。
+           ON(右)=順位表（既定）、OFF(左)=星取表。 -->
+      <div class="standings-view-switch-row">
+        <div class="hl-view-switch on" id="standings-view-toggle" role="switch" aria-checked="true" aria-label="順位表表示" tabindex="0"
+             onclick="standingsGoToSlide(standingsSlideIndex === 1 ? 0 : 1)"
+             onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}">
+          <span class="hl-view-switch-label" data-slide="0">星取表</span>
+          <span class="hl-view-switch-track"><span class="hl-view-switch-knob"></span></span>
+          <span class="hl-view-switch-label active" data-slide="1">順位表</span>
+        </div>
       </div>
       <div class="standings-carousel" id="standings-carousel">
         <div class="standings-track" id="standings-track">
@@ -1462,7 +1470,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 150;
+const __UI_BUILD__  = 151;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3897,9 +3905,14 @@ function standingsGoToSlide(idx, skipAnim) {
   if (!track) return;
   track.style.transition = skipAnim ? 'none' : 'transform .25s ease';
   track.style.transform = `translateX(${-idx * 100}%)`;
-  document.querySelectorAll('#standings-slide-tabs .chip-btn').forEach(b => {
-    b.classList.toggle('active', Number(b.dataset.slide) === idx);
-  });
+  const sw = document.getElementById('standings-view-toggle');
+  if (sw) {
+    sw.classList.toggle('on', idx === 1);
+    sw.setAttribute('aria-checked', idx === 1 ? 'true' : 'false');
+    sw.querySelectorAll('.hl-view-switch-label').forEach(l => {
+      l.classList.toggle('active', Number(l.dataset.slide) === idx);
+    });
+  }
   if (idx === 0 && !standingsMatrixRendered) {
     renderStandingsMatrixBody();
     standingsMatrixRendered = true;
@@ -3948,7 +3961,7 @@ function renderStandingsMatrixBody() {
   const matrix = cat.matrix;
   const metaHtml = `<div class="standings-meta">${escHtml(cat.group_name || '')} ／ 最終取得: ${escHtml(fmtDatetime(cat.scraped_at))}</div>`;
   if (!matrix || !matrix.length) {
-    body.innerHTML = `${metaHtml}<div class="empty-msg">この大会の星取り表はまだ取得できていません</div>`;
+    body.innerHTML = `${metaHtml}<div class="empty-msg">この大会の星取表はまだ取得できていません</div>`;
     return;
   }
   const rotateHtml = `<div class="standings-rotate-hint">📱 端末を横向きにすると全チームが見やすくなります</div>`;
