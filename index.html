@@ -1425,7 +1425,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 144;
+const __UI_BUILD__  = 145;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3522,10 +3522,10 @@ function hlTlStackedInnerTrGroup(ev) {
 }
 
 // カテゴリー専用の固定3列（U13→U14→U15の昇順、2026-09-25指摘のご指定順）。
-// 「全体」（force-all運用リーグ等）はU-13列にまとめる（force-allリーグは実運用上
-// ほぼ全てU-13連絡のため。ブロック自身の左ボーダー・カテゴリバッジは本来の
-// category_code（例:'all'）のまま表示されるので、どの列にまとまっているかは
-// 視覚的に区別できる）。
+// 「全体」（force-all運用の相模原市U-15リーグ等）はU-15列に仮表示する
+// （2026-09-27指摘。Sony_HomeTerminalと同じ扱い。当初はU-13列にまとめていた）。
+// ブロック自身の左ボーダー・カテゴリバッジは本来のcategory_code（'all'）のまま
+// 表示されるので、U-15列にあっても「全体」の試合だと視覚的に区別できる。
 const HL_TL_CAT_COLUMNS = [
   { code: 'U-13', label: 'U13' },
   { code: 'U-14', label: 'U14' },
@@ -3533,6 +3533,7 @@ const HL_TL_CAT_COLUMNS = [
 ];
 function hlTlCatColumnKey(categoryCode) {
   const base = catBase(categoryCode);
+  if (base === 'all') return 'U-15';
   return (base === 'U-14' || base === 'U-15') ? base : 'U-13';
 }
 
