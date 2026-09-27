@@ -878,13 +878,18 @@
     .hl-tl-seg--postmark { background:#4a6fa0; color:#f1f5f9; text-align:right; }
     /* 2部練習等、連結したTRセッション間の空き時間は無色の隙間として表示する（2026-09-25新設） */
     .hl-tl-seg--gap { background:transparent; }
+    /* 時刻（例「08:00-10:00」）は途中で改行させない（2026-09-27指摘）。列幅では時刻と
+       天気バッジを同じ行に並べきれないため、時刻の行は時刻だけにし、天気バッジは
+       次の行の右端に回り込み配置（float）する。次の行の文字はバッジを避けて流れるので、
+       行を追加で消費しない。 */
     .hl-tl-seg-timerow { display:flex; align-items:center; gap:4px; }
+    .hl-tl-seg-timerow .hl-tl-seg-time { white-space:nowrap; }
     /* タイムラインの天気バッジ（2026-09-27指摘で拡大・配色変更）。以前は8pxの文字＋
        半透明の背景に色文字で、特に「曇り」（灰色）が試合カードのピンク地に埋もれて
        読みにくかった。10.5pxに拡大し、塗りつぶしの背景＋はっきりした文字色にして、
        時刻の行の右端（カードの右上）に寄せる。カード形式側の.hl-wx-*は変更しない。 */
     .hl-tl-rain-badge {
-      display:inline-block; margin-left:auto; flex-shrink:0; font-size:10.5px; line-height:1.3;
+      float:right; margin:1px 0 1px 4px; font-size:10.5px; line-height:1.3;
       padding:1px 6px; border-radius:5px; font-weight:800; box-shadow:0 1px 2px rgba(0,0,0,.35);
     }
     .hl-tl-rain-badge.hl-wx-sun   { background:#fbbf24; color:#1f1300; }
@@ -1457,7 +1462,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 149;
+const __UI_BUILD__  = 150;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3508,8 +3513,8 @@ function hlTlStackedInner(ev) {
     h += `<div class="hl-tl-seg hl-tl-seg--main ${hlEventKindClass(ev)}" style="flex:${mainWeight} 1 0">
       <div class="hl-tl-seg-timerow">
         <span class="hl-tl-seg-time">${escHtml(hlTlHm(core.start) + (core.end > core.start ? '-' + hlTlHm(core.end) : ''))}</span>
-        ${hlTlRainBadgeHtml(ev)}
       </div>
+      ${hlTlRainBadgeHtml(ev)}
       ${isGroup ? '' : `<span class="hl-tl-seg-sub">${escHtml(hlTlMainSub(ev))}</span>`}
       ${ev.venue ? `<span class="hl-tl-seg-venue">${escHtml(ev.venue)}</span>` : ''}
       ${cardText ? `<span class="hl-tl-seg-regalia">${escHtml(cardText)}</span>` : ''}
