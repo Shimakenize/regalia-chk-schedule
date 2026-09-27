@@ -818,12 +818,32 @@
       overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
     }
     .hl-tl-catcol { flex:1; position:relative; min-width:0; border-left:1px solid var(--border); }
+    /* 右にまだ列がある（横スクロールできる）ことを示すヒント（2026-09-27指摘）。
+       右端をフェードさせ、列見出しの高さに「›」ボタンを出す。右端までスクロールすると
+       消える。ボタンを押すと1列分右へスクロールする。 */
+    .hl-tl-scrollhint {
+      position:absolute; top:0; right:0; bottom:0; width:30px; z-index:4;
+      background:linear-gradient(to right, rgba(7,12,22,0), rgba(7,12,22,.9));
+      opacity:0; transition:opacity .2s; pointer-events:none;
+    }
+    .hl-tl-scrollhint.is-on { opacity:1; }
+    .hl-tl-scrollhint-btn {
+      position:absolute; top:0; right:2px; width:22px; height:22px; border-radius:50%;
+      border:1px solid var(--gold); background:rgba(7,12,22,.92); color:var(--gold);
+      font-size:16px; font-weight:700; line-height:18px; padding:0; cursor:pointer;
+      box-shadow:0 1px 4px rgba(0,0,0,.5); animation:hlTlHintNudge 1.6s ease-in-out infinite;
+    }
+    .hl-tl-scrollhint.is-on .hl-tl-scrollhint-btn { pointer-events:auto; }
+    @keyframes hlTlHintNudge { 0%,100% { transform:translateX(0); } 50% { transform:translateX(3px); } }
     .hl-tl-catcol:first-child { border-left:none; }
     .hl-tl-catcol-head {
       position:absolute; top:2px; left:0; right:0; z-index:2; text-align:center;
       font-size:9px; font-weight:700; pointer-events:none;
     }
     .hl-tl-catcol .hl-tl-canvas { width:100%; }
+    /* 複数レーンのカテゴリーは見出しを左寄せにする。中央寄せだと見出しが画面右端
+       （スクロールしないと見えない位置）に来てしまうため（2026-09-27）。 */
+    .hl-tl-catcol.is-multi .hl-tl-catcol-head { text-align:left; padding-left:8px; }
     .hl-tl-hgrid { position:absolute; left:0; right:0; border-top:1px solid var(--border); opacity:.5; }
     .hl-tl-now { position:absolute; left:0; right:0; border-top:2px solid var(--gold); z-index:3; }
     .hl-tl-block {
@@ -1431,7 +1451,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 146;
+const __UI_BUILD__  = 147;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3236,7 +3256,11 @@ function hlTlPackLanes(list) {
 function hlTlHourTop(minFromMidnight, canvasH) {
   const m0 = hlTlHour0 * 60;
   const span = Math.max(60, (hlTlHour1 - hlTlHour0) * 60);
-  const padTop = 4, padBot = Math.max(16, Math.round(canvasH * 0.06));
+  // 上端の余白は、カテゴリー列の見出し（U13/U14/U15、キャンバス上部に絶対配置）の
+  // 高さ分を確保する。4pxだと表示範囲の先頭時刻から始まるカードの1行目（時刻）が
+  // 見出しの下に隠れていた（2026-09-27指摘）。時刻目盛り・罫線・天気レールも
+  // 同じ関数で配置するので、全体が同じだけ下がり時間軸はずれない。
+  const padTop = 18, padBot = Math.max(16, Math.round(canvasH * 0.06));
   const usable = Math.max(1, canvasH - padTop - padBot);
   return padTop + ((minFromMidnight - m0) / span) * usable;
 }
@@ -3547,6 +3571,7 @@ function hlTlCatColumnKey(categoryCode) {
 // カテゴリー列の表示領域を3等分した幅＝全カテゴリーが1列ずつのときと同じ幅で、
 // 複数レーンのカテゴリーがあると全体が表示領域を超え、横スクロールになる。
 // 画面の回転などで表示領域の幅が変わったら測り直す。
+let hlTlLaneW = 0;
 function hlTlApplyLaneWidths() {
   const wrap = document.querySelector('#hl-timeline-body .hl-tl-catcols');
   if (!wrap) return;
@@ -3554,10 +3579,27 @@ function hlTlApplyLaneWidths() {
   const gap = 2;
   const laneW = Math.floor((wrap.clientWidth - gap * (cols.length - 1)) / cols.length);
   if (laneW <= 0) return;
+  hlTlLaneW = laneW;
   cols.forEach(c => {
     const n = Number(c.dataset.lanes) || 1;
     c.style.flex = `0 0 ${laneW * n + gap * (n - 1)}px`;
+    c.classList.toggle('is-multi', n > 1);
   });
+  hlTlUpdateScrollHint();
+}
+// 右にまだ見えていない列があるときだけヒントを表示する。
+function hlTlUpdateScrollHint() {
+  const wrap = document.querySelector('#hl-timeline-body .hl-tl-catcols');
+  const hint = document.getElementById('hl-tl-scrollhint');
+  if (!wrap || !hint) return;
+  hint.classList.toggle('is-on', wrap.scrollLeft + wrap.clientWidth < wrap.scrollWidth - 2);
+}
+function hlTlBindScrollHint() {
+  const wrap = document.querySelector('#hl-timeline-body .hl-tl-catcols');
+  const btn = document.querySelector('#hl-tl-scrollhint .hl-tl-scrollhint-btn');
+  if (!wrap || !btn) return;
+  wrap.addEventListener('scroll', hlTlUpdateScrollHint, { passive: true });
+  btn.addEventListener('click', () => wrap.scrollBy({ left: hlTlLaneW || wrap.clientWidth / 3, behavior: 'smooth' }));
 }
 let hlTlResizeBound = false;
 function hlTlBindResize() {
@@ -3610,6 +3652,7 @@ async function hlTlRenderDay(day) {
         <div class="hl-tl-daybody">
           <div class="hl-tl-wxrail" id="hl-tl-wxrail"><div class="hl-tl-wxrail-tag">麻溝台</div></div>
           <div class="hl-tl-catcols">${colsHtml}</div>
+          <div class="hl-tl-scrollhint" id="hl-tl-scrollhint"><button type="button" class="hl-tl-scrollhint-btn" aria-label="右に続きがあります">›</button></div>
         </div>
       </div>
     </div>
@@ -3665,6 +3708,7 @@ async function hlTlRenderDay(day) {
     });
     canvas.innerHTML = baseGrids + nowLine + blocks;
   });
+  hlTlBindScrollHint();
   hlTlApplyLaneWidths();
 
   // 天気レール（麻溝台、1時間ごと）。tenki.jpの「1時間天気」は直近2〜3日分しか
