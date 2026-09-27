@@ -818,23 +818,27 @@
       overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
     }
     .hl-tl-catcol { flex:1; position:relative; min-width:0; border-left:1px solid var(--border); }
-    /* 右にまだ列がある（横スクロールできる）ことを示すヒント（2026-09-27指摘）。
-       右端をフェードさせ、列見出しの高さに「›」ボタンを出す。右端までスクロールすると
-       消える。ボタンを押すと1列分右へスクロールする。 */
+    /* 横スクロールできることを示すヒント（2026-09-27指摘）。カテゴリー列の表示領域
+       （天気レール34pxの右側）の真ん中に、大きな半透明の丸ボタンを重ねて表示する。
+       右にまだ列があるときは「›」（押すと1列分右へ）、右端まで来たら「‹」（押すと
+       1列分左へ）に切り替わる。横スクロールが無い日は表示しない。 */
     .hl-tl-scrollhint {
-      position:absolute; top:0; right:0; bottom:0; width:30px; z-index:4;
-      background:linear-gradient(to right, rgba(7,12,22,0), rgba(7,12,22,.9));
-      opacity:0; transition:opacity .2s; pointer-events:none;
+      position:absolute; top:0; bottom:0; left:34px; right:0; z-index:4;
+      pointer-events:none; display:none;
     }
-    .hl-tl-scrollhint.is-on { opacity:1; }
+    .hl-tl-scrollhint.is-on { display:block; }
     .hl-tl-scrollhint-btn {
-      position:absolute; top:0; right:2px; width:22px; height:22px; border-radius:50%;
-      border:1px solid var(--gold); background:rgba(7,12,22,.92); color:var(--gold);
-      font-size:16px; font-weight:700; line-height:18px; padding:0; cursor:pointer;
-      box-shadow:0 1px 4px rgba(0,0,0,.5); animation:hlTlHintNudge 1.6s ease-in-out infinite;
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:64px; height:64px; border-radius:50%; padding:0; cursor:pointer;
+      border:2px solid var(--gold); background:rgba(7,12,22,.55); color:var(--gold);
+      font-size:44px; font-weight:700; line-height:1; pointer-events:auto;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 2px 10px rgba(0,0,0,.5); opacity:.9;
     }
-    .hl-tl-scrollhint.is-on .hl-tl-scrollhint-btn { pointer-events:auto; }
-    @keyframes hlTlHintNudge { 0%,100% { transform:translateX(0); } 50% { transform:translateX(3px); } }
+    .hl-tl-scrollhint-btn span { display:block; margin-top:-6px; animation:hlTlHintNudgeR 1.4s ease-in-out infinite; }
+    .hl-tl-scrollhint[data-dir="left"] .hl-tl-scrollhint-btn span { animation-name:hlTlHintNudgeL; }
+    @keyframes hlTlHintNudgeR { 0%,100% { transform:translateX(0); } 50% { transform:translateX(5px); } }
+    @keyframes hlTlHintNudgeL { 0%,100% { transform:translateX(0); } 50% { transform:translateX(-5px); } }
     .hl-tl-catcol:first-child { border-left:none; }
     .hl-tl-catcol-head {
       position:absolute; top:2px; left:0; right:0; z-index:2; text-align:center;
@@ -874,13 +878,6 @@
     .hl-tl-seg--postmark { background:#4a6fa0; color:#f1f5f9; text-align:right; }
     /* 2部練習等、連結したTRセッション間の空き時間は無色の隙間として表示する（2026-09-25新設） */
     .hl-tl-seg--gap { background:transparent; }
-    /* カテゴリバッジは行を消費せず右上に重ねて表示（2026-09-24指摘: 「カテゴリーで
-       1行使うのではなく右上にバッジ表示、行を節約する」）。カード全体（.hl-tl-block、
-       既にposition:absoluteのため配置基準になる）の右上隅に固定。 */
-    .hl-tl-cat-badge {
-      position:absolute; top:2px; right:2px; z-index:3;
-      font-size:8px; padding:0 4px; border-radius:4px; font-weight:700;
-    }
     .hl-tl-seg-timerow { display:flex; align-items:center; gap:4px; }
     .hl-tl-rain-badge {
       display:inline-block; font-size:8px; padding:0 4px; border-radius:4px; font-weight:700;
@@ -1451,7 +1448,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 147;
+const __UI_BUILD__  = 148;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3434,18 +3431,9 @@ function hlTlCatClass(categoryCode) {
   if (base === 'all') return 'hl-tl-cat-all';
   return '';
 }
-// 左ボーダーの色だけでは覚えにくいとの指摘（2026-09-23）を受け、サマリ・試合一覧・
-// カード形式と同じcatBadgeStyle()のバッジをタイムラインの各カードにも明示表示する。
-function hlTlCatLabel(categoryCode) {
-  const base = catBase(categoryCode);
-  const found = HL_CATS.find(c => c.code === base);
-  return found ? found.label : (base || '');
-}
-function hlTlCatBadgeHtml(categoryCode) {
-  const label = hlTlCatLabel(categoryCode);
-  if (!label) return '';
-  return `<span class="hl-tl-cat-badge" style="${catBadgeStyle(categoryCode)}">${escHtml(label)}</span>`;
-}
+// タイムラインの各カードのカテゴリバッジ（UI Build 128で追加）は、カテゴリー別の
+// 固定列（UI Build 138〜）で列見出しがカテゴリーを示すため不要として削除した
+// （2026-09-27指摘）。カテゴリーの色は引き続きカードの左ボーダーで示す。
 function hlTlMainSub(ev) {
   const league = String(ev.league_or_competition || '').trim();
   const title = String(ev.title || '').trim();
@@ -3587,19 +3575,32 @@ function hlTlApplyLaneWidths() {
   });
   hlTlUpdateScrollHint();
 }
-// 右にまだ見えていない列があるときだけヒントを表示する。
+// 横スクロールできる日だけヒントを表示する。右にまだ列があれば「›」、右端なら「‹」。
 function hlTlUpdateScrollHint() {
   const wrap = document.querySelector('#hl-timeline-body .hl-tl-catcols');
   const hint = document.getElementById('hl-tl-scrollhint');
   if (!wrap || !hint) return;
-  hint.classList.toggle('is-on', wrap.scrollLeft + wrap.clientWidth < wrap.scrollWidth - 2);
+  const scrollable = wrap.scrollWidth > wrap.clientWidth + 2;
+  hint.classList.toggle('is-on', scrollable);
+  if (!scrollable) return;
+  const dir = wrap.scrollLeft + wrap.clientWidth < wrap.scrollWidth - 2 ? 'right' : 'left';
+  if (hint.dataset.dir !== dir) {
+    hint.dataset.dir = dir;
+    const btn = hint.querySelector('.hl-tl-scrollhint-btn');
+    btn.innerHTML = `<span>${dir === 'right' ? '›' : '‹'}</span>`;
+    btn.setAttribute('aria-label', dir === 'right' ? '右に続きがあります' : '左に戻る');
+  }
 }
 function hlTlBindScrollHint() {
   const wrap = document.querySelector('#hl-timeline-body .hl-tl-catcols');
-  const btn = document.querySelector('#hl-tl-scrollhint .hl-tl-scrollhint-btn');
+  const hint = document.getElementById('hl-tl-scrollhint');
+  const btn = hint && hint.querySelector('.hl-tl-scrollhint-btn');
   if (!wrap || !btn) return;
   wrap.addEventListener('scroll', hlTlUpdateScrollHint, { passive: true });
-  btn.addEventListener('click', () => wrap.scrollBy({ left: hlTlLaneW || wrap.clientWidth / 3, behavior: 'smooth' }));
+  btn.addEventListener('click', () => {
+    const step = hlTlLaneW || wrap.clientWidth / 3;
+    wrap.scrollBy({ left: hint.dataset.dir === 'left' ? -step : step, behavior: 'smooth' });
+  });
 }
 let hlTlResizeBound = false;
 function hlTlBindResize() {
@@ -3652,7 +3653,7 @@ async function hlTlRenderDay(day) {
         <div class="hl-tl-daybody">
           <div class="hl-tl-wxrail" id="hl-tl-wxrail"><div class="hl-tl-wxrail-tag">麻溝台</div></div>
           <div class="hl-tl-catcols">${colsHtml}</div>
-          <div class="hl-tl-scrollhint" id="hl-tl-scrollhint"><button type="button" class="hl-tl-scrollhint-btn" aria-label="右に続きがあります">›</button></div>
+          <div class="hl-tl-scrollhint" id="hl-tl-scrollhint"><button type="button" class="hl-tl-scrollhint-btn" aria-label="右に続きがあります"><span>›</span></button></div>
         </div>
       </div>
     </div>
@@ -3704,7 +3705,7 @@ async function hlTlRenderDay(day) {
       const cls = 'hl-tl-block ' + hlTlCatClass(ev.category_code);
       const isTrGroup = ev.event_kind === 'TR' && ev.groupEvents && ev.groupEvents.length > 1;
       const innerHtml = isTrGroup ? hlTlStackedInnerTrGroup(ev) : hlTlStackedInner(ev);
-      blocks += `<div class="${cls}" style="top:${top}px;height:${ht}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${hlTlCatBadgeHtml(ev.category_code)}${innerHtml}</div>`;
+      blocks += `<div class="${cls}" style="top:${top}px;height:${ht}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${innerHtml}</div>`;
     });
     canvas.innerHTML = baseGrids + nowLine + blocks;
   });
