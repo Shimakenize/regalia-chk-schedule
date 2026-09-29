@@ -1470,7 +1470,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 152;
+const __UI_BUILD__  = 153;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2004,6 +2004,11 @@ function applyBootstrapResult(res, opts) {
   renderSchedList();
   renderOfficialHp();
   renderCoachRaw();
+  // 予定タブを開いたまま最新データが届いた場合（起動時のキャッシュ表示→最新反映、
+  // 「最新データあり」バナーからの反映）も描き直す。これが無いと予定タブだけ前回データの
+  // まま残り、追加した練習が表示されなかった（2026-09-29、UI Build 153）。
+  const hlPage = document.getElementById('page-schedule-hl');
+  if (hlPage && hlPage.classList.contains('active')) renderScheduleHighlights();
 
   if (isAdmin) {
     document.getElementById('members-section').style.display = '';
