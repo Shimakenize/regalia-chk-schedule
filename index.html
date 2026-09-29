@@ -218,6 +218,15 @@
     .chip-btn.hl-daybtn-sun { color:#f0929b; border-color:rgba(240,146,155,.35); }
     .chip-btn.hl-daybtn-sat.active { background:#2f5f8f; color:#fff; border-color:#2f5f8f; }
     .chip-btn.hl-daybtn-sun.active { background:#8a3540; color:#fff; border-color:#8a3540; }
+    /* 日にち選択ボタンは7日分を必ず1行に収める（2026-09-29指摘）。幅を7等分し、
+       日付と曜日を2段にして狭い画面でも折り返さない。 */
+    #hl-timeline-day-picker { flex-wrap:nowrap; gap:4px; }
+    #hl-timeline-day-picker .chip-btn {
+      flex:1 1 0; min-width:0; padding:4px 0; text-align:center; line-height:1.2;
+      display:flex; flex-direction:column; align-items:center; white-space:nowrap;
+    }
+    #hl-timeline-day-picker .hl-daybtn-date { font-size:11px; }
+    #hl-timeline-day-picker .hl-daybtn-dow { font-size:10px; font-weight:500; opacity:.85; }
 
     /* ── Compare: cards ───────────────────────────────── */
     .cmp-list { padding: 4px 16px 30px; }
@@ -711,7 +720,12 @@
        7日分を横に並べるためスマホ幅では横スクロールになる。 */
     /* 今週/来週チップ（左）＋表示形式スイッチ（右端）の1行ツールバー（2026-09-26） */
     .hl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-    .hl-toolbar .chip-row { margin-bottom:0; flex-wrap:nowrap; }
+    .hl-toolbar .chip-row { margin-bottom:0; flex-wrap:nowrap; gap:5px; }
+    /* 今週/来週/再来週の3チップ＋スイッチを狭い画面でも1行に収める（2026-09-29）。
+       ツールバー・週範囲・日にちボタンは画面端に貼り付かないよう左右に余白を取る。 */
+    .hl-toolbar .chip-btn { padding:7px 10px; white-space:nowrap; }
+    .hl-toolbar, .hl-week-range, #hl-timeline-day-picker { padding-left:10px; padding-right:10px; }
+    .hl-week-range { margin-left:0; margin-right:0; }
     .hl-view-switch { display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none; flex-shrink:0; }
     .hl-view-switch-label { font-size:11px; font-weight:600; color:var(--muted); transition:color .15s; }
     .hl-view-switch-label.active { color:var(--gold); }
@@ -1315,6 +1329,7 @@
       <div class="chip-row" id="hl-week-toggle">
         <div class="chip-btn active" data-week="0" onclick="hlSelectWeek(0)">今週</div>
         <div class="chip-btn" data-week="1" onclick="hlSelectWeek(1)">来週</div>
+        <div class="chip-btn" data-week="2" onclick="hlSelectWeek(2)">再来週</div>
       </div>
       <div class="hl-view-switch on" id="hl-view-toggle" role="switch" aria-checked="true" aria-label="タイムライン表示" tabindex="0"
            onclick="hlSelectView(hlSelectedView === 'timeline' ? 'card' : 'timeline')"
@@ -1470,7 +1485,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 154;
+const __UI_BUILD__  = 155;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2960,7 +2975,7 @@ async function deleteUser(lineUserId, coachName) {
 // bootstrap時に既にフィルタ済みのcoachDataをそのまま使い、他アプリのAPIは一切呼ばない。
 // 天気（麻溝台、tenki.jpスクレイピング＋OpenWeatherMapフォールバック）とタイムライン
 // 画像（Cloud Runレンダラー、REGALIA_schedule_managementと共用）のみサーバー側API。
-let hlSelectedWeek = 0; // 0=今週, 1=来週
+let hlSelectedWeek = 0; // 0=今週, 1=来週, 2=再来週（2026-09-29追加）
 let hlSelectedView = 'timeline'; // 'card' | 'timeline'（2026-09-26: 既定をタイムラインに変更、指摘）
 let hlWeatherData = null;
 let hlWeatherLoading = false;
@@ -3165,16 +3180,19 @@ async function renderHlTimelinePicker() {
     const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
     hlTimelineSelectedDay = days.includes(todayStr) ? todayStr : (daysWithMatches[0] || days[0]);
   }
-  picker.innerHTML = days.map(day =>
-    `<div class="chip-btn ${hlDayColorClass(day)}${day === hlTimelineSelectedDay ? ' active' : ''}" onclick="hlSelectTimelineDay('${day}')">${fmtDate(day)}</div>`
-  ).join('');
+  picker.innerHTML = days.map(day => {
+    const [, mo, dd] = day.split('-').map(Number);
+    const dow = ['日','月','火','水','木','金','土'][new Date(day + 'T00:00:00').getDay()];
+    return `<div class="chip-btn ${hlDayColorClass(day)}${day === hlTimelineSelectedDay ? ' active' : ''}" data-day="${day}" onclick="hlSelectTimelineDay('${day}')">`
+      + `<span class="hl-daybtn-date">${mo}/${dd}</span><span class="hl-daybtn-dow">${dow}</span></div>`;
+  }).join('');
   hlTlRenderDay(hlTimelineSelectedDay);
 }
 
 function hlSelectTimelineDay(day) {
   hlTimelineSelectedDay = day;
   document.querySelectorAll('#hl-timeline-day-picker .chip-btn').forEach((b, i) => {
-    b.classList.toggle('active', b.textContent === fmtDate(day));
+    b.classList.toggle('active', b.dataset.day === day);
   });
   hlTlRenderDay(day);
 }
