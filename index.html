@@ -1470,7 +1470,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 153;
+const __UI_BUILD__  = 154;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1597,6 +1597,7 @@ function _bootstrapFingerprint(res) {
     return JSON.stringify({
       registered: !!res.registered,
       isAdmin: !!res.isAdmin,
+      canViewSchedule: !!res.canViewSchedule,
       isAllowed: !!res.isAllowed,
       coachName: res.coachName || '',
       discrepancies: res.discrepancies || [],
@@ -1968,9 +1969,9 @@ function applyBootstrapResult(res, opts) {
   document.getElementById('main-app').style.display = '';
   hideBootLoading();
   if (isAdmin) document.getElementById('admin-tab').style.display = '';
-  // 予定タブは完成度が上がるまでKenichiro Shimada（管理者）のみに限定表示
-  // （2026-09-23、いずれ全体公開する想定でisAdmin判定のみに単純化してある）
-  if (isAdmin) document.getElementById('schedule-hl-tab').style.display = '';
+  // 予定タブは完成度が上がるまで限定表示。管理者＋GAS側 SCHEDULE_TAB_VIEWER_NAMES の
+  // 登録ユーザー（しまだみほこ・Takumi#6、2026-09-29追加）にのみ表示（判定はGASのcanViewSchedule）
+  if (isAdmin || res.canViewSchedule) document.getElementById('schedule-hl-tab').style.display = '';
 
   document.getElementById('header-user').textContent = displayName || '';
 
