@@ -1470,7 +1470,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 151;
+const __UI_BUILD__  = 152;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1602,6 +1602,9 @@ function _bootstrapFingerprint(res) {
       discrepancies: res.discrepancies || [],
       schedules: res.schedules || [],
       coachSchedules: res.coachSchedules || [],
+      // 練習(TR)は予定タブ専用の別フィールド。ここに含めないと「TRだけ増えた」応答を
+      // 前回と同一と誤判定し、画面が更新されないまま「読み込み完了」になる（2026-09-29、UI Build 152）
+      trainingSchedules: res.trainingSchedules || [],
       scrapeLogs: res.scrapeLogs || [],
       officialDocuments: res.officialDocuments || [],
       coachUpdateLogs: res.coachUpdateLogs || [],
