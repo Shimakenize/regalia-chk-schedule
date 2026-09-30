@@ -1485,7 +1485,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 155;
+const __UI_BUILD__  = 156;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1516,6 +1516,7 @@ const NOTIFY_KIND_LABELS = {
   ng_detected:     '照合NG新規検知',
   ng_resolved:     '照合NG解消',
   ng_and_resolved: '照合NG新規検知＋解消',
+  weekend_pending: '今週末の活動リマインド（公式HP掲載待ち・LINE通知待ち）',
 };
 
 const OFFICIAL_SOURCES = [
