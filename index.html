@@ -828,8 +828,14 @@
        スクロールするのはカテゴリー列の領域だけで、左の時刻軸と天気レールはこの外側に
        あるため固定表示のまま。各列の幅はhlTlApplyLaneWidths()が描画後に設定する。 */
     .hl-tl-catcols {
-      flex:1; display:flex; min-width:0; gap:2px;
+      flex:1; display:flex; min-width:0; gap:2px; position:relative;
       overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+    }
+    /* 試合が無い日でも時間軸・天気レールは表示したまま、3列領域にだけ重ねる
+       空状態メッセージ（2026-09-30新設）。列自体（グリッド線）は下に描画されたまま。 */
+    .hl-tl-empty-msg {
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      color:var(--muted); font-size:12px; pointer-events:none; z-index:2;
     }
     .hl-tl-catcol { flex:1; position:relative; min-width:0; border-left:1px solid var(--border); }
     /* 横スクロールできることを示すヒント（2026-09-27指摘）。カテゴリー列の表示領域
@@ -1485,7 +1491,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 156;
+const __UI_BUILD__  = 157;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3668,10 +3674,12 @@ async function hlTlRenderDay(day) {
   const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
   // カード形式と同じくcoachData+trainingData（練習TR）を合算する（2026-09-25指摘）。
   const dayEvents = hlTlCollapseFutsal(hlTlCollapseTr((coachData || []).concat(trainingData || []).filter(m => normDate(m.event_date) === day)));
-  if (!dayEvents.length) {
-    body.innerHTML = '<div class="hl-timeline-msg">この日は試合がありません</div>';
-    return;
-  }
+  // 試合が無い日（例: 明日）も左の時間軸・天気レールは表示し続ける（2026-09-30指摘:
+  // 「明日の10/1の様に、スケジュールが無い日も、左の時間枠と天気は表示するように」）。
+  // 従来はここで即returnしメッセージのみの表示にしていたが、hlTlSetHourWindow()は
+  // 空配列でもデフォルト時間帯（6-22時）にフォールバックする実装のため、そのまま
+  // 通常の描画フローに乗せられる。「試合がありません」は3列カテゴリー領域の上に
+  // 重ねるオーバーレイ表示に変更（下記hl-tl-empty-msg）。
   hlTlSetHourWindow(dayEvents, day, todayStr);
 
   const d = new Date(day + 'T00:00:00');
@@ -3702,7 +3710,7 @@ async function hlTlRenderDay(day) {
         <div class="${dayCls}"><div>${d.getMonth() + 1}/${d.getDate()}</div><div class="hl-tl-dow">${dow}</div></div>
         <div class="hl-tl-daybody">
           <div class="hl-tl-wxrail" id="hl-tl-wxrail"><div class="hl-tl-wxrail-tag">麻溝台</div></div>
-          <div class="hl-tl-catcols">${colsHtml}</div>
+          <div class="hl-tl-catcols">${colsHtml}${dayEvents.length ? '' : '<div class="hl-tl-empty-msg">この日は試合がありません</div>'}</div>
           <div class="hl-tl-scrollhint" id="hl-tl-scrollhint"><button type="button" class="hl-tl-scrollhint-btn" aria-label="右に続きがあります"><span>›</span></button></div>
         </div>
       </div>
