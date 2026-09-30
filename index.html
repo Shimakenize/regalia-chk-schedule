@@ -1446,10 +1446,15 @@
 
     <div id="admin-panel-logs" class="admin-panel active">
       <div id="members-section" class="members-card" style="display:none;">
-        <div class="members-title">登録メンバーリスト</div>
-        <div class="members-meta" id="members-meta">読み込み中…</div>
-        <div id="members-body"></div>
-        <button class="members-refresh-btn" onclick="refreshMembers()">更新</button>
+        <button type="button" class="official-detail-toggle" id="members-accordion-toggle" onclick="toggleMembersAccordion()" style="width:100%;justify-content:space-between;display:flex">
+          <span class="members-title" style="margin:0">登録メンバーリスト</span>
+          <span class="official-detail-chevron" id="members-chevron">▸</span>
+        </button>
+        <div id="members-accordion-body" style="display:none;margin-top:8px">
+          <div class="members-meta" id="members-meta">読み込み中…</div>
+          <div id="members-body"></div>
+          <button class="members-refresh-btn" onclick="refreshMembers()">更新</button>
+        </div>
       </div>
       <div id="access-log-section" class="members-card" style="display:none;">
         <button type="button" class="official-detail-toggle" id="access-log-accordion-toggle" onclick="toggleAccessLogAccordion()" style="width:100%;justify-content:space-between;display:flex">
@@ -1491,7 +1496,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 157;
+const __UI_BUILD__  = 158;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -4087,9 +4092,17 @@ function switchAdminPanel(name) {
   if (name === 'compare') loadMgmtCompareResult();
   if (name === 'notify') refreshPendingNotifications();
   if (name === 'logs') {
-    refreshMembers();
-    // アクセスログはアコーディオン展開時に読み込む（折りたたみ時は取得しない）
+    // 登録メンバー・アクセスログともアコーディオン展開時に読み込む（折りたたみ時は取得しない、2026-09-30）
   }
+}
+
+function toggleMembersAccordion() {
+  const body = document.getElementById('members-accordion-body');
+  const chevron = document.getElementById('members-chevron');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  chevron.textContent = open ? '▸' : '▾';
+  if (!open) refreshMembers();
 }
 
 function toggleAccessLogAccordion() {
