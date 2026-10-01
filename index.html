@@ -1203,9 +1203,9 @@
     <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリ</div>
     <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較</div>
     <div class="tab" data-tab="standings" onclick="switchTab('standings')">順位<span class="tab-new-badge" id="standings-new-badge">NEW</span></div>
+    <div class="tab" id="schedule-hl-tab" data-tab="schedule-hl" onclick="switchTab('schedule-hl')" style="display:none;">予定</div>
     <div class="tab" data-tab="official" onclick="switchTab('official')">公式</div>
     <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE</div>
-    <div class="tab" id="schedule-hl-tab" data-tab="schedule-hl" onclick="switchTab('schedule-hl')" style="display:none;">予定</div>
     <div class="tab" id="admin-tab" data-tab="admin" onclick="switchTab('admin')" style="display:none;">管理</div>
   </div>
 
@@ -1539,7 +1539,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 159;
+const __UI_BUILD__  = 160;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
