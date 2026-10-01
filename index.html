@@ -634,7 +634,14 @@
       font-size: 11px; color: var(--muted); margin-top: 10px; padding: 0 2px;
       line-height: 1.6;
     }
-    .official-table { width:100%; border-collapse:collapse; border-radius:14px; overflow:hidden; border:1px solid var(--border); }
+    /* 稼働中/準備中/終了のグループ見出し（2026-10-02新設）。2つ目以降のグループは
+       上のテーブルとの間隔を空ける。 */
+    .official-group-label {
+      font-size: 13px; font-weight: 700; color: var(--gold-lt);
+      margin: 18px 2px 8px; padding: 0 2px;
+    }
+    .official-wrap > .official-group-label:first-of-type { margin-top: 0; }
+    .official-table { width:100%; border-collapse:collapse; border-radius:14px; overflow:hidden; border:1px solid var(--border); margin-bottom: 4px; }
     .official-table th {
       background: linear-gradient(110deg,#11305a,#0d2142);
       color: var(--gold); font-size:11px; font-weight:700;
@@ -1292,6 +1299,8 @@
   <div id="page-official" class="page">
     <div class="official-wrap">
       <p class="official-hint">大会名をタップすると公式HPを開きます。差分がある場合は「変更検知 N件追加」をタップすると内容を開けます。時刻はすべてJSTです。</p>
+
+      <div class="official-group-label">稼働中</div>
       <table class="official-table">
         <thead>
           <tr>
@@ -1301,10 +1310,44 @@
             <th>最終確認時間</th>
           </tr>
         </thead>
-        <tbody id="official-tbody">
+        <tbody id="official-tbody-active">
           <tr><td colspan="4" class="empty-msg">読み込み中…</td></tr>
         </tbody>
       </table>
+
+      <div class="official-group-label">準備中</div>
+      <table class="official-table">
+        <thead>
+          <tr>
+            <th>大会名</th>
+            <th>差分検出時刻</th>
+            <th>差分結果</th>
+            <th>最終確認時間</th>
+          </tr>
+        </thead>
+        <tbody id="official-tbody-preparing"></tbody>
+      </table>
+
+      <!-- 終了セクションはアコーディオンでデフォルト折りたたみ（2026-10-02、登録メンバー
+           リストと同じtoggleパターンを流用）。 -->
+      <button type="button" class="official-detail-toggle" id="official-ended-toggle" onclick="toggleOfficialEndedAccordion()" style="width:100%;justify-content:space-between;display:flex">
+        <span class="official-group-label" style="margin:0">終了</span>
+        <span class="official-detail-chevron" id="official-ended-chevron">▸</span>
+      </button>
+      <div id="official-ended-body" style="display:none;margin-top:8px">
+        <table class="official-table">
+          <thead>
+            <tr>
+              <th>大会名</th>
+              <th>差分検出時刻</th>
+              <th>差分結果</th>
+              <th>最終確認時間</th>
+            </tr>
+          </thead>
+          <tbody id="official-tbody-ended"></tbody>
+        </table>
+      </div>
+
       <p class="official-note">
         ※「変更検知」= 公式HPのHTML変化をスクレイパーが検知。件数はREGALIA試合数。<br>
         ※ LINE通知は公式HP↔コーチLINEの照合に差分が生じた場合のみ送信されます。
@@ -1496,7 +1539,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 158;
+const __UI_BUILD__  = 159;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1530,24 +1573,33 @@ const NOTIFY_KIND_LABELS = {
   weekend_pending: '今週末の活動リマインド（公式HP掲載待ち・LINE通知待ち）',
 };
 
+// 各ソースのstatus（2026-10-02新設）: 'active'=稼働中（通常のスクレイプ対象）、
+// 'preparing'=準備中（大会未開始・ページ未公開等、disabled:trueで自動スクレイプ対象外）、
+// 'ended'=終了（シーズン終了、公式タブでは折りたたみ表示。「稼働中/準備中/終了を分けて、
+// 終了はアコーディオンで閉じておいて」との指示を受け整理）。
 const OFFICIAL_SOURCES = [
-  { id: 'U-15',        label: 'U-15リーグ(2部)',         shortLabel: 'U15L 2部',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-2b-2026/' },
-  { id: 'U-15_TKMD',   label: '高円宮杯',                 shortLabel: '高円宮杯',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/tkmd-2026' },
-  { id: 'U-15_4B',     label: 'U-15リーグ(4部2nd・U14参戦)', shortLabel: 'U15L 4部',  url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-4b-2nd-2026/' },
-  { id: 'U-14',        label: 'U-14リーグ',               shortLabel: 'U14L',       url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/' },
-  { id: 'U-13L',       label: 'U-13リーグ(2部)',          shortLabel: 'U13L',       url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u13league-2nddiv-2026/' },
+  // ── 稼働中 ──
+  { id: 'U-15',        label: 'U-15リーグ(2部)',         shortLabel: 'U15L 2部',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-2b-2026/', status: 'active' },
+  { id: 'U-15_4B',     label: 'U-15リーグ(4部2nd・U14参戦)', shortLabel: 'U15L 4部',  url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u15-4b-2nd-2026/', status: 'active' },
+  { id: 'U-13L',       label: 'U-13リーグ(2部)',          shortLabel: 'U13L',       url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/u13league-2nddiv-2026/', status: 'active' },
   // v0.2.75（2026-09-01）: 2026年後期。前期昇格によりU-15/U-14はU-15フットサル2部、
   // U-13はU-15フットサル3部Aへ編入。v0.2.92（2026-09-06）で公式HP（matchday-live.com）の
   // 後期race IDが判明したためurlを設定（2部2ndと3部A2ndはそれぞれ別race）。
-  { id: 'U-15_FUTSAL', label: 'U-15フットサル2部[U15参戦]',  shortLabel: 'U15FL2部[U15]', url: 'https://matchday-live.com/race/4SEpLADu' },
-  { id: 'U-14_FUTSAL', label: 'U-15フットサル2部[U14参戦]',  shortLabel: 'U15FL2部[U14]', url: 'https://matchday-live.com/race/4SEpLADu' },
-  { id: 'U-13_FUTSAL', label: 'U-15フットサル3部A[U13参戦]', shortLabel: 'U15FL3部A[U13]', url: 'https://matchday-live.com/race/IXBH8Dw8' },
-  // S.M.A.L.L. CUP（id: 'U-13'）はv0.2.88（2026-09-02）で終了に伴い削除
-  { id: 'U-15_SAGAMIHARA', label: '相模原市U15リーグ',    shortLabel: '相模原U15L', url: 'http://sagamihara-fa.com/tyugaku.html' },
+  { id: 'U-15_FUTSAL', label: 'U-15フットサル2部[U15参戦]',  shortLabel: 'U15FL2部[U15]', url: 'https://matchday-live.com/race/4SEpLADu', status: 'active' },
+  { id: 'U-14_FUTSAL', label: 'U-15フットサル2部[U14参戦]',  shortLabel: 'U15FL2部[U14]', url: 'https://matchday-live.com/race/4SEpLADu', status: 'active' },
+  { id: 'U-13_FUTSAL', label: 'U-15フットサル3部A[U13参戦]', shortLabel: 'U15FL3部A[U13]', url: 'https://matchday-live.com/race/IXBH8Dw8', status: 'active' },
+  { id: 'U-15_SAGAMIHARA', label: '相模原市U15リーグ',    shortLabel: '相模原U15L', url: 'http://sagamihara-fa.com/tyugaku.html', status: 'active' },
+  // ── 準備中 ──
   // v0.2.151（2026-09-27）: 新規大会「GFL(U13)」追加。正式名称Growth Future League
   // Group B（U-13）。ページが「Coming Soon」で日程・結果とも未掲載のため、公式タブに
   // 枠（リンク付き・「未記録」表示）だけ用意。自動スクレイプはcategories.yaml側でdisabled。
-  { id: 'U-13_GFL',    label: 'Growth Future League(Group B)', shortLabel: 'GFL', url: 'https://growth-fl.com/muchresult-groupb-2026/' },
+  { id: 'U-13_GFL',    label: 'Growth Future League(Group B)', shortLabel: 'GFL', url: 'https://growth-fl.com/muchresult-groupb-2026/', status: 'preparing' },
+  // 2026-10-02追加。前期のS.M.A.L.L. CUP（id:'U-13'）はv0.2.88で終了済みの別シーズン。
+  // 後期開催は決定済みだが公式HPは未公開でInstagramのみ（URL未定のためurl省略、TBD表示）。
+  { id: 'U-13',        label: 'S.M.A.L.L. CUP(後期)',    shortLabel: 'S.M.A.L.L後期', status: 'preparing' },
+  // ── 終了 ──
+  { id: 'U-15_TKMD',   label: '高円宮杯',                 shortLabel: '高円宮杯',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/tkmd-2026', status: 'ended' },
+  { id: 'U-14',        label: 'U-14リーグ',               shortLabel: 'U14L',       url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/', status: 'ended' },
 ];
 const SRC_MAP = Object.fromEntries(OFFICIAL_SOURCES.map(s => [s.id, s]));
 
@@ -2101,13 +2153,13 @@ function toggleOfficialDetail(id) {
   renderOfficialHp();
 }
 
-function renderOfficialHp() {
-  const tbody = document.getElementById('official-tbody');
-  if (!tbody) return;
-  const today = new Intl.DateTimeFormat('sv', {timeZone: 'Asia/Tokyo'}).format(new Date());
+// 稼働中/準備中/終了のグループごとに<tbody>を分けてレンダリングする（2026-10-02、
+// 「公式ページ、稼働中のものと、準備中・終了したものを分ける。終了はアコーディオンで
+// 閉じておいて」との指示を受け、従来の単一テーブル描画をグループ単位に分割）。
+// 1件分の<tr>群（本体行＋任意の詳細展開行）を組み立てる処理自体は変更していない。
+function _officialRowsHtml(sources, today) {
   const rows = [];
-
-  OFFICIAL_SOURCES.forEach(src => {
+  sources.forEach(src => {
     const log = scrapeLogData.find(r => r.category_code === src.id);
     const lastChecked = log ? String(log.last_checked || '') : '';
     const lastChanged = log ? String(log.last_changed || '') : '';
@@ -2173,7 +2225,30 @@ function renderOfficialHp() {
     }
   });
 
-  tbody.innerHTML = rows.join('');
+  return rows.join('');
+}
+
+function renderOfficialHp() {
+  const activeTbody = document.getElementById('official-tbody-active');
+  const preparingTbody = document.getElementById('official-tbody-preparing');
+  const endedTbody = document.getElementById('official-tbody-ended');
+  if (!activeTbody) return;
+  const today = new Intl.DateTimeFormat('sv', {timeZone: 'Asia/Tokyo'}).format(new Date());
+
+  const bySrcStatus = status => OFFICIAL_SOURCES.filter(s => (s.status || 'active') === status);
+  const emptyRow = `<tr><td colspan="4" class="empty-msg">該当なし</td></tr>`;
+
+  activeTbody.innerHTML    = _officialRowsHtml(bySrcStatus('active'), today) || emptyRow;
+  preparingTbody.innerHTML = _officialRowsHtml(bySrcStatus('preparing'), today) || emptyRow;
+  endedTbody.innerHTML     = _officialRowsHtml(bySrcStatus('ended'), today) || emptyRow;
+}
+
+function toggleOfficialEndedAccordion() {
+  const body = document.getElementById('official-ended-body');
+  const chevron = document.getElementById('official-ended-chevron');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  chevron.textContent = open ? '▸' : '▾';
 }
 
 // ── buildMerged ──────────────────────────────────────────────────────────────
