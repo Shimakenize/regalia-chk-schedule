@@ -1572,7 +1572,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 161;
+const __UI_BUILD__  = 162;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1604,6 +1604,7 @@ const NOTIFY_KIND_LABELS = {
   ng_resolved:     '照合NG解消',
   ng_and_resolved: '照合NG新規検知＋解消',
   weekend_pending: '今週末の活動リマインド（公式HP掲載待ち・LINE通知待ち）',
+  status_update:   '最新状況の配信依頼（管理者トリガー）',
 };
 
 // 各ソースのstatus（2026-10-02新設）: 'active'=稼働中（通常のスクレイプ対象）、
