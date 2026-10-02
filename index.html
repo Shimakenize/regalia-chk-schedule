@@ -1004,6 +1004,26 @@
     .standings-upcoming-row:first-of-type { border-top:none; }
     .standings-upcoming-row span:first-child { color:var(--muted); min-width:56px; }
     .standings-upcoming-row span:last-child { color:var(--dim); font-size:11px; margin-left:auto; text-align:right; }
+
+    /* ── 予定タブ：イベント詳細モーダル（2026-10-02新設） ───────────── */
+    #hl-event-detail-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 200;
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .hl-event-detail-group { padding: 10px 0; border-top: 1px solid rgba(255,255,255,.06); }
+    .hl-event-detail-group:first-child { border-top: none; padding-top: 0; }
+    .hl-event-detail-group-head { font-size: 11px; color: var(--gold); font-weight: 700; margin-bottom: 4px; }
+    .hl-event-detail-row { display: flex; gap: 10px; font-size: 12px; padding: 4px 0; }
+    .hl-event-detail-row span:first-child { color: var(--muted); min-width: 56px; flex-shrink: 0; }
+    .hl-event-detail-row span:last-child { color: #d8dee8; white-space: pre-wrap; word-break: break-word; }
+    .hl-event-detail-raw {
+      font-size: 11px; color: var(--dim); white-space: pre-wrap; word-break: break-word;
+      background: rgba(255,255,255,.03); border-radius: 8px; padding: 8px 10px; margin-top: 4px;
+    }
     .standings-sim { margin-top: 16px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid var(--border); }
     .standings-sim-title { font-size:12px; color:var(--gold); font-weight:700; margin-bottom:10px; }
     .standings-sim-block { border-radius: 8px; padding: 9px 11px; margin-bottom:8px; border:1px solid var(--border); }
@@ -1174,6 +1194,19 @@
       <button class="history-close" onclick="closeStandingsUpcoming()">✕ 閉じる</button>
     </div>
     <div class="history-list" id="standings-upcoming-list"></div>
+  </div>
+</div>
+
+<!-- ── 予定タブ：イベント詳細モーダル（2026-10-02新設）。カード形式・タイムライン
+     形式どちらのイベントをタップしても、カード/バーの表示スペースでは省略される
+     集合・解散・メモ・原文LINEメッセージまで含めた全情報を表示する。 -->
+<div id="hl-event-detail-overlay">
+  <div class="history-card">
+    <div class="history-bar">
+      <span class="history-title" id="hl-event-detail-title">イベント詳細</span>
+      <button class="history-close" onclick="closeHlEventDetail()">✕ 閉じる</button>
+    </div>
+    <div class="history-list" id="hl-event-detail-list"></div>
   </div>
 </div>
 
@@ -1539,7 +1572,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 160;
+const __UI_BUILD__  = 161;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3179,13 +3212,71 @@ function hlEventKindClass(m) {
   return 'hl-kind-match';
 }
 
+// ── 予定タブ：イベント詳細モーダル（2026-10-02新設） ─────────────────────────
+// 「カード形式・タイムライン形式どちらもイベントをタップすると、省略されている
+// 集合・解散・メモ・原文LINEメッセージまで含めた全情報をポップアップで見られる
+// ようにしてほしい」との指示を受け実装。カード/タイムラインのレンダリング関数は
+// 毎回呼ばれるたびレジストリを使い回すため、描画のたびにリセットしてから登録する
+// （onclickからはインデックス番号だけを渡し、クリック時にここから元オブジェクトを
+// 引く。連結TR・併合フットサルなど合成オブジェクト（id不定・groupEvents持ち）でも
+// 同じ仕組みでそのまま拾えるようにするため、idではなく配列インデックスで管理する）。
+let hlEventDetailRegistry = [];
+function hlResetEventDetailRegistry() { hlEventDetailRegistry = []; }
+function hlRegisterEventDetail(ev) {
+  hlEventDetailRegistry.push(ev);
+  return hlEventDetailRegistry.length - 1;
+}
+
+function _hlEventDetailRowsHtml(ev) {
+  const isTr = ev.event_kind === 'TR';
+  const rows = [];
+  rows.push(['日付', fmtDate(normDate(ev.event_date))]);
+  rows.push(['カテゴリ', catBase(ev.category_code) || '—']);
+  rows.push(['種別', isTr ? '練習' : '試合']);
+  if (!isTr) rows.push(['対戦相手', ev.title || '未定']);
+  if (ev.league_or_competition) rows.push(['大会名', ev.league_or_competition]);
+  if (ev.pre_event_coach) rows.push(['集合', ev.pre_event_coach]);
+  rows.push(['時刻', ev.event_time || '—']);
+  if (ev.post_event_coach) rows.push(['解散', ev.post_event_coach]);
+  if (ev.venue) rows.push(['会場', ev.venue]);
+  if (ev.notes) rows.push(['メモ', ev.notes]);
+  const rowsHtml = rows.map(([k, v]) => `<div class="hl-event-detail-row"><span>${escHtml(k)}</span><span>${escHtml(v)}</span></div>`).join('');
+  const rawHtml = ev.source_line_msg ? `<div class="hl-event-detail-raw">${escHtml(ev.source_line_msg)}</div>` : '';
+  return rowsHtml + rawHtml;
+}
+
+// 併合済み（futsal複数試合を1ブロックにまとめた等）の場合はgroupEventsの各試合を
+// 個別のグループとして全件表示する。それ以外は単一イベントの詳細のみ。
+function openHlEventDetail(idx) {
+  const ev = hlEventDetailRegistry[idx];
+  if (!ev) return;
+  const overlay = document.getElementById('hl-event-detail-overlay');
+  const list = document.getElementById('hl-event-detail-list');
+  const title = document.getElementById('hl-event-detail-title');
+  if (ev.groupEvents && ev.groupEvents.length > 1) {
+    title.textContent = `イベント詳細（${ev.groupEvents.length}件）`;
+    list.innerHTML = ev.groupEvents.map((sub, i) =>
+      `<div class="hl-event-detail-group"><div class="hl-event-detail-group-head">${i + 1}件目</div>${_hlEventDetailRowsHtml(sub)}</div>`
+    ).join('');
+  } else {
+    title.textContent = 'イベント詳細';
+    list.innerHTML = `<div class="hl-event-detail-group">${_hlEventDetailRowsHtml(ev)}</div>`;
+  }
+  overlay.style.display = 'flex';
+}
+
+function closeHlEventDetail() {
+  document.getElementById('hl-event-detail-overlay').style.display = 'none';
+}
+
 function hlCardHtml(m) {
   const isTr = m.event_kind === 'TR';
   const league = isTr ? '' : withParticipantTag(m.league_or_competition || '', m.category_code);
   const timeStr = String(m.event_time || '').replace(/K\/O.*$/, '').trim();
   const hour = hlParseEventHour(m.event_time);
   const wx = hour != null ? hlWeatherBadge(normDate(m.event_date), hour) : null;
-  return `<div class="hl-card ${hlEventKindClass(m)}">
+  const detailIdx = hlRegisterEventDetail(m);
+  return `<div class="hl-card ${hlEventKindClass(m)}" onclick="openHlEventDetail(${detailIdx})" style="cursor:pointer">
     ${wx ? `<div class="hl-card-wx ${wx.cls}">${escHtml(wx.tag)}</div>` : ''}
     ${league ? `<div class="hl-card-league">${escHtml(league)}</div>` : ''}
     <div class="hl-card-title">${isTr ? escHtml(m.title || '練習') : 'vs ' + escHtml(m.title || '未定')}</div>
@@ -3211,6 +3302,7 @@ function renderScheduleHighlights() {
   const matches = (coachData || []).concat(trainingData || []).filter(m => days.includes(normDate(m.event_date)));
 
   const renderGrid = () => {
+    hlResetEventDetailRegistry();
     grid.innerHTML = days.map(day => {
     const dayMatches = matches.filter(m => normDate(m.event_date) === day);
     const isToday = day === todayStr;
@@ -3632,7 +3724,8 @@ function hlTlStackedInner(ev) {
   if (mainE > mainS) {
     let mainWeight = Math.max(1, mainE - mainS);
     if (isGroup) mainWeight *= ev.groupEvents.length;
-    h += `<div class="hl-tl-seg hl-tl-seg--main ${hlEventKindClass(ev)}" style="flex:${mainWeight} 1 0">
+    const detailIdx = hlRegisterEventDetail(ev);
+    h += `<div class="hl-tl-seg hl-tl-seg--main ${hlEventKindClass(ev)}" style="flex:${mainWeight} 1 0;cursor:pointer" onclick="openHlEventDetail(${detailIdx})">
       <div class="hl-tl-seg-timerow">
         <span class="hl-tl-seg-time">${escHtml(hlTlHm(core.start) + (core.end > core.start ? '-' + hlTlHm(core.end) : ''))}</span>
       </div>
@@ -3750,6 +3843,7 @@ async function hlTlRenderDay(day) {
   hlTlBindResize();
   const body = document.getElementById('hl-timeline-body');
   if (!body) return;
+  hlResetEventDetailRegistry();
   await hlEnsureWeatherLoaded();
   const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
   // カード形式と同じくcoachData+trainingData（練習TR）を合算する（2026-09-25指摘）。
