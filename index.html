@@ -1572,7 +1572,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 162;
+const __UI_BUILD__  = 163;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1623,14 +1623,16 @@ const OFFICIAL_SOURCES = [
   { id: 'U-14_FUTSAL', label: 'U-15フットサル2部[U14参戦]',  shortLabel: 'U15FL2部[U14]', url: 'https://matchday-live.com/race/4SEpLADu', status: 'active' },
   { id: 'U-13_FUTSAL', label: 'U-15フットサル3部A[U13参戦]', shortLabel: 'U15FL3部A[U13]', url: 'https://matchday-live.com/race/IXBH8Dw8', status: 'active' },
   { id: 'U-15_SAGAMIHARA', label: '相模原市U15リーグ',    shortLabel: '相模原U15L', url: 'http://sagamihara-fa.com/tyugaku.html', status: 'active' },
+  // 2026-10-02追加（準備中）→2026-10-03公式HP公開を確認し稼働中へ移動。前期の
+  // S.M.A.L.L. CUP（id:'U-13'）はv0.2.88で終了済みの別シーズン。新公式HPはFirebase SPAで
+  // 「全チーム」セレクトからREGALIAを選べば該当試合のみ絞り込める（categories.yaml側
+  // site_type: new_small_cup、専用Playwrightスクレイパー実装済み）。
+  { id: 'U-13',        label: 'S.M.A.L.L. CUP(後期)',    shortLabel: 'S.M.A.L.L後期', url: 'https://new-small-cup-u13.web.app/schedule', status: 'active' },
   // ── 準備中 ──
   // v0.2.151（2026-09-27）: 新規大会「GFL(U13)」追加。正式名称Growth Future League
   // Group B（U-13）。ページが「Coming Soon」で日程・結果とも未掲載のため、公式タブに
   // 枠（リンク付き・「未記録」表示）だけ用意。自動スクレイプはcategories.yaml側でdisabled。
   { id: 'U-13_GFL',    label: 'Growth Future League(Group B)', shortLabel: 'GFL', url: 'https://growth-fl.com/muchresult-groupb-2026/', status: 'preparing' },
-  // 2026-10-02追加。前期のS.M.A.L.L. CUP（id:'U-13'）はv0.2.88で終了済みの別シーズン。
-  // 後期開催は決定済みだが公式HPは未公開でInstagramのみ（URL未定のためurl省略、TBD表示）。
-  { id: 'U-13',        label: 'S.M.A.L.L. CUP(後期)',    shortLabel: 'S.M.A.L.L後期', status: 'preparing' },
   // ── 終了 ──
   { id: 'U-15_TKMD',   label: '高円宮杯',                 shortLabel: '高円宮杯',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/tkmd-2026', status: 'ended' },
   { id: 'U-14',        label: 'U-14リーグ',               shortLabel: 'U14L',       url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/', status: 'ended' },
