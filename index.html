@@ -1033,11 +1033,24 @@
     .standings-sim-head { font-size:12px; color:var(--sub); margin-bottom:4px; }
     .standings-sim-detail { font-size:11.5px; color:var(--muted); line-height:1.6; }
     .standings-sim-caveat { font-size:10.5px; color:var(--dim); margin-top:6px; line-height:1.5; }
-    .official-detail-row td {
-      padding: 2px 13px 10px;
-      border-top: none !important;
+    /* ── 公式HPタブ：差分検出時刻のポップアップ（2026-10-05新設） ───────────── */
+    #official-detail-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 200;
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 20px;
     }
-    .official-detail-row.collapsed { display: none; }
+    .official-detail-meta { font-size: 11px; color: var(--dim); margin-bottom: 8px; }
+    .official-time-btn {
+      display: flex; flex-direction: column; gap: 3px; align-items: flex-start;
+      background: none; border: none; padding: 0; margin: 0;
+      cursor: pointer; font: inherit; text-align: left; width: 100%;
+    }
+    .official-time-value { color: var(--sub); font-size: 12px; }
+    .official-time-status { font-size: 10.5px; display: inline-flex; align-items: center; gap: 3px; }
+    .official-time-status .official-detail-chevron { font-size: 10px; }
     .official-detail-toggle {
       display: inline-flex; align-items: center; gap: 5px;
       background: none; border: none; padding: 0; margin: 0;
@@ -1210,6 +1223,18 @@
   </div>
 </div>
 
+<!-- ── 公式HPタブ：差分検出時刻のポップアップ（2026-10-05新設）。差分結果列を廃止し、
+     差分検出時刻をタップした時だけここに変更内容（試合一覧）を表示する。 -->
+<div id="official-detail-overlay">
+  <div class="history-card">
+    <div class="history-bar">
+      <span class="history-title" id="official-detail-title">変更内容</span>
+      <button class="history-close" onclick="closeOfficialDetail()">✕ 閉じる</button>
+    </div>
+    <div class="history-list" id="official-detail-list"></div>
+  </div>
+</div>
+
 <!-- ── メインアプリ ─────────────────────────────────── -->
 <div id="main-app" style="display:none;">
 
@@ -1331,7 +1356,7 @@
   <!-- ── 公式HP ── -->
   <div id="page-official" class="page">
     <div class="official-wrap">
-      <p class="official-hint">大会名をタップすると公式HPを開きます。差分がある場合は「変更検知 N件追加」をタップすると内容を開けます。時刻はすべてJSTです。</p>
+      <p class="official-hint">大会名をタップすると公式HPを開きます。差分検出時刻をタップすると変更内容がポップアップで開けます。時刻はすべてJSTです。</p>
 
       <div class="official-group-label">稼働中</div>
       <table class="official-table">
@@ -1339,12 +1364,11 @@
           <tr>
             <th>大会名</th>
             <th>差分検出時刻</th>
-            <th>差分結果</th>
             <th>最終確認時間</th>
           </tr>
         </thead>
         <tbody id="official-tbody-active">
-          <tr><td colspan="4" class="empty-msg">読み込み中…</td></tr>
+          <tr><td colspan="3" class="empty-msg">読み込み中…</td></tr>
         </tbody>
       </table>
 
@@ -1354,7 +1378,6 @@
           <tr>
             <th>大会名</th>
             <th>差分検出時刻</th>
-            <th>差分結果</th>
             <th>最終確認時間</th>
           </tr>
         </thead>
@@ -1373,7 +1396,6 @@
             <tr>
               <th>大会名</th>
               <th>差分検出時刻</th>
-              <th>差分結果</th>
               <th>最終確認時間</th>
             </tr>
           </thead>
@@ -1572,7 +1594,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 164;
+const __UI_BUILD__  = 165;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1593,7 +1615,7 @@ let summaryFilter   = 'all';
 let selectedCoach   = null;
 let scrapeLogData   = [];
 let officialDocsData = [];
-let officialDetailOpen = {};
+let officialDetailRegistry = {};
 let feedbackData    = [];
 let fbSelectedType  = 'bug';
 let pendingLineNotifications = [];
@@ -2180,19 +2202,38 @@ async function loadOfficialDocuments() {
   }
 }
 
-function isOfficialDetailOpen(id) {
-  return officialDetailOpen[id] === true;
+// 「差分結果」列は行の高さを増やすだけで無駄なので廃止し、隣の「差分検出時刻」セルに
+// 時刻＋ステータスをまとめて表示。変更検知があり実際に表示できる試合がある場合のみ
+// セル自体をタップ可能にし、更新履歴モーダル等と同じ#history-card構造のポップアップ
+// （#official-detail-overlay）で試合一覧を表示する（2026-10-05指摘：「差分結果列で行幅が
+// 増えるのはもったいないので、この列は削除。その代わり横の差分検出時刻をクリックすると
+// ポップアップして中身が表示されるようにする」）。ポップアップに必要なデータは
+// officialDetailRegistry（予定タブのhlEventDetailRegistryと同じ設計）に保持する。
+function openOfficialDetail(id) {
+  const d = officialDetailRegistry[id];
+  if (!d) return;
+  document.getElementById('official-detail-title').textContent = `${d.label}：${d.statusLabel}`;
+  const items = d.matches.map(m => {
+    const dt = fmtDate(normDate(m.match_date));
+    const t = m.kickoff_time ? ` ${m.kickoff_time}` : '';
+    const opp = m.opponent || '—';
+    const v = m.venue ? ` @${m.venue}` : '';
+    return `<div class="official-match-item">▸ ${dt}${t} vs ${opp}${v}</div>`;
+  }).join('');
+  document.getElementById('official-detail-list').innerHTML = `
+    <div class="official-detail-meta">差分検出時刻: ${escHtml(d.changedFmt)}</div>
+    <div class="official-matches">${items}</div>
+  `;
+  document.getElementById('official-detail-overlay').style.display = 'flex';
 }
 
-function toggleOfficialDetail(id) {
-  officialDetailOpen[id] = !isOfficialDetailOpen(id);
-  renderOfficialHp();
+function closeOfficialDetail() {
+  document.getElementById('official-detail-overlay').style.display = 'none';
 }
 
 // 稼働中/準備中/終了のグループごとに<tbody>を分けてレンダリングする（2026-10-02、
 // 「公式ページ、稼働中のものと、準備中・終了したものを分ける。終了はアコーディオンで
 // 閉じておいて」との指示を受け、従来の単一テーブル描画をグループ単位に分割）。
-// 1件分の<tr>群（本体行＋任意の詳細展開行）を組み立てる処理自体は変更していない。
 function _officialRowsHtml(sources, today) {
   const rows = [];
   sources.forEach(src => {
@@ -2203,27 +2244,30 @@ function _officialRowsHtml(sources, today) {
     const checkedFmt  = lastChecked ? fmtDatetime(lastChecked) : '—';
     const cnt = log && log.regalia_match_count != null ? Number(log.regalia_match_count) : -1;
 
-    let resultHtml;
-    let showDetails = false;
+    let statusLabel, statusClass;
+    let matches = [];
     if (!lastChecked) {
-      resultHtml = '<span class="sc-none">未記録</span>';
+      statusLabel = '未記録'; statusClass = 'sc-none';
     } else if (!lastChanged) {
-      resultHtml = '<span class="sc-ok">差分なし</span>';
+      statusLabel = '差分なし'; statusClass = 'sc-ok';
+    } else if (cnt === 0) {
+      statusLabel = 'HP更新（REGALIA試合なし）'; statusClass = 'sc-none';
     } else {
-      if (cnt === 0) {
-        resultHtml = '<span class="sc-none">HP更新（REGALIA試合なし）</span>';
-      } else {
-        const cntStr = cnt > 0 ? ` ${cnt}件追加` : '';
-        showDetails = cnt > 0;
-        if (showDetails) {
-          const open = isOfficialDetailOpen(src.id);
-          const chevron = open ? '▾' : '▸';
-          resultHtml = `<button type="button" class="official-detail-toggle" onclick="toggleOfficialDetail('${src.id}')"><span class="sc-changed">変更検知${cntStr}</span><span class="official-detail-chevron">${chevron}</span></button>`;
-        } else {
-          resultHtml = `<span class="sc-changed">変更検知${cntStr}</span>`;
-        }
-      }
+      statusLabel = `変更検知${cnt > 0 ? ` ${cnt}件追加` : ''}`; statusClass = 'sc-changed';
+      matches = schedData
+        .filter(m => m.category_code === src.id && normDate(m.match_date) >= today)
+        .sort((a, b) => normDate(a.match_date).localeCompare(normDate(b.match_date)))
+        .slice(0, 5);
     }
+
+    const clickable = matches.length > 0;
+    if (clickable) {
+      officialDetailRegistry[src.id] = { label: src.label, changedFmt, statusLabel, matches };
+    }
+    const statusHtml = `<span class="${statusClass} official-time-status">${statusLabel}${clickable ? '<span class="official-detail-chevron">▸</span>' : ''}</span>`;
+    const timeCellHtml = clickable
+      ? `<button type="button" class="official-time-btn" onclick="openOfficialDetail('${src.id}')"><span class="official-time-value">${changedFmt}</span>${statusHtml}</button>`
+      : `<div class="official-time-btn"><span class="official-time-value">${changedFmt}</span>${statusHtml}</div>`;
 
     const nameHtml = src.url
       ? `<a class="official-link" href="${src.url}" target="_blank">${src.label} ↗</a>`
@@ -2240,25 +2284,7 @@ function _officialRowsHtml(sources, today) {
       .map(d => `<a href="javascript:void(0)" class="official-doc-link" onclick="viewOfficialDocument('${d.id}', this)" title="${escHtml(d.filename || '')}">📄${escHtml(d.filename || '公式資料')}</a>`)
       .join('');
 
-    rows.push(`<tr><td>${nameHtml}${docsHtml}</td><td>${changedFmt}</td><td>${resultHtml}</td><td>${checkedFmt}</td></tr>`);
-
-    if (showDetails) {
-      const matches = schedData
-        .filter(m => m.category_code === src.id && normDate(m.match_date) >= today)
-        .sort((a, b) => normDate(a.match_date).localeCompare(normDate(b.match_date)))
-        .slice(0, 5);
-      if (matches.length > 0) {
-        const items = matches.map(m => {
-          const d = fmtDate(normDate(m.match_date));
-          const t = m.kickoff_time ? ` ${m.kickoff_time}` : '';
-          const opp = m.opponent || '—';
-          const v = m.venue ? ` @${m.venue}` : '';
-          return `<div class="official-match-item">▸ ${d}${t} vs ${opp}${v}</div>`;
-        }).join('');
-        const open = isOfficialDetailOpen(src.id);
-        rows.push(`<tr class="official-detail-row${open ? '' : ' collapsed'}"><td colspan="4"><div class="official-matches">${items}</div></td></tr>`);
-      }
-    }
+    rows.push(`<tr><td>${nameHtml}${docsHtml}</td><td>${timeCellHtml}</td><td>${checkedFmt}</td></tr>`);
   });
 
   return rows.join('');
@@ -2272,8 +2298,9 @@ function renderOfficialHp() {
   const today = new Intl.DateTimeFormat('sv', {timeZone: 'Asia/Tokyo'}).format(new Date());
 
   const bySrcStatus = status => OFFICIAL_SOURCES.filter(s => (s.status || 'active') === status);
-  const emptyRow = `<tr><td colspan="4" class="empty-msg">該当なし</td></tr>`;
+  const emptyRow = `<tr><td colspan="3" class="empty-msg">該当なし</td></tr>`;
 
+  officialDetailRegistry = {};
   activeTbody.innerHTML    = _officialRowsHtml(bySrcStatus('active'), today) || emptyRow;
   preparingTbody.innerHTML = _officialRowsHtml(bySrcStatus('preparing'), today) || emptyRow;
   endedTbody.innerHTML     = _officialRowsHtml(bySrcStatus('ended'), today) || emptyRow;
