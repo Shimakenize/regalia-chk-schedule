@@ -1572,7 +1572,7 @@ if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
 }
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 163;
+const __UI_BUILD__  = 164;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3340,7 +3340,7 @@ function hlScrollGridToToday() {
 }
 
 // タイムライン形式: カード形式と同様、選択中の週の7日すべてをボタンとして出し、
-// 試合が無い日を選んだ場合はhlTlRenderDay()側の空表示（この日は試合がありません）に
+// 試合が無い日を選んだ場合はhlTlRenderDay()側の空表示（この日は予定がありません）に
 // 委ねる（2026-09-24指摘: 「カード形式同様に試合が無い日も表示させること」。従来は
 // 試合がある日だけをボタンにしていた）。
 let hlTimelineSelectedDay = null;
@@ -3855,8 +3855,9 @@ async function hlTlRenderDay(day) {
   // 「明日の10/1の様に、スケジュールが無い日も、左の時間枠と天気は表示するように」）。
   // 従来はここで即returnしメッセージのみの表示にしていたが、hlTlSetHourWindow()は
   // 空配列でもデフォルト時間帯（6-22時）にフォールバックする実装のため、そのまま
-  // 通常の描画フローに乗せられる。「試合がありません」は3列カテゴリー領域の上に
-  // 重ねるオーバーレイ表示に変更（下記hl-tl-empty-msg）。
+  // 通常の描画フローに乗せられる。「予定がありません」は3列カテゴリー領域の上に
+  // 重ねるオーバーレイ表示に変更（下記hl-tl-empty-msg）。練習(TR)も表示対象のため、
+  // 「試合がありません」ではなく「予定がありません」に修正（2026-10-05指摘）。
   hlTlSetHourWindow(dayEvents, day, todayStr);
 
   const d = new Date(day + 'T00:00:00');
@@ -3887,7 +3888,7 @@ async function hlTlRenderDay(day) {
         <div class="${dayCls}"><div>${d.getMonth() + 1}/${d.getDate()}</div><div class="hl-tl-dow">${dow}</div></div>
         <div class="hl-tl-daybody">
           <div class="hl-tl-wxrail" id="hl-tl-wxrail"><div class="hl-tl-wxrail-tag">麻溝台</div></div>
-          <div class="hl-tl-catcols">${colsHtml}${dayEvents.length ? '' : '<div class="hl-tl-empty-msg">この日は試合がありません</div>'}</div>
+          <div class="hl-tl-catcols">${colsHtml}${dayEvents.length ? '' : '<div class="hl-tl-empty-msg">この日は予定がありません</div>'}</div>
           <div class="hl-tl-scrollhint" id="hl-tl-scrollhint"><button type="button" class="hl-tl-scrollhint-btn" aria-label="右に続きがあります"><span>›</span></button></div>
         </div>
       </div>
