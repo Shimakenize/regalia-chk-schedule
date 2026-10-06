@@ -221,14 +221,18 @@
     /* 日にち選択ボタンは7日分を必ず1行に収める（2026-09-29指摘）。幅を7等分し、
        日付と曜日を2段にして狭い画面でも折り返さない。 */
     #hl-timeline-day-picker { flex-wrap:nowrap; gap:4px; flex:1 1 0; min-width:0; margin-bottom:0; }
-    /* 日にち選択行の左右に前週・次週への小さな＜＞（2026-10-06）。画面端に貼り付かないよう左右に余白。 */
-    .hl-day-nav { display:flex; align-items:stretch; gap:4px; padding:0 10px; margin-bottom:10px; }
-    .hl-week-nav {
-      flex:0 0 22px; padding:0; font-size:13px; font-weight:700; line-height:1;
-      color:var(--gold); background:rgba(255,255,255,.04); cursor:pointer;
-      border:1px solid rgba(255,255,255,.09); border-radius:9px; font-family:inherit;
+    /* 日にち選択行の上に前週・次週の大きな＜＞と中央の「今日」ボタンの行（2026-10-06）。
+       小さい矢印は押しにくいため日にち行から分離。画面端に貼り付かないよう左右に余白。 */
+    .hl-day-nav { padding:0 10px; margin-bottom:10px; }
+    .hl-week-bar { display:flex; align-items:stretch; gap:8px; padding:0 10px; margin-bottom:8px; }
+    .hl-week-arrow, .hl-today-btn {
+      height:42px; padding:0; line-height:1; cursor:pointer; font-family:inherit;
+      color:var(--gold); background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.09); border-radius:10px;
     }
-    .hl-week-nav:active { background:rgba(255,255,255,.12); }
+    .hl-week-arrow { flex:0 0 25%; font-size:26px; font-weight:700; }
+    .hl-today-btn { flex:1 1 0; font-size:14px; font-weight:700; }
+    .hl-week-arrow:active, .hl-today-btn:active { background:rgba(255,255,255,.14); }
     #hl-timeline-day-picker .chip-btn {
       flex:1 1 0; min-width:0; padding:4px 0; text-align:center; line-height:1.2;
       display:flex; flex-direction:column; align-items:center; white-space:nowrap;
@@ -1400,10 +1404,13 @@
          タイムライン形式に一本化。月〜日の日にち選択行の左右の＜＞で前週・次週へ移動する
          （既定は今週・今日）。 -->
     <div id="hl-timeline-view">
+      <div class="hl-week-bar">
+        <button type="button" class="hl-week-arrow" onclick="hlShiftWeek(-1)" aria-label="前の週">&lt;</button>
+        <button type="button" class="hl-today-btn" onclick="hlGoToday()">今日</button>
+        <button type="button" class="hl-week-arrow" onclick="hlShiftWeek(1)" aria-label="次の週">&gt;</button>
+      </div>
       <div class="hl-day-nav">
-        <button type="button" class="hl-week-nav" onclick="hlShiftWeek(-1)" aria-label="前の週">&lt;</button>
         <div class="chip-row" id="hl-timeline-day-picker"></div>
-        <button type="button" class="hl-week-nav" onclick="hlShiftWeek(1)" aria-label="次の週">&gt;</button>
       </div>
       <div id="hl-timeline-body" class="hl-timeline-body"></div>
     </div>
@@ -1552,7 +1559,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 167;
+const __UI_BUILD__  = 168;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3108,6 +3115,13 @@ const HL_CATS = [
 // 無ければ試合/練習がある最初の日、それも無ければ週の先頭日（renderHlTimelinePicker()の既存規則）。
 function hlShiftWeek(delta) {
   hlSelectedWeek += delta;
+  hlTimelineSelectedDay = null;
+  renderScheduleHighlights();
+}
+
+// 「今日」ボタン：今週・今日の表示に戻る（2026-10-06）。
+function hlGoToday() {
+  hlSelectedWeek = 0;
   hlTimelineSelectedDay = null;
   renderScheduleHighlights();
 }
