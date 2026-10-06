@@ -230,7 +230,10 @@
       color:var(--gold); background:rgba(255,255,255,.04);
       border:1px solid rgba(255,255,255,.09); border-radius:10px;
     }
-    .hl-week-arrow { flex:0 0 25%; font-size:26px; font-weight:700; }
+    /* 矢印だけだと日の移動と勘違いされるため「前週」「翌週」の文字を併記（2026-10-06指摘）。 */
+    .hl-week-arrow { flex:0 0 30%; display:flex; align-items:center; justify-content:center; gap:5px; font-weight:700; }
+    .hl-arrow-glyph { font-size:26px; line-height:1; }
+    .hl-arrow-label { font-size:14px; white-space:nowrap; }
     .hl-today-btn { flex:1 1 0; font-size:14px; font-weight:700; }
     .hl-week-arrow:active, .hl-today-btn:active { background:rgba(255,255,255,.14); }
     #hl-timeline-day-picker .chip-btn {
@@ -1405,9 +1408,9 @@
          （既定は今週・今日）。 -->
     <div id="hl-timeline-view">
       <div class="hl-week-bar">
-        <button type="button" class="hl-week-arrow" onclick="hlShiftWeek(-1)" aria-label="前の週">&lt;</button>
+        <button type="button" class="hl-week-arrow" onclick="hlShiftWeek(-1)" aria-label="前週"><span class="hl-arrow-glyph">&lt;</span><span class="hl-arrow-label">前週</span></button>
         <button type="button" class="hl-today-btn" onclick="hlGoToday()">今日</button>
-        <button type="button" class="hl-week-arrow" onclick="hlShiftWeek(1)" aria-label="次の週">&gt;</button>
+        <button type="button" class="hl-week-arrow" onclick="hlShiftWeek(1)" aria-label="翌週"><span class="hl-arrow-label">翌週</span><span class="hl-arrow-glyph">&gt;</span></button>
       </div>
       <div class="hl-day-nav">
         <div class="chip-row" id="hl-timeline-day-picker"></div>
@@ -1559,7 +1562,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 168;
+const __UI_BUILD__  = 169;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
