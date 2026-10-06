@@ -220,7 +220,15 @@
     .chip-btn.hl-daybtn-sun.active { background:#8a3540; color:#fff; border-color:#8a3540; }
     /* 日にち選択ボタンは7日分を必ず1行に収める（2026-09-29指摘）。幅を7等分し、
        日付と曜日を2段にして狭い画面でも折り返さない。 */
-    #hl-timeline-day-picker { flex-wrap:nowrap; gap:4px; }
+    #hl-timeline-day-picker { flex-wrap:nowrap; gap:4px; flex:1 1 0; min-width:0; margin-bottom:0; }
+    /* 日にち選択行の左右に前週・次週への小さな＜＞（2026-10-06）。画面端に貼り付かないよう左右に余白。 */
+    .hl-day-nav { display:flex; align-items:stretch; gap:4px; padding:0 10px; margin-bottom:10px; }
+    .hl-week-nav {
+      flex:0 0 22px; padding:0; font-size:13px; font-weight:700; line-height:1;
+      color:var(--gold); background:rgba(255,255,255,.04); cursor:pointer;
+      border:1px solid rgba(255,255,255,.09); border-radius:9px; font-family:inherit;
+    }
+    .hl-week-nav:active { background:rgba(255,255,255,.12); }
     #hl-timeline-day-picker .chip-btn {
       flex:1 1 0; min-width:0; padding:4px 0; text-align:center; line-height:1.2;
       display:flex; flex-direction:column; align-items:center; white-space:nowrap;
@@ -722,17 +730,8 @@
       color: var(--gold-lt); font-weight:700; text-decoration: underline dotted; cursor: pointer;
     }
 
-    /* ── 予定タブ（カード形式、2026-09-23新設） ─────────────────────────
-       曜日ごとに列を並べ、各列にU-15/U-14/U-13/全体の順でカードを積む。
-       7日分を横に並べるためスマホ幅では横スクロールになる。 */
-    /* 今週/来週チップ（左）＋表示形式スイッチ（右端）の1行ツールバー（2026-09-26） */
-    .hl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-    .hl-toolbar .chip-row { margin-bottom:0; flex-wrap:nowrap; gap:5px; }
-    /* 今週/来週/再来週の3チップ＋スイッチを狭い画面でも1行に収める（2026-09-29）。
-       ツールバー・週範囲・日にちボタンは画面端に貼り付かないよう左右に余白を取る。 */
-    .hl-toolbar .chip-btn { padding:7px 10px; white-space:nowrap; }
-    .hl-toolbar, .hl-week-range, #hl-timeline-day-picker { padding-left:10px; padding-right:10px; }
-    .hl-week-range { margin-left:0; margin-right:0; }
+    /* ── 予定タブ（2026-09-23新設。2026-10-06にカード形式・今週/来週チップ行を廃止しタイムライン形式に一本化）──
+       .hl-view-switch系は順位タブの切替スイッチ（星取表/順位表）でも共用。 */
     .hl-view-switch { display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none; flex-shrink:0; }
     .hl-view-switch-label { font-size:11px; font-weight:600; color:var(--muted); transition:color .15s; }
     .hl-view-switch-label.active { color:var(--gold); }
@@ -747,36 +746,6 @@
     }
     .hl-view-switch.on .hl-view-switch-track { background:var(--gold); border-color:var(--gold); }
     .hl-view-switch.on .hl-view-switch-knob { transform:translateX(16px); }
-    .hl-week-range { font-size:12px; color:var(--muted); margin:8px 2px 10px; }
-    .hl-grid { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch; }
-    .hl-day-col { flex:0 0 118px; min-width:0; }
-    .hl-day-head {
-      text-align:center; font-size:13px; font-weight:700; color:#fff;
-      padding:6px 0; border-bottom:2px solid var(--border); margin-bottom:6px;
-    }
-    .hl-day-head.is-today { color: var(--gold); border-bottom-color: var(--gold); }
-    .hl-cat-row { margin-bottom:8px; }
-    .hl-cat-label {
-      display:inline-block; font-size:10px; font-weight:700; margin-bottom:3px;
-      padding:1px 6px; border-radius:3px;
-    }
-    .hl-card {
-      background: var(--surface); border:1px solid var(--border); border-radius:8px;
-      padding:6px 7px; font-size:10.5px; line-height:1.5; margin-bottom:4px; overflow:hidden;
-    }
-    .hl-card-league { color: var(--gold-lt); font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .hl-card-title { color:#fff; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .hl-card-venue { color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .hl-card-time { color:var(--muted); }
-    .hl-card-none { color:var(--muted); text-align:center; padding:10px 0; background:transparent; border-style:dashed; }
-    /* Sony_HomeTerminalの「今週のHL」ボード（brief-chip.k-*）と同じ種別カラーコーディング
-       （2026-09-25新設）。カテゴリ色（カード形式は行のラベルバッジ、タイムライン形式は
-       左ボーダー）とは別軸。 */
-    .hl-card.hl-kind-match  { border-left:3px solid #ec4899; background:rgba(236,72,153,.14); }
-    .hl-card.hl-kind-futsal { border-left:3px solid #f97316; background:rgba(217,119,6,.14); }
-    .hl-card.hl-kind-trg    { border-left:3px solid #0ea5e9; background:rgba(14,165,233,.14); }
-    .hl-card.hl-kind-tr     { border-left:3px solid #10b981; background:rgba(16,185,129,.14); }
-    .hl-card-wx { display:inline-block; font-size:9.5px; padding:1px 5px; border-radius:6px; margin-bottom:3px; font-weight:700; }
     .hl-wx-sun   { background:rgba(224,160,64,.18); color:#e0a040; }
     .hl-wx-cloud { background:rgba(154,166,189,.18); color:#9aa6bd; }
     .hl-wx-rain  { background:rgba(90,150,220,.18); color:#7ab8f8; }
@@ -1427,28 +1396,15 @@
        イベントソースはREGALIA_ChkMatchSchedule自身のcoach_schedule（LINE報告由来の試合）
        のみ。REGALIA_schedule_management（個人情報含む）とは一切連携しない。 ── -->
   <div id="page-schedule-hl" class="page">
-    <!-- 今週/来週チップと表示形式スイッチを1行に同居（2026-09-26、1行削減の指示）。
-         スイッチON=タイムライン（既定）、OFF=カード。 -->
-    <div class="hl-toolbar">
-      <div class="chip-row" id="hl-week-toggle">
-        <div class="chip-btn active" data-week="0" onclick="hlSelectWeek(0)">今週</div>
-        <div class="chip-btn" data-week="1" onclick="hlSelectWeek(1)">来週</div>
-        <div class="chip-btn" data-week="2" onclick="hlSelectWeek(2)">再来週</div>
-      </div>
-      <div class="hl-view-switch on" id="hl-view-toggle" role="switch" aria-checked="true" aria-label="タイムライン表示" tabindex="0"
-           onclick="hlSelectView(hlSelectedView === 'timeline' ? 'card' : 'timeline')"
-           onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}">
-        <span class="hl-view-switch-label" data-view="card">カード</span>
-        <span class="hl-view-switch-track"><span class="hl-view-switch-knob"></span></span>
-        <span class="hl-view-switch-label active" data-view="timeline">タイムライン</span>
-      </div>
-    </div>
-    <div id="hl-week-range" class="hl-week-range"></div>
-    <div id="hl-card-view" style="display:none">
-      <div id="hl-grid" class="hl-grid"></div>
-    </div>
+    <!-- 2026-10-06: 今週/来週/再来週チップ・カード/タイムライン切替・週範囲表示の行を廃止し
+         タイムライン形式に一本化。月〜日の日にち選択行の左右の＜＞で前週・次週へ移動する
+         （既定は今週・今日）。 -->
     <div id="hl-timeline-view">
-      <div class="chip-row" id="hl-timeline-day-picker"></div>
+      <div class="hl-day-nav">
+        <button type="button" class="hl-week-nav" onclick="hlShiftWeek(-1)" aria-label="前の週">&lt;</button>
+        <div class="chip-row" id="hl-timeline-day-picker"></div>
+        <button type="button" class="hl-week-nav" onclick="hlShiftWeek(1)" aria-label="次の週">&gt;</button>
+      </div>
       <div id="hl-timeline-body" class="hl-timeline-body"></div>
     </div>
   </div>
@@ -1596,7 +1552,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 166;
+const __UI_BUILD__  = 167;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3128,8 +3084,8 @@ async function deleteUser(lineUserId, coachName) {
 // bootstrap時に既にフィルタ済みのcoachDataをそのまま使い、他アプリのAPIは一切呼ばない。
 // 天気（麻溝台、tenki.jpスクレイピング＋OpenWeatherMapフォールバック）とタイムライン
 // 画像（Cloud Runレンダラー、REGALIA_schedule_managementと共用）のみサーバー側API。
-let hlSelectedWeek = 0; // 0=今週, 1=来週, 2=再来週（2026-09-29追加）
-let hlSelectedView = 'timeline'; // 'card' | 'timeline'（2026-09-26: 既定をタイムラインに変更、指摘）
+// 今週を0とした週オフセット（前週=-1、次週=+1…）。＜＞ボタンで増減する（2026-10-06）。
+let hlSelectedWeek = 0;
 let hlWeatherData = null;
 let hlWeatherLoading = false;
 let hlHolidayIsos = [];
@@ -3148,24 +3104,11 @@ const HL_CATS = [
   { code: 'all',  label: '全体' },
 ];
 
-function hlSelectWeek(w) {
-  hlSelectedWeek = w;
-  document.querySelectorAll('#hl-week-toggle .chip-btn').forEach(b => {
-    b.classList.toggle('active', Number(b.dataset.week) === w);
-  });
-  renderScheduleHighlights();
-}
-
-function hlSelectView(view) {
-  hlSelectedView = view;
-  const sw = document.getElementById('hl-view-toggle');
-  sw.classList.toggle('on', view === 'timeline');
-  sw.setAttribute('aria-checked', view === 'timeline' ? 'true' : 'false');
-  sw.querySelectorAll('.hl-view-switch-label').forEach(l => {
-    l.classList.toggle('active', l.dataset.view === view);
-  });
-  document.getElementById('hl-card-view').style.display = view === 'card' ? '' : 'none';
-  document.getElementById('hl-timeline-view').style.display = view === 'timeline' ? '' : 'none';
+// 日にち選択行の＜＞：前週・次週へ移動する。移動先の週で表示する日は、今日が含まれれば今日、
+// 無ければ試合/練習がある最初の日、それも無ければ週の先頭日（renderHlTimelinePicker()の既存規則）。
+function hlShiftWeek(delta) {
+  hlSelectedWeek += delta;
+  hlTimelineSelectedDay = null;
   renderScheduleHighlights();
 }
 
@@ -3302,77 +3245,13 @@ function closeHlEventDetail() {
   document.getElementById('hl-event-detail-overlay').style.display = 'none';
 }
 
-function hlCardHtml(m) {
-  const isTr = m.event_kind === 'TR';
-  const league = isTr ? '' : withParticipantTag(m.league_or_competition || '', m.category_code);
-  const timeStr = String(m.event_time || '').replace(/K\/O.*$/, '').trim();
-  const hour = hlParseEventHour(m.event_time);
-  const wx = hour != null ? hlWeatherBadge(normDate(m.event_date), hour) : null;
-  const detailIdx = hlRegisterEventDetail(m);
-  return `<div class="hl-card ${hlEventKindClass(m)}" onclick="openHlEventDetail(${detailIdx})" style="cursor:pointer">
-    ${wx ? `<div class="hl-card-wx ${wx.cls}">${escHtml(wx.tag)}</div>` : ''}
-    ${league ? `<div class="hl-card-league">${escHtml(league)}</div>` : ''}
-    <div class="hl-card-title">${isTr ? escHtml(m.title || '練習') : 'vs ' + escHtml(m.title || '未定')}</div>
-    <div class="hl-card-venue">${escHtml(m.venue || '')}</div>
-    ${timeStr ? `<div class="hl-card-time">${escHtml(timeStr)}</div>` : ''}
-  </div>`;
-}
-
 function renderScheduleHighlights() {
-  if (hlSelectedView === 'timeline') {
-    renderHlTimelinePicker();
-    return;
-  }
-  const grid = document.getElementById('hl-grid');
-  const rangeEl = document.getElementById('hl-week-range');
-  if (!grid) return;
-  const todayStr = new Intl.DateTimeFormat('sv', { timeZone: 'Asia/Tokyo' }).format(new Date());
-  const days = hlWeekDays();
-  if (rangeEl) rangeEl.textContent = `${fmtDate(days[0])} 〜 ${fmtDate(days[6])}`;
-
-  // 練習(TR)はカード形式（予定タブ）にのみ混在表示する。タイムライン形式・サマリ・
-  // 比較（compareSchedules）には一切反映しない（2026-09-24指示）。
-  const matches = (coachData || []).concat(trainingData || []).filter(m => days.includes(normDate(m.event_date)));
-
-  const renderGrid = () => {
-    hlResetEventDetailRegistry();
-    grid.innerHTML = days.map(day => {
-    const dayMatches = matches.filter(m => normDate(m.event_date) === day);
-    const isToday = day === todayStr;
-    const catRowsHtml = HL_CATS.map(cat => {
-      const inCat = dayMatches.filter(m => catBase(m.category_code) === cat.code);
-      const cardsHtml = inCat.length ? inCat.map(hlCardHtml).join('') : `<div class="hl-card hl-card-none">なし</div>`;
-      return `<div class="hl-cat-row">
-        <div class="hl-cat-label" style="${catBadgeStyle(cat.code)}">${cat.label}</div>
-        ${cardsHtml}
-      </div>`;
-    }).join('');
-    return `<div class="hl-day-col">
-      <div class="hl-day-head${isToday ? ' is-today' : ''}">${fmtDate(day)}</div>
-      ${catRowsHtml}
-    </div>`;
-    }).join('');
-  };
-  renderGrid();
-  // 初期表示位置は本日にする（2026-09-24指摘）。天気再描画のたびにスクロール位置を
-  // 戻すと閲覧中の位置が飛んでしまうため、最初の描画時のみ本日の列へスクロールする。
-  if (hlSelectedWeek === 0) hlScrollGridToToday();
-  // 天気バッジは非同期取得のため、先にバッジ無しで描画し、取得後に再描画する。
-  hlEnsureWeatherLoaded().then(renderGrid);
+  renderHlTimelinePicker();
 }
 
-function hlScrollGridToToday() {
-  const grid = document.getElementById('hl-grid');
-  if (!grid) return;
-  const todayHead = grid.querySelector('.hl-day-head.is-today');
-  const colEl = todayHead && todayHead.closest('.hl-day-col');
-  if (colEl) grid.scrollLeft = colEl.offsetLeft;
-}
-
-// タイムライン形式: カード形式と同様、選択中の週の7日すべてをボタンとして出し、
-// 試合が無い日を選んだ場合はhlTlRenderDay()側の空表示（この日は予定がありません）に
-// 委ねる（2026-09-24指摘: 「カード形式同様に試合が無い日も表示させること」。従来は
-// 試合がある日だけをボタンにしていた）。
+// タイムライン形式（2026-10-06からこれが唯一の表示形式）: 選択中の週の7日すべてをボタンとして
+// 出し、予定が無い日を選んだ場合はhlTlRenderDay()側の空表示（この日は予定がありません）に
+// 委ねる（2026-09-24指摘）。週の切替は日にち選択行の左右の＜＞（hlShiftWeek()）。
 let hlTimelineSelectedDay = null;
 async function renderHlTimelinePicker() {
   const picker = document.getElementById('hl-timeline-day-picker');
@@ -3672,8 +3551,8 @@ function hlTlCollapseTr(rows) {
   return out;
 }
 // TR（練習）には対戦相手が無いため「vs 練習」のような表示にはしない。タイトルは
-// hlTlMainSub()側（league・titleの行）で既に「練習」と表示されるため、カード形式
-// （hlCardHtml()のisTr分岐）と同様ここでは空にして二重表示を避ける。
+// hlTlMainSub()側（league・titleの行）で既に「練習」と表示されるため、ここでは空にして
+// 二重表示を避ける。
 function hlTlCardText(ev) { return (ev.event_kind === 'TR' || !ev.title) ? '' : ('vs ' + ev.title); }
 function hlTlCardTextGroup(ev) {
   if (!ev.groupEvents || ev.groupEvents.length < 2) return hlTlCardText(ev);
