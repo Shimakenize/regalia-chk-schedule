@@ -1260,8 +1260,8 @@
   <div class="tabs">
     <div class="tab active" data-tab="summary" onclick="switchTab('summary')">サマリ</div>
     <div class="tab" data-tab="sched" onclick="switchTab('sched')">比較</div>
-    <div class="tab" data-tab="standings" onclick="switchTab('standings')">順位<span class="tab-new-badge" id="standings-new-badge">NEW</span></div>
-    <div class="tab" id="schedule-hl-tab" data-tab="schedule-hl" onclick="switchTab('schedule-hl')" style="display:none;">予定</div>
+    <div class="tab" data-tab="standings" onclick="switchTab('standings')">順位<span class="tab-new-badge" id="standings-new-badge" data-expiry="2026-10-01T00:00:00+09:00">NEW</span></div>
+    <div class="tab" id="schedule-hl-tab" data-tab="schedule-hl" onclick="switchTab('schedule-hl')" style="display:none;">予定<span class="tab-new-badge" id="schedule-new-badge" data-expiry="2026-10-20T00:00:00+09:00">NEW</span></div>
     <div class="tab" data-tab="official" onclick="switchTab('official')">公式</div>
     <div class="tab" data-tab="coach-raw" onclick="switchTab('coach-raw')">LINE</div>
     <div class="tab" id="admin-tab" data-tab="admin" onclick="switchTab('admin')" style="display:none;">管理</div>
@@ -1588,13 +1588,15 @@ const IS_PREVIEW_CONTEXT = ['file:', 'data:'].includes(location.protocol) || /^(
 
 // 順位タブ新設の告知バッジ「NEW」（2026-09-17追加）。2週間後に自動的に消えるよう、
 // 期限をハードコードして毎回チェックする（再デプロイ不要で消える）。
-const STANDINGS_NEW_BADGE_EXPIRY = new Date('2026-10-01T00:00:00+09:00');
-if (Date.now() >= STANDINGS_NEW_BADGE_EXPIRY.getTime()) {
-  document.querySelectorAll('.tab-new-badge').forEach(el => el.remove());
-}
+// 2026-10-06: バッジごとの期限(data-expiry)方式に変更（従来は.tab-new-badge全削除のため
+// 新しいバッジも巻き込まれた）。予定タブのNEWは「コーチへ公開」告知で今日から2週間(〜10/20)。
+document.querySelectorAll('.tab-new-badge').forEach(el => {
+  const exp = Date.parse(el.dataset.expiry || '');
+  if (!isNaN(exp) && Date.now() >= exp) el.remove();
+});
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 165;
+const __UI_BUILD__  = 166;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2106,8 +2108,9 @@ function applyBootstrapResult(res, opts) {
   document.getElementById('main-app').style.display = '';
   hideBootLoading();
   if (isAdmin) document.getElementById('admin-tab').style.display = '';
-  // 予定タブは完成度が上がるまで限定表示。管理者＋GAS側 SCHEDULE_TAB_VIEWER_NAMES の
-  // 登録ユーザー（しまだみほこ・Takumi#6、2026-09-29追加）にのみ表示（判定はGASのcanViewSchedule）
+  // 予定タブは限定表示。管理者＋GAS側 SCHEDULE_TAB_VIEWER_NAMES の登録ユーザー
+  // （しまだみほこ・Takumi#6、2026-09-29追加）＋種別「コーチ」の登録ユーザー（2026-10-06追加）
+  // にのみ表示（判定はGASのcanViewSchedule）
   if (isAdmin || res.canViewSchedule) document.getElementById('schedule-hl-tab').style.display = '';
 
   document.getElementById('header-user').textContent = displayName || '';
