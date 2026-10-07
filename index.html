@@ -1567,7 +1567,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 170;
+const __UI_BUILD__  = 171;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3246,6 +3246,8 @@ function _hlEventDetailRowsHtml(ev) {
     const recv = ev.received_at ? `（${escHtml(String(ev.received_at).slice(0, 16))} 受信）` : '';
     rawHtml = `<div class="hl-event-detail-raw-head">根拠のLINE連絡${recv}</div>`
       + `<div class="hl-event-detail-raw">${escHtml(ev.source_line_msg)}</div>`;
+  } else {
+    rawHtml = `<div class="hl-event-detail-raw-head">根拠のLINE連絡: 該当する連絡の記録なし（管理者が直接登録した予定など）</div>`;
   }
   return rowsHtml + rawHtml;
 }
