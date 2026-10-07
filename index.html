@@ -593,7 +593,9 @@
       background: transparent; border: 1px solid var(--border); border-radius: 6px;
       color: var(--muted); font-size: 12px; padding: 5px 10px; cursor: pointer; font-family: inherit;
     }
-    .history-list { flex: 1; overflow: auto; padding: 8px 16px 16px; }
+    /* min-height:0 が無いと縦flexの子が内容の高さ未満に縮めず、長い内容がカード外にはみ出して
+       下が見切れる（予定タブのイベント詳細で発覚、2026-10-07）。全モーダル共通で付ける。 */
+    .history-list { flex: 1; min-height: 0; overflow: auto; padding: 8px 16px 16px; }
     .history-entry { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
     .history-entry:last-child { border-bottom: none; }
     .history-entry-head { font-size: 11px; color: var(--gold); font-weight: 600; }
@@ -996,6 +998,8 @@
     .hl-event-detail-row { display: flex; gap: 10px; font-size: 12px; padding: 4px 0; }
     .hl-event-detail-row span:first-child { color: var(--muted); min-width: 56px; flex-shrink: 0; }
     .hl-event-detail-row span:last-child { color: #d8dee8; white-space: pre-wrap; word-break: break-word; }
+    .hl-event-detail-raw-head { font-size: 11px; color: var(--muted); margin-top: 10px; }
+    .hl-tap-hint { font-size: 11px; color: var(--muted); padding: 2px 10px 6px; }
     .hl-event-detail-raw {
       font-size: 11px; color: var(--dim); white-space: pre-wrap; word-break: break-word;
       background: rgba(255,255,255,.03); border-radius: 8px; padding: 8px 10px; margin-top: 4px;
@@ -1415,6 +1419,7 @@
       <div class="hl-day-nav">
         <div class="chip-row" id="hl-timeline-day-picker"></div>
       </div>
+      <div class="hl-tap-hint">ⓘ イベントをタップすると、集合・解散・根拠のLINE連絡などの詳細を確認できます</div>
       <div id="hl-timeline-body" class="hl-timeline-body"></div>
     </div>
   </div>
@@ -1562,7 +1567,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 169;
+const __UI_BUILD__  = 170;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3234,7 +3239,14 @@ function _hlEventDetailRowsHtml(ev) {
   if (ev.venue) rows.push(['会場', ev.venue]);
   if (ev.notes) rows.push(['メモ', ev.notes]);
   const rowsHtml = rows.map(([k, v]) => `<div class="hl-event-detail-row"><span>${escHtml(k)}</span><span>${escHtml(v)}</span></div>`).join('');
-  const rawHtml = ev.source_line_msg ? `<div class="hl-event-detail-raw">${escHtml(ev.source_line_msg)}</div>` : '';
+  // 根拠のLINE連絡: GAS（v0.2.162〜）がイベント該当部分（カテゴリ見出し＋その日のブロック）だけを
+  // source_line_msg に保存する。以前は連絡全体の冒頭200文字だった（2026-10-07指摘）。
+  let rawHtml = '';
+  if (ev.source_line_msg) {
+    const recv = ev.received_at ? `（${escHtml(String(ev.received_at).slice(0, 16))} 受信）` : '';
+    rawHtml = `<div class="hl-event-detail-raw-head">根拠のLINE連絡${recv}</div>`
+      + `<div class="hl-event-detail-raw">${escHtml(ev.source_line_msg)}</div>`;
+  }
   return rowsHtml + rawHtml;
 }
 
