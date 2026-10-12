@@ -964,6 +964,9 @@
     .standings-matrix-table td.matrix-w { background: rgba(67,184,115,.2); color: #7fe0a3; font-weight: 700; }
     .standings-matrix-table td.matrix-l { background: rgba(224,85,95,.2); color: #f0929b; font-weight: 700; }
     .standings-matrix-table td.matrix-d { background: rgba(210,166,73,.2); color: #e8c579; font-weight: 700; }
+    /* 週末（土日・祝）に更新があった試合: 枠を囲んで点滅（2026-10-13、Sony_HomeTerminalと同仕様） */
+    .standings-matrix-table td.matrix-wk { box-shadow: inset 0 0 0 2px #ff3b5c; animation: matrixWkBlink 1.1s ease-in-out infinite; }
+    @keyframes matrixWkBlink { 0%, 100% { box-shadow: inset 0 0 0 2px #ff3b5c; } 50% { box-shadow: inset 0 0 0 2px rgba(255,59,92,.1); } }
     .standings-matrix-table tr.is-regalia .matrix-row-label {
       background: rgba(201,162,75,.18); color: #fff; font-weight: 700;
     }
@@ -1567,7 +1570,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 171;
+const __UI_BUILD__  = 172;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -4072,13 +4075,46 @@ function standingsGoToSlide(idx, skipAnim) {
     standingsMatrixRendered = true;
   }
 }
-function standingsMatrixCellHtml(v) {
+function standingsMatrixCellHtml(v, weekend) {
   if (v === null || v === undefined) return '<td class="matrix-cell matrix-cell-self"></td>';
   if (v === '') return '<td class="matrix-cell"></td>';
   const m = /^([WLD])(.*)$/.exec(v);
   if (!m) return '<td class="matrix-cell"></td>';
   const cls = m[1] === 'W' ? 'matrix-w' : (m[1] === 'L' ? 'matrix-l' : 'matrix-d');
-  return `<td class="matrix-cell ${cls}">${escHtml(m[2])}</td>`;
+  return `<td class="matrix-cell ${cls}${weekend ? ' matrix-wk' : ''}">${escHtml(m[2])}</td>`;
+}
+// 週末（土日・祝）に更新があった試合の星取りセル（2026-10-13）。公式HP結果タブの試合一覧
+// （cat.matches: dt/home/away）のうち、直近の連続した休日ブロック（ブロック終了から5日=金曜
+// まで）に当たる試合を、行=ホーム・列=アウェイのセルとして返す（キー "i:j"）。
+function standingsWeekendCells(cat) {
+  const out = {};
+  const ms = cat.matches || [];
+  const matrix = cat.matrix || [];
+  const teams = cat.teams || [];
+  if (!ms.length || !matrix.length || !teams.length) return out;
+  const pad2 = n => String(n).padStart(2, '0');
+  const iso = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return iso(d); };
+  const isOff = s => { const w = new Date(s + 'T00:00:00').getDay(); return w === 0 || w === 6 || hlHolidayIsos.includes(s); };
+  const today = iso(new Date());
+  let end = today, n = 0;
+  while (!isOff(end) && n < 8) { end = addDays(end, -1); n++; }
+  if (!isOff(end)) return out;
+  let start = end; n = 0;
+  while (isOff(addDays(start, -1)) && n < 8) { start = addDays(start, -1); n++; }
+  if ((new Date(today + 'T00:00:00') - new Date(end + 'T00:00:00')) / 86400000 > 5) return out;
+  const norm = s => String(s || '').replace(/\s+/g, '');
+  const idxOf = {};
+  teams.forEach((t, i) => { idxOf[norm(t.club)] = i; });
+  ms.forEach(m => {
+    const d = String(m.dt || '').slice(0, 10);
+    if (d < start || d > end) return;
+    const i = idxOf[norm(m.home)], j = idxOf[norm(m.away)];
+    if (i === undefined || j === undefined) return;
+    const row = matrix[i];
+    if (row && row.cells && row.cells[j]) out[i + ':' + j] = true;
+  });
+  return out;
 }
 // 列ヘッダーのアイコン＋省略名2文字（Sony_HomeTerminal側の対応表と同一。
 // UI Build 118、2026-09-20。matrix[].club（公式サイト自身の短縮名）は勝点表側
@@ -4124,9 +4160,15 @@ function renderStandingsMatrixBody() {
     const abbr = escHtml(standingsAbbrevTeamName(name));
     return `<th class="matrix-col-h">${r.icon ? `<img src="${escHtml(r.icon)}" alt="">` : ''}<div class="matrix-col-h-txt">${abbr}</div></th>`;
   }).join('');
-  const rowsHtml = matrix.map(row => {
+  if (!hlHolidayIsos.length && typeof hlEnsureWeatherLoaded === 'function' && !renderStandingsMatrixBody._holTried) {
+    // 祝日一覧が未取得だと祝日の試合を週末扱いにできないので、取得後に1回だけ描き直す
+    renderStandingsMatrixBody._holTried = true;
+    Promise.resolve(hlEnsureWeatherLoaded()).then(() => renderStandingsMatrixBody()).catch(() => {});
+  }
+  const wkSet = standingsWeekendCells(cat);
+  const rowsHtml = matrix.map((row, ri) => {
     const isRegalia = /REGALIA|レガリア/i.test(row.club || '');
-    const cellsHtml = (row.cells || []).map(standingsMatrixCellHtml).join('');
+    const cellsHtml = (row.cells || []).map((v, ci) => standingsMatrixCellHtml(v, !!wkSet[ri + ':' + ci])).join('');
     return `<tr class="${isRegalia ? 'is-regalia' : ''}">
       <td class="matrix-row-label">${row.icon ? `<img class="matrix-row-icon" src="${escHtml(row.icon)}" alt="">` : ''}${escHtml(row.club)}</td>
       ${cellsHtml}
