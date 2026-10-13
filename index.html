@@ -1586,7 +1586,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 176;
+const __UI_BUILD__  = 177;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -4313,6 +4313,27 @@ function _predStrengths(groupsTeams) {
 }
 function _predLambda(model, a, b) { return Math.max(0.05, model.mu * model.st[a].att * model.st[b].def); }
 
+// 1試合の予測: 勝・分・負の確率（ポアソン分布から解析計算）、最も確率が高い結果（pick）と、
+// その結果の中で最も起こりやすいスコア（score）。aから見た値。
+function _predFixtureOutcome(model, a, b) {
+  const l1 = _predLambda(model, a, b), l2 = _predLambda(model, b, a);
+  let w = 0, d = 0, l = 0;
+  const pmf = [];
+  for (let i = 0; i <= 12; i++) for (let j = 0; j <= 12; j++) {
+    const pr = _predPoissonPmf(l1, i) * _predPoissonPmf(l2, j);
+    pmf.push([i, j, pr]);
+    if (i > j) w += pr; else if (i === j) d += pr; else l += pr;
+  }
+  const tot = w + d + l;
+  const pick = w >= d && w >= l ? 'W' : (d >= l ? 'D' : 'L');
+  let best = -1, score = [0, 0];
+  pmf.forEach(([i, j, pr]) => {
+    const res = i > j ? 'W' : (i === j ? 'D' : 'L');
+    if (res === pick && pr > best) { best = pr; score = [i, j]; }
+  });
+  return { win: w / tot, draw: d / tot, lose: l / tot, pick, score };
+}
+
 function computeStandingsPrediction(cat) {
   const cfg = STANDINGS_PREDICT_CATS[cat.category_code];
   if (!cfg || !cat.teams || !cat.matrix) return null;
@@ -4350,36 +4371,36 @@ function computeStandingsPrediction(cat) {
       if (cfg.relegate.includes(rank)) st.releg++;
     });
   }
-  const rows = own.teams.map(t => {
-    const st = stat[t.club];
-    const meanRank = st.rankCount.reduce((a, c, r) => a + c * r, 0) / PREDICT_RUNS;
-    let mode = 1; st.rankCount.forEach((c, r) => { if (c > st.rankCount[mode]) mode = r; });
-    return { club: t.club, nowRank: t.rank, nowPts: Number(t.points || 0), expPts: st.pts / PREDICT_RUNS, meanRank, modeRank: mode,
-      modeProb: st.rankCount[mode] / PREDICT_RUNS, promo: st.promo / PREDICT_RUNS, releg: st.releg / PREDICT_RUNS };
-  }).sort((a, b) => a.meanRank - b.meanRank);
-  // REGALIAの残りカードの勝・分・負の確率（ポアソン分布から解析的に計算）
+  // 予想の最終順位表＝残り全試合を「最も起こりやすい結果・スコア」で決めた1通りの結果。
+  // 1試合ごとの予想と必ず一致させるため、平均値ではなくこの1通りで順位・勝点を出す
+  // （2026-10-13指摘: 1試合ごとは全敗予想なのに平均勝点で残留と出て一貫しない）。
+  const det = {};
+  own.teams.forEach(t => { det[t.club] = { club: t.club, pts: Number(t.points || 0), gd: Number(t.diff || 0), gf: Number(t.goals_for || 0), w: 0, d: 0, l: 0 }; });
+  const fxPred = own.fx.map(([a, b]) => {
+    const o = _predFixtureOutcome(model, a, b);
+    const [ga, gb] = o.score;
+    det[a].gf += ga; det[b].gf += gb; det[a].gd += ga - gb; det[b].gd += gb - ga;
+    if (o.pick === 'W') { det[a].pts += 3; det[a].w++; det[b].l++; }
+    else if (o.pick === 'L') { det[b].pts += 3; det[b].w++; det[a].l++; }
+    else { det[a].pts += 1; det[b].pts += 1; det[a].d++; det[b].d++; }
+    return { a, b, o };
+  });
+  const detSorted = Object.values(det).sort((x, y) => y.pts - x.pts || y.gd - x.gd || y.gf - x.gf);
+  const rows = detSorted.map((r, i) => {
+    const t = own.teams.find(x => x.club === r.club);
+    const st = stat[r.club];
+    return { club: r.club, nowRank: t.rank, nowPts: Number(t.points || 0), predRank: i + 1, predPts: r.pts,
+      rec: `${r.w}勝${r.d}分${r.l}敗`, promo: st.promo / PREDICT_RUNS, releg: st.releg / PREDICT_RUNS };
+  });
   const reg = own.teams.find(t => /REGALIA|レガリア/i.test(t.club));
-  const regFixtures = reg ? own.fx.filter(f => f.includes(reg.club)).map(([a, b]) => {
-    const opp = a === reg.club ? b : a;
-    const l1 = _predLambda(model, reg.club, opp), l2 = _predLambda(model, opp, reg.club);
-    let w = 0, d = 0, l = 0, best = -1, score = [0, 0];
-    for (let i = 0; i <= 12; i++) for (let j = 0; j <= 12; j++) {
-      const pr = _predPoissonPmf(l1, i) * _predPoissonPmf(l2, j);
-      if (i > j) w += pr; else if (i === j) d += pr; else l += pr;
-      if (pr > best) { best = pr; score = [i, j]; }
-    }
-    const tot = w + d + l;
-    // 予想結果＝勝・分・負のうち最も確率が高いもの。予想スコア＝最も起こりやすいスコア
-    // （予想結果と食い違う場合は、予想結果の中で最も起こりやすいスコアを採用して矛盾させない）
-    const pick = w >= d && w >= l ? 'W' : (d >= l ? 'D' : 'L');
-    let sBest = -1, sPick = score;
-    for (let i = 0; i <= 12; i++) for (let j = 0; j <= 12; j++) {
-      const res = i > j ? 'W' : (i === j ? 'D' : 'L');
-      if (res !== pick) continue;
-      const pr = _predPoissonPmf(l1, i) * _predPoissonPmf(l2, j);
-      if (pr > sBest) { sBest = pr; sPick = [i, j]; }
-    }
-    return { opponent: opp, oppRank: (own.teams.find(t => t.club === opp) || {}).rank, win: w / tot, draw: d / tot, lose: l / tot, xg: l1, xga: l2, pick, score: sPick };
+  const regFixtures = reg ? fxPred.filter(f => f.a === reg.club || f.b === reg.club).map(f => {
+    const isA = f.a === reg.club;
+    const opp = isA ? f.b : f.a;
+    const o = f.o;
+    const flip = { W: 'L', L: 'W', D: 'D' };
+    return { opponent: opp, oppRank: (own.teams.find(t => t.club === opp) || {}).rank,
+      win: isA ? o.win : o.lose, draw: o.draw, lose: isA ? o.lose : o.win,
+      pick: isA ? o.pick : flip[o.pick], score: isA ? o.score : [o.score[1], o.score[0]] };
   }).sort((x, y) => (x.oppRank || 99) - (y.oppRank || 99)) : [];
   return { rows, regFixtures, runs: PREDICT_RUNS, totalGames, remainingFixtures: own.fx.length, regaliaClub: reg ? reg.club : null, groupName: own.name };
 }
@@ -4392,7 +4413,7 @@ function renderStandingsPrediction(cat) {
   const pctTxt = v => v >= 0.995 ? '99%+' : (v < 0.005 && v > 0 ? '<1%' : Math.round(v * 100) + '%');
   const rowsHtml = pr.rows.map((r, i) => {
     const isReg = r.club === pr.regaliaClub;
-    return `<tr class="${isReg ? 'standings-regalia-row' : ''}"><td>${i + 1}</td><td>${escHtml(_survShortClub(r.club))}</td><td>${r.nowRank}位</td><td>${r.nowPts}→${r.expPts.toFixed(1)}</td><td>${r.modeRank}位<span class="standings-pred-dim">(${pctTxt(r.modeProb)})</span></td><td>${pctTxt(r.promo)}</td><td>${pctTxt(r.releg)}</td></tr>`;
+    return `<tr class="${isReg ? 'standings-regalia-row' : ''}"><td>${r.predRank}</td><td>${escHtml(_survShortClub(r.club))}</td><td>${r.nowRank}位</td><td>${r.nowPts}→${r.predPts}</td><td>${r.rec}</td><td>${pctTxt(r.promo)}</td><td>${pctTxt(r.releg)}</td></tr>`;
   }).join('');
   const pickLabel = { W: '○ 勝ち', D: '△ 引分', L: '● 負け' };
   const fxHtml = pr.regFixtures.map(f => `<tr><td>vs ${escHtml(_survShortClub(f.opponent))}${f.oppRank ? `（${f.oppRank}位）` : ''}</td><td class="standings-pred-pick pick-${f.pick}">${pickLabel[f.pick]}<br><span class="standings-pred-score">${f.score[0]}-${f.score[1]}</span></td><td>${pctTxt(f.win)}</td><td>${pctTxt(f.draw)}</td><td>${pctTxt(f.lose)}</td></tr>`).join('');
@@ -4400,18 +4421,18 @@ function renderStandingsPrediction(cat) {
   pr.regFixtures.forEach(f => { cnt[f.pick]++; });
   const regRow = pr.rows.find(r => r.club === pr.regaliaClub);
   const pickPts = cnt.W * 3 + cnt.D;
-  const summaryHtml = pr.regFixtures.length ? `<div class="standings-pred-summary">REGALIAの残り${pr.regFixtures.length}試合の予想: <strong>${cnt.W}勝${cnt.D}分${cnt.L}敗</strong>（勝点+${pickPts} → ${(regRow ? regRow.nowPts : 0) + pickPts}点）</div>` : '';
+  const summaryHtml = pr.regFixtures.length && regRow ? `<div class="standings-pred-summary">REGALIAの残り${pr.regFixtures.length}試合の予想: <strong>${cnt.W}勝${cnt.D}分${cnt.L}敗</strong>（勝点${regRow.nowPts}+${pickPts}＝${regRow.predPts}点）→ <strong>予想${regRow.predRank}位</strong>（降格の可能性${pctTxt(regRow.releg)}）</div>` : '';
   return `<div class="standings-sim standings-pred">
     <div class="standings-sim-title">🔒 最終順位の予測（管理者のみ表示）</div>
-    <div class="standings-sim-detail">これまでの得点・失点から各チームの攻撃力・守備力を出し、この組の残り${pr.remainingFixtures}試合を${pr.runs.toLocaleString()}回シミュレーションした結果です（2位は他組2位との比較のため、他組の残り試合も同時に計算）。予想順位は平均順位の順。</div>
+    <div class="standings-sim-detail">これまでの得点・失点から各チームの攻撃力・守備力を出し、この組の残り${pr.remainingFixtures}試合すべてを「最も起こりやすい結果」で決めた場合の最終順位表です（下のREGALIAの試合予想と同じ前提）。<br>「昇格/降格の可能性」は、番狂わせも含めて残り試合を${pr.runs.toLocaleString()}回くり返した中で実際にそうなった割合です（2位は他組2位と比較）。</div>
     <div class="standings-surv-scroll"><table class="standings-surv-table">
-      <thead><tr><th>予想</th><th>クラブ</th><th>現在</th><th>勝点(現→予想)</th><th>最多の順位</th><th>昇格</th><th>降格</th></tr></thead>
+      <thead><tr><th>予想</th><th>クラブ</th><th>現在</th><th>勝点</th><th>残りの予想</th><th>昇格の可能性</th><th>降格の可能性</th></tr></thead>
       <tbody>${rowsHtml}</tbody></table></div>
     ${fxHtml ? `${summaryHtml}
     <div class="standings-surv-scroll"><table class="standings-surv-table">
       <thead><tr><th>対戦</th><th>予想（スコア）</th><th>勝</th><th>分</th><th>負</th></tr></thead>
       <tbody>${fxHtml}</tbody></table></div>` : ''}
-    <div class="standings-sim-caveat">※予想の勝敗は勝・分・負のうち最も確率が高いもの、スコアはその中で最も起こりやすいスコアです。予想勝点（上の表）は確率を加味した平均のため、予想勝敗の合計とは一致しないことがあります。各チームまだ数試合しか消化していないため、予測の振れ幅は大きめです（少ない試合数の影響を抑えるため、リーグ平均を${PREDICT_SHRINK_GAMES}試合分混ぜて補正）。昇格は1位＋他組2位との比較で上回った2位、降格は10〜12位で集計。ホーム/アウェイ・メンバー状況は考慮していません。</div>
+    <div class="standings-sim-caveat">※予想の勝敗は勝・分・負のうち最も確率が高いもの、スコアはその中で最も起こりやすいスコアです（引き分けが最も確率が高くなることは少ないため、予想ではほとんど出ません）。各チームまだ数試合しか消化していないため、予測の振れ幅は大きめです（少ない試合数の影響を抑えるため、リーグ平均を${PREDICT_SHRINK_GAMES}試合分混ぜて補正）。昇格は1位＋他組2位との比較で上回った2位、降格は10〜12位で集計。ホーム/アウェイ・メンバー状況は考慮していません。</div>
   </div>`;
 }
 
