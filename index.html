@@ -1317,14 +1317,14 @@
       <div class="chip-row" id="standings-cat-filter"></div>
       <!-- 「戦績表/星取り表」の2チップ切替を、予定タブのカード/タイムラインと同じ
            トグルスイッチに統一（2026-09-27指示）。表現も「順位表」「星取表」に変更。
-           ON(右)=順位表（既定）、OFF(左)=星取表。 -->
+           ON(右)=順位表、OFF(左)=星取表（既定。2026-10-13変更）。 -->
       <div class="standings-view-switch-row">
-        <div class="hl-view-switch on" id="standings-view-toggle" role="switch" aria-checked="true" aria-label="順位表表示" tabindex="0"
+        <div class="hl-view-switch" id="standings-view-toggle" role="switch" aria-checked="false" aria-label="順位表表示" tabindex="0"
              onclick="standingsGoToSlide(standingsSlideIndex === 1 ? 0 : 1)"
              onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}">
-          <span class="hl-view-switch-label" data-slide="0">星取表</span>
+          <span class="hl-view-switch-label active" data-slide="0">星取表</span>
           <span class="hl-view-switch-track"><span class="hl-view-switch-knob"></span></span>
-          <span class="hl-view-switch-label active" data-slide="1">順位表</span>
+          <span class="hl-view-switch-label" data-slide="1">順位表</span>
         </div>
       </div>
       <div class="standings-carousel" id="standings-carousel">
@@ -1570,7 +1570,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 172;
+const __UI_BUILD__  = 173;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3928,7 +3928,7 @@ async function hlTlRenderDay(day) {
 
 // ── 順位表（2026-09-15新設） ──────────────────────────────────────────────────
 async function loadStandings() {
-  if (standingsData) { renderStandingsBody(); return; }
+  if (standingsData) { renderStandingsBody(); showStandingsDefaultSlide(); return; }
   const body = document.getElementById('standings-body');
   body.innerHTML = '<div class="empty-msg">読み込み中…</div>';
   try {
@@ -3941,6 +3941,7 @@ async function loadStandings() {
     }
     renderStandingsCatFilter();
     renderStandingsBody();
+    showStandingsDefaultSlide();
   } catch (e) {
     body.innerHTML = `<div class="empty-msg">エラー: ${escHtml(e.message)}</div>`;
   }
@@ -3974,8 +3975,12 @@ function selectStandingsCat(code) {
   standingsActiveCat = code;
   renderStandingsCatFilter();
   renderStandingsBody();
+  showStandingsDefaultSlide();
+}
+// 順位タブの既定表示は星取表（2026-10-13変更）
+function showStandingsDefaultSlide() {
   standingsMatrixRendered = false;
-  standingsGoToSlide(1, true);
+  standingsGoToSlide(0, true);
 }
 
 function renderStandingsBody() {
@@ -4054,7 +4059,7 @@ function renderStandingsBody() {
 // かったため（.standings-matrix-scrollのoverflow-x:autoへタッチが届かなかった）。
 // データはapi/standingsに既に追加済みの`matrix`/`extraGroup.matrix`をそのまま使う
 // （Sony_HomeTerminal側と同一。REGALIA_ChkMatchSchedule側のバックエンド変更は不要）。
-let standingsSlideIndex = 1;
+let standingsSlideIndex = 0;
 let standingsMatrixRendered = false;
 function standingsGoToSlide(idx, skipAnim) {
   standingsSlideIndex = idx;
@@ -4154,7 +4159,6 @@ function renderStandingsMatrixBody() {
     body.innerHTML = `${metaHtml}<div class="empty-msg">この大会の星取表はまだ取得できていません</div>`;
     return;
   }
-  const rotateHtml = `<div class="standings-rotate-hint">📱 端末を横向きにすると全チームが見やすくなります</div>`;
   const headerHtml = matrix.map((r, i) => {
     const name = (cat.teams && cat.teams[i] && cat.teams[i].club) || r.club;
     const abbr = escHtml(standingsAbbrevTeamName(name));
@@ -4174,7 +4178,7 @@ function renderStandingsMatrixBody() {
       ${cellsHtml}
     </tr>`;
   }).join('');
-  body.innerHTML = `${metaHtml}${rotateHtml}
+  body.innerHTML = `${metaHtml}
     <div class="standings-matrix-scroll">
       <table class="standings-matrix-table">
         <thead><tr><th class="matrix-row-label-h"></th>${headerHtml}</tr></thead>
