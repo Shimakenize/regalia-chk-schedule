@@ -1016,6 +1016,13 @@
     .standings-sim-head { font-size:12px; color:var(--sub); margin-bottom:4px; }
     .standings-sim-detail { font-size:11.5px; color:var(--muted); line-height:1.6; }
     .standings-sim-caveat { font-size:10.5px; color:var(--dim); margin-top:6px; line-height:1.5; }
+    .standings-surv-pats { font-size:11px; color:var(--sub); margin:2px 0 4px; line-height:1.6; }
+    .standings-surv-more { margin-top:8px; font-size:11.5px; color:var(--muted); }
+    .standings-surv-more summary { cursor:pointer; color:var(--gold); }
+    .standings-surv-scroll { overflow-x:auto; margin-top:6px; }
+    .standings-surv-table { border-collapse:collapse; font-size:11px; width:100%; }
+    .standings-surv-table th, .standings-surv-table td { border-bottom:1px solid var(--border); padding:4px 5px; text-align:left; white-space:nowrap; }
+    .standings-surv-table td.standings-surv-fx { white-space:normal; min-width:140px; }
     /* ── 公式HPタブ：差分検出時刻のポップアップ（2026-10-05新設） ───────────── */
     #official-detail-overlay {
       position: fixed; inset: 0;
@@ -1570,7 +1577,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 173;
+const __UI_BUILD__  = 174;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -4216,11 +4223,62 @@ function renderStandingsSimulation(sim) {
       <div class="standings-sim-head">${typeLabels[b.type] || b.type}：<strong>${escHtml(b.verdict)}</strong></div>
       <div class="standings-sim-detail">${escHtml(b.detail)}</div>
     </div>`).join('');
-  return `<div class="standings-sim">
+  const survHtml = renderStandingsSurvival(sim.survival);
+  const oldHtml = blocksHtml ? `
     <div class="standings-sim-title">🔮 昇格/降格シミュレーション（残り${sim.remaining}試合、勝点${sim.regaliaMin}〜${sim.regaliaMax}点の範囲で算出）</div>
     ${blocksHtml}
-    <div class="standings-sim-caveat">※REGALIA自身の残り試合結果（全勝〜全敗）のみを基準にした簡易シミュレーションです。相手チームの実際の対戦相手までは考慮していません。</div>
-  </div>`;
+    <div class="standings-sim-caveat">※REGALIA自身の残り試合結果（全勝〜全敗）のみを基準にした簡易シミュレーションです。相手チームの実際の対戦相手までは考慮していません。</div>` : '';
+  return `<div class="standings-sim">${survHtml}${oldHtml}</div>`;
+}
+
+// 残留の条件（2026-10-13新設）。GAS _computeSurvival() が、星取表の未消化カードを使って
+// REGALIAの残り試合の勝敗パターンごとに他チーム同士の残り試合も総当たりした結果を表示する。
+function _survShortClub(name) {
+  return String(name || '').replace(/^F\.?C\.?\s*/i, '').replace(/ジュニアユース/g, 'JY').replace(/\s+/g, '');
+}
+function renderStandingsSurvival(sv) {
+  if (!sv || !sv.scenarios || !sv.scenarios.length) return '';
+  const mark = { W: '○', D: '△', L: '●' };
+  const pct = v => (Math.round(v * 1000) / 1000).toFixed(3).replace(/^0/, '');
+  const sentimentClass = { good: 'sim-good', bad: 'sim-bad', mixed: 'sim-mixed' };
+  const oppLine = sv.opponents.map(o => `vs ${escHtml(_survShortClub(o.club))}${o.rank ? `（${o.rank}位）` : ''}`).join('・');
+  // 降格確定になる結果は1枠にまとめる（全パターンを個別カードにすると縦に長くなりすぎるため）
+  const lost = sv.scenarios.filter(sc => sc.sentiment === 'bad' && sc.bestRank > sv.cmpRank);
+  const live = sv.scenarios.filter(sc => !lost.includes(sc));
+  const patText = pt => pt.map(x => `${escHtml(_survShortClub(x.opponent))}${mark[x.result]}`).join(' ');
+  const lostHtml = lost.length ? `<div class="standings-sim-block sim-bad">
+      <div class="standings-sim-head"><strong>降格確定（${sv.cmpRank + 1}位以下）</strong>になる結果</div>
+      <div class="standings-surv-pats">${lost.map(sc => sc.patterns.map(pt => `${patText(pt)}（勝点${sc.points}）`).join('<br>')).join('<br>')}</div>
+    </div>` : '';
+  const cards = live.map(sc => {
+    const pats = sc.patterns.map(patText).join('<br>');
+    const bubble = sc.bubble.length
+      ? sc.bubble.map(b => `${escHtml(_survShortClub(b.club))}（現${b.points}点→最大${b.max}点）`).join('、')
+      : 'なし';
+    const lines = [];
+    lines.push(`上位が確定: ${sc.aboveFixed}チーム ／ 追い抜かれうる: ${bubble}`);
+    if (sc.sentiment !== 'bad' || sc.bestRank <= sv.cmpRank) {
+      if (sc.allowSafe >= 0 && sc.bubble.length) lines.push(`${sv.safeRank}位以内（残留確定）: 追い抜かれうるチームのうち、勝点${sc.points}点以上で終えるのが${sc.allowSafe}チーム以内`);
+      else if (sc.allowSafe < 0) lines.push(`${sv.safeRank}位以内は不可`);
+      if (sc.allowCmp >= 0 && sc.bubble.length) lines.push(`${sv.cmpRank}位: 勝点${sc.points}点以上で終えるのが${sc.allowCmp}チーム以内なら${sv.cmpRank}位以内（${sv.cmpRank}位なら他組${sv.cmpRank}位と勝率比較、勝率${pct(sc.rate)}）`);
+    }
+    return `<div class="standings-sim-block ${sentimentClass[sc.sentiment] || 'sim-mixed'}">
+      <div class="standings-sim-head"><strong>勝点${sc.points}</strong>（勝率${pct(sc.rate)}）：<strong>${escHtml(sc.verdict)}</strong></div>
+      <div class="standings-surv-pats">${pats}</div>
+      <div class="standings-sim-detail">${lines.map(escHtml).join('<br>')}</div>
+    </div>`;
+  }).join('');
+  const rivalsRows = sv.rivals.map(r => `<tr><td>${r.rank}</td><td>${escHtml(_survShortClub(r.club))}</td><td>${r.points}</td><td>${r.remaining}</td><td>${r.max}</td><td class="standings-surv-fx">${r.fixtures.map(f => escHtml(_survShortClub(f))).join('・')}</td></tr>`).join('');
+  const cmpHtml = sv.otherCompare.map(o => `${escHtml(o.group)}の現${sv.cmpRank}位 ${escHtml(o.club)}: 勝点${o.points}・${o.played}試合（今の勝率${pct(o.rateNow)}、最終${pct(o.rateMin)}〜${pct(o.rateMax)}）`).join('<br>');
+  return `
+    <div class="standings-sim-title">🛡 残留の条件（${sv.cmpRank + 1}位以下は自動降格／${sv.cmpRank}位は他組${sv.cmpRank}位と勝率で比べ低い方が降格／${sv.safeRank}位以内なら残留確定）</div>
+    <div class="standings-sim-detail">REGALIAの残り試合: ${oppLine}<br>結果の記号: ○勝 △分 ●敗</div>
+    ${cards}${lostHtml}
+    <details class="standings-surv-more"><summary>関係するチームの残り日程</summary>
+      <div class="standings-surv-scroll"><table class="standings-surv-table"><thead><tr><th>#</th><th>クラブ</th><th>勝点</th><th>残</th><th>最大</th><th>残りの対戦相手</th></tr></thead><tbody>${rivalsRows}</tbody></table></div>
+    </details>
+    ${cmpHtml ? `<div class="standings-sim-detail" style="margin-top:8px">${sv.cmpRank}位になった場合の比較相手（勝率＝勝点÷(${sv.totalGames}試合×3)）:<br>${cmpHtml}</div>` : ''}
+    <div class="standings-sim-caveat">※星取表の未消化カードをもとに、他チーム同士の残り試合もすべての勝敗パターンで計算しています。勝点が並んだ場合はREGALIAが下（得失点差で不利）とみなしています。他組${sv.cmpRank}位の最終成績はまだ決まっていないため、${sv.cmpRank}位の残留可否は確定できません。</div>`;
 }
 
 // ── タブ切替 ─────────────────────────────────────────────────────────────────
