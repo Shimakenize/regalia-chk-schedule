@@ -812,10 +812,14 @@
        1列ずつのときの列幅」に固定し、はみ出した分は横スクロールで見る（2026-09-27指摘）。
        スクロールするのはカテゴリー列の領域だけで、左の時刻軸と天気レールはこの外側に
        あるため固定表示のまま。各列の幅はhlTlApplyLaneWidths()が描画後に設定する。 */
+    /* 2026-10-14: 横スワイプを「日にち送り」に割り当てたため、あふれた列の指での横スクロールは
+       やめ（overflow-x:hidden）、移動は中央の「›」「‹」ボタン（scrollBy）だけにする。 */
     .hl-tl-catcols {
       flex:1; display:flex; min-width:0; gap:2px; position:relative;
-      overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+      overflow-x:hidden; overflow-y:hidden;
     }
+    /* 縦方向のページスクロールはブラウザに任せ、横方向の動きはスワイプ判定で使う */
+    #hl-timeline-view { touch-action: pan-y; }
     /* 試合が無い日でも時間軸・天気レールは表示したまま、3列領域にだけ重ねる
        空状態メッセージ（2026-09-30新設）。列自体（グリッド線）は下に描画されたまま。 */
     .hl-tl-empty-msg {
@@ -1438,7 +1442,7 @@
       <div class="hl-day-nav">
         <div class="chip-row" id="hl-timeline-day-picker"></div>
       </div>
-      <div class="hl-tap-hint">ⓘ イベントをタップすると、集合・解散・根拠のLINE連絡などの詳細を確認できます</div>
+      <div class="hl-tap-hint">ⓘ イベントをタップすると、集合・解散・根拠のLINE連絡などの詳細を確認できます。左右にスワイプで日にちを送れます</div>
       <div id="hl-timeline-body" class="hl-timeline-body"></div>
     </div>
   </div>
@@ -1586,7 +1590,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 177;
+const __UI_BUILD__  = 178;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3296,6 +3300,7 @@ function closeHlEventDetail() {
 }
 
 function renderScheduleHighlights() {
+  hlBindDaySwipe();
   renderHlTimelinePicker();
 }
 
@@ -3328,6 +3333,43 @@ async function renderHlTimelinePicker() {
       + `<span class="hl-daybtn-date">${mo}/${dd}</span><span class="hl-daybtn-dow">${dow}</span></div>`;
   }).join('');
   hlTlRenderDay(hlTimelineSelectedDay);
+}
+
+// 横スワイプで日にちを前後に送る（2026-10-14）。左へスワイプ＝翌日、右へスワイプ＝前日。
+// 週の端を越えたら週も切り替える（日曜→翌週月曜、月曜→前週日曜）。
+function hlShiftDay(delta) {
+  const days = hlWeekDays();
+  const cur = hlTimelineSelectedDay && days.includes(hlTimelineSelectedDay) ? hlTimelineSelectedDay : days[0];
+  const dt = new Date(cur + 'T00:00:00');
+  dt.setDate(dt.getDate() + delta);
+  const next = hlDateStr(dt);
+  if (days.includes(next)) { hlSelectTimelineDay(next); return; }
+  hlSelectedWeek += delta > 0 ? 1 : -1;
+  hlTimelineSelectedDay = next;
+  renderScheduleHighlights();
+}
+let hlSwipeBound = false;
+function hlBindDaySwipe() {
+  if (hlSwipeBound) return;
+  const view = document.getElementById('hl-timeline-view');
+  if (!view) return;
+  hlSwipeBound = true;
+  let sx = 0, sy = 0, st = 0, tracking = false;
+  view.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { tracking = false; return; }
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); tracking = true;
+  }, { passive: true });
+  view.addEventListener('touchend', e => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    // 横方向に50px以上・縦の1.5倍以上・1秒以内の素早い動きだけを日にち送りとみなす
+    // （縦スクロール中の斜めの動きやゆっくりしたドラッグでは発火させない）
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || Date.now() - st > 1000) return;
+    hlShiftDay(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  view.addEventListener('touchcancel', () => { tracking = false; }, { passive: true });
 }
 
 function hlSelectTimelineDay(day) {
