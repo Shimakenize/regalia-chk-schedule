@@ -968,6 +968,12 @@
     .standings-matrix-table td.matrix-w { background: rgba(67,184,115,.2); color: #7fe0a3; font-weight: 700; }
     .standings-matrix-table td.matrix-l { background: rgba(224,85,95,.2); color: #f0929b; font-weight: 700; }
     .standings-matrix-table td.matrix-d { background: rgba(210,166,73,.2); color: #e8c579; font-weight: 700; }
+    /* 2回戦総当たりで1マスに2レッグ分の結果がある場合、縦に2段表示する（2026-10-19新設）。 */
+    .standings-matrix-table td.matrix-cell-multi { padding: 3px 3px; line-height: 1.3; }
+    .matrix-leg { display: block; border-radius: 3px; padding: 0 2px; font-weight: 700; }
+    .matrix-leg.matrix-w { background: rgba(67,184,115,.2); color: #7fe0a3; }
+    .matrix-leg.matrix-l { background: rgba(224,85,95,.2); color: #f0929b; }
+    .matrix-leg.matrix-d { background: rgba(210,166,73,.2); color: #e8c579; }
     /* 週末（土日・祝）に更新があった試合: 枠を囲んで点滅（2026-10-13、Sony_HomeTerminalと同仕様） */
     .standings-matrix-table td.matrix-wk { box-shadow: inset 0 0 0 3px #ff3b5c; animation: matrixWkBlink 1.1s ease-in-out infinite; }
     @keyframes matrixWkBlink { 0%, 100% { box-shadow: inset 0 0 0 3px #ff3b5c; } 50% { box-shadow: inset 0 0 0 3px rgba(255,59,92,.1); } }
@@ -1585,7 +1591,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 181;
+const __UI_BUILD__  = 182;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -4133,13 +4139,29 @@ function standingsGoToSlide(idx, skipAnim) {
     standingsMatrixRendered = true;
   }
 }
+// 2026-10-19バグ修正: 2回戦総当たり（U-15等）の1マスには両レッグ分の結果が最大2件
+// 入っている（スクレイパー側を配列形式に修正）。ユーザー指示により両方とも縦2段で表示する。
+// vは新形式（配列、0〜2件の"W2-1"等）。再スクレイプ前の旧キャッシュ（単一文字列）も
+// そのまま表示できるよう両対応する。
 function standingsMatrixCellHtml(v, weekend) {
   if (v === null || v === undefined) return '<td class="matrix-cell matrix-cell-self"></td>';
-  if (v === '') return '<td class="matrix-cell"></td>';
-  const m = /^([WLD])(.*)$/.exec(v);
-  if (!m) return '<td class="matrix-cell"></td>';
-  const cls = m[1] === 'W' ? 'matrix-w' : (m[1] === 'L' ? 'matrix-l' : 'matrix-d');
-  return `<td class="matrix-cell ${cls}${weekend ? ' matrix-wk' : ''}">${escHtml(m[2])}</td>`;
+  const vals = (Array.isArray(v) ? v : (v === '' ? [] : [v])).filter(s => s);
+  const wkCls = weekend ? ' matrix-wk' : '';
+  if (!vals.length) return `<td class="matrix-cell${wkCls}"></td>`;
+  const legCls = s => {
+    const m = /^([WLD])/.exec(s);
+    return m[1] === 'W' ? 'matrix-w' : (m[1] === 'L' ? 'matrix-l' : 'matrix-d');
+  };
+  if (vals.length === 1) {
+    const m = /^([WLD])(.*)$/.exec(vals[0]);
+    if (!m) return `<td class="matrix-cell${wkCls}"></td>`;
+    return `<td class="matrix-cell ${legCls(vals[0])}${wkCls}">${escHtml(m[2])}</td>`;
+  }
+  const legsHtml = vals.map(s => {
+    const m = /^([WLD])(.*)$/.exec(s);
+    return m ? `<span class="matrix-leg ${legCls(s)}">${escHtml(m[2])}</span>` : '';
+  }).join('');
+  return `<td class="matrix-cell matrix-cell-multi${wkCls}">${legsHtml}</td>`;
 }
 // 週末（土日・祝）に更新があった試合の星取りセル（2026-10-13）。公式HP結果タブの試合一覧
 // （cat.matches: dt/home/away）のうち、直近の連続した休日ブロック（ブロック終了から5日=金曜
@@ -4170,7 +4192,11 @@ function standingsWeekendCells(cat) {
     const i = idxOf[norm(m.home)], j = idxOf[norm(m.away)];
     if (i === undefined || j === undefined) return;
     const row = matrix[i];
-    if (row && row.cells && row.cells[j]) out[i + ':' + j] = true;
+    // cellsは配列形式（0〜2件）になったため、空配列[]はtruthyでも「結果あり」ではない
+    // （2026-10-19）。非空要素を実際に含むかで判定する。
+    const c = row && row.cells && row.cells[j];
+    const hasResult = Array.isArray(c) ? c.some(v => v) : !!c;
+    if (hasResult) out[i + ':' + j] = true;
   });
   return out;
 }
@@ -4311,7 +4337,10 @@ function _predMatchClub(short, names, used) {
   if (best) used.add(best);
   return best;
 }
-// 星取表の空欄＝未消化カード。1回戦総当たりは同じ試合が2セルに出るので対で1つにする
+// 星取表の空欄＝未消化カード。1回戦総当たりは同じ試合が2セルに出るので対で1つにする。
+// セルは配列形式（0〜2件、2026-10-19〜）・旧キャッシュの単一文字列のどちらも許容する
+// （この関数はSTANDINGS_PREDICT_CATS=U-13Lのみで使われ1回戦総当たり固定のため、
+// 2回戦総当たり特有の「行が両レッグ完結して持つ」考慮は不要）。
 function _predFixtures(teams, matrix) {
   const names = teams.map(t => t.club);
   const used = new Set();
@@ -4319,7 +4348,8 @@ function _predFixtures(teams, matrix) {
   const seen = {};
   const fx = [];
   (matrix || []).forEach((r, i) => (r.cells || []).forEach((cell, j) => {
-    if (cell !== '' || i === j || !order[i] || !order[j]) return;
+    const vals = Array.isArray(cell) ? cell : (cell ? [cell] : []);
+    if (vals.some(v => v !== '') || i === j || !order[i] || !order[j]) return;
     const key = [order[i], order[j]].sort().join('|');
     if (seen[key]) return;
     seen[key] = true;
