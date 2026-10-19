@@ -974,9 +974,14 @@
     .matrix-leg.matrix-w { background: rgba(67,184,115,.2); color: #7fe0a3; }
     .matrix-leg.matrix-l { background: rgba(224,85,95,.2); color: #f0929b; }
     .matrix-leg.matrix-d { background: rgba(210,166,73,.2); color: #e8c579; }
+    .matrix-leg + .matrix-leg { margin-top: 2px; }
+    .matrix-leg.matrix-leg-empty { background: rgba(255,255,255,.04); }
     /* 週末（土日・祝）に更新があった試合: 枠を囲んで点滅（2026-10-13、Sony_HomeTerminalと同仕様） */
     .standings-matrix-table td.matrix-wk { box-shadow: inset 0 0 0 3px #ff3b5c; animation: matrixWkBlink 1.1s ease-in-out infinite; }
     @keyframes matrixWkBlink { 0%, 100% { box-shadow: inset 0 0 0 3px #ff3b5c; } 50% { box-shadow: inset 0 0 0 3px rgba(255,59,92,.1); } }
+    /* 2回戦総当たりは週末に更新された枠（上段/下段）だけを点滅させる（UI Build 183） */
+    .matrix-leg.matrix-wk-leg { box-shadow: inset 0 0 0 2px #ff3b5c; animation: matrixWkLegBlink 1.1s ease-in-out infinite; }
+    @keyframes matrixWkLegBlink { 0%, 100% { box-shadow: inset 0 0 0 2px #ff3b5c; } 50% { box-shadow: inset 0 0 0 2px rgba(255,59,92,.1); } }
     .standings-matrix-table tr.is-regalia .matrix-row-label {
       background: rgba(201,162,75,.18); color: #fff; font-weight: 700;
     }
@@ -1591,7 +1596,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 182;
+const __UI_BUILD__  = 183;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -4139,39 +4144,49 @@ function standingsGoToSlide(idx, skipAnim) {
     standingsMatrixRendered = true;
   }
 }
-// 2026-10-19バグ修正: 2回戦総当たり（U-15等）の1マスには両レッグ分の結果が最大2件
-// 入っている（スクレイパー側を配列形式に修正）。ユーザー指示により両方とも縦2段で表示する。
-// vは新形式（配列、0〜2件の"W2-1"等）。再スクレイプ前の旧キャッシュ（単一文字列）も
-// そのまま表示できるよう両対応する。
-function standingsMatrixCellHtml(v, weekend) {
+// 2回戦総当たり（U-15）の1マスは公式HPと同じく上段=行チームのホーム戦・下段=アウェイ戦の
+// 2枠固定で表示し、未消化の枠は空けたまま残す（2026-10-19、UI Build 183。1件だけ消化の
+// マスが上下どちらの試合か分からなかったため）。double=2回戦総当たりか。wkLegは週末に
+// 更新された枠（0=上段/1=下段、1回戦総当たりはマス全体）で、その枠だけ点滅させる。
+function standingsMatrixCellHtml(v, wkLeg, double) {
   if (v === null || v === undefined) return '<td class="matrix-cell matrix-cell-self"></td>';
-  const vals = (Array.isArray(v) ? v : (v === '' ? [] : [v])).filter(s => s);
-  const wkCls = weekend ? ' matrix-wk' : '';
-  if (!vals.length) return `<td class="matrix-cell${wkCls}"></td>`;
   const legCls = s => {
     const m = /^([WLD])/.exec(s);
     return m[1] === 'W' ? 'matrix-w' : (m[1] === 'L' ? 'matrix-l' : 'matrix-d');
   };
-  if (vals.length === 1) {
-    const m = /^([WLD])(.*)$/.exec(vals[0]);
-    if (!m) return `<td class="matrix-cell${wkCls}"></td>`;
-    return `<td class="matrix-cell ${legCls(vals[0])}${wkCls}">${escHtml(m[2])}</td>`;
+  if (double) {
+    const legs = (Array.isArray(v) ? v.slice(0, 2) : [v]);
+    while (legs.length < 2) legs.push('');
+    const legsHtml = legs.map((s, k) => {
+      const m = /^([WLD])(.*)$/.exec(s || '');
+      const wk = wkLeg === k ? ' matrix-wk-leg' : '';
+      return m ? `<span class="matrix-leg ${legCls(s)}${wk}">${escHtml(m[2])}</span>`
+               : `<span class="matrix-leg matrix-leg-empty${wk}">&nbsp;</span>`;
+    }).join('');
+    return `<td class="matrix-cell matrix-cell-multi">${legsHtml}</td>`;
   }
-  const legsHtml = vals.map(s => {
-    const m = /^([WLD])(.*)$/.exec(s);
-    return m ? `<span class="matrix-leg ${legCls(s)}">${escHtml(m[2])}</span>` : '';
-  }).join('');
-  return `<td class="matrix-cell matrix-cell-multi${wkCls}">${legsHtml}</td>`;
+  const vals = (Array.isArray(v) ? v : (v === '' ? [] : [v])).filter(s => s);
+  const wkCls = wkLeg !== undefined ? ' matrix-wk' : '';
+  const m = vals.length ? /^([WLD])(.*)$/.exec(vals[0]) : null;
+  if (!m) return `<td class="matrix-cell${wkCls}"></td>`;
+  return `<td class="matrix-cell ${legCls(vals[0])}${wkCls}">${escHtml(m[2])}</td>`;
+}
+// 2回戦総当たりか（GASのdoubleRoundRobin。旧GAS応答では2件入ったマスの有無で判定）
+function standingsIsDouble(cat) {
+  if (typeof cat.doubleRoundRobin === 'boolean') return cat.doubleRoundRobin;
+  return (cat.matrix || []).some(r => (r.cells || []).some(c => Array.isArray(c) && c.length >= 2));
 }
 // 週末（土日・祝）に更新があった試合の星取りセル（2026-10-13）。公式HP結果タブの試合一覧
 // （cat.matches: dt/home/away）のうち、直近の連続した休日ブロック（ブロック終了から5日=金曜
 // まで）に当たる試合を、行=ホーム・列=アウェイのセルとして返す（キー "i:j"）。
+// 値は2回戦総当たりなら点滅させる枠（0=上段=ホーム戦）、1回戦総当たりはtrue（マス全体）。
 function standingsWeekendCells(cat) {
   const out = {};
   const ms = cat.matches || [];
   const matrix = cat.matrix || [];
   const teams = cat.teams || [];
   if (!ms.length || !matrix.length || !teams.length) return out;
+  const double = standingsIsDouble(cat);
   const pad2 = n => String(n).padStart(2, '0');
   const iso = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return iso(d); };
@@ -4195,6 +4210,11 @@ function standingsWeekendCells(cat) {
     // cellsは配列形式（0〜2件）になったため、空配列[]はtruthyでも「結果あり」ではない
     // （2026-10-19）。非空要素を実際に含むかで判定する。
     const c = row && row.cells && row.cells[j];
+    if (double) {
+      // ホーム側の行の上段がこの試合（相手側の行では下段に同じ試合が出る）
+      if (Array.isArray(c) && c[0]) out[i + ':' + j] = 0;
+      return;
+    }
     const hasResult = Array.isArray(c) ? c.some(v => v) : !!c;
     if (hasResult) out[i + ':' + j] = true;
   });
@@ -4249,9 +4269,13 @@ function renderStandingsMatrixBody() {
     Promise.resolve(hlEnsureWeatherLoaded()).then(() => renderStandingsMatrixBody()).catch(() => {});
   }
   const wkSet = standingsWeekendCells(cat);
+  const double = standingsIsDouble(cat);
   const rowsHtml = matrix.map((row, ri) => {
     const isRegalia = /REGALIA|レガリア/i.test(row.club || '');
-    const cellsHtml = (row.cells || []).map((v, ci) => standingsMatrixCellHtml(v, !!wkSet[ri + ':' + ci])).join('');
+    const cellsHtml = (row.cells || []).map((v, ci) => {
+      const w = wkSet[ri + ':' + ci];
+      return standingsMatrixCellHtml(v, w, double);
+    }).join('');
     return `<tr class="${isRegalia ? 'is-regalia' : ''}">
       <td class="matrix-row-label">${row.icon ? `<img class="matrix-row-icon" src="${escHtml(row.icon)}" alt="">` : ''}${escHtml(row.club)}</td>
       ${cellsHtml}
