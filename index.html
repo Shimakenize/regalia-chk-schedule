@@ -171,6 +171,7 @@
     .sum-grid-card.official_pending .sum-grid-num { color:#d97b3f; }
     .sum-grid-card.other    .sum-grid-num { color:#d2a649; }
     .sum-grid-label { font-size:10px; color:#c4cfe0; margin-top:4px; font-weight:500; }
+    .sum-grid-sub { font-size:9px; color:var(--gold); margin-top:2px; font-weight:500; }
 
     /* ── Summary: list ────────────────────────────────── */
     .sum-list-hdr { font-size:15px; color:#fff; font-weight:700; }
@@ -1294,6 +1295,7 @@
       <div class="sum-grid-card ok" data-filter="ok" onclick="filterSummary('ok',this)">
         <div class="sum-grid-num" id="cnt-ok">—</div>
         <div class="sum-grid-label">照合OK</div>
+        <div class="sum-grid-sub" id="cnt-ok-pdf-wrap" style="display:none">うちPDF確認 <span id="cnt-ok-pdf">—</span>件</div>
       </div>
       <div class="sum-grid-card ng" data-filter="ng" onclick="filterSummary('ng',this)">
         <div class="sum-grid-num" id="cnt-ng">—</div>
@@ -1596,7 +1598,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 183;
+const __UI_BUILD__  = 184;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -2428,14 +2430,26 @@ function buildMerged() {
       // 「公式HP掲載まち」ではなく「照合OK」として扱い、注記を添えて表示する
       // （指摘: 「HPでは10:00、公式PDFでは9:00でLINE通知と一致。照合OKにすること。
       // ただし公式HPと公式PDFが異なることは今後も出てくるので、その旨を注記する」）。
-      status: matchedDiscs.length > 0
-        ? (matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status !== 'known_change' && d.status !== 'known_change_ok') ? 'ng'
-           : matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status === 'known_change') ? 'pending'
-           : matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status === 'known_change_ok') ? 'ok'
-           : matchedDiscs.some(d => d.type === 'official_pending') ? 'official_pending'
-           : unmatchedStatus)
-        : (official ? 'ok' : unmatchedStatus),
-      note: matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status === 'known_change_ok') ? '照合OKとしたが、公式HPは更新待ち' : '',
+      ...(() => {
+        const status = matchedDiscs.length > 0
+          ? (matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status !== 'known_change' && d.status !== 'known_change_ok') ? 'ng'
+             : matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status === 'known_change') ? 'pending'
+             : matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status === 'known_change_ok') ? 'ok'
+             : matchedDiscs.some(d => d.type === 'official_pending') ? 'official_pending'
+             : unmatchedStatus)
+          : (official ? 'ok' : unmatchedStatus);
+        // 照合OKの注記: known_change_ok（公式HP/PDFの記載差異を確認済みのケース）を優先し、
+        // それ以外で公式側がdocumentソース（協会配布資料のみ、公式HPはまだ未掲載）のままの
+        // 照合OKには「公式PDFでのみ確認、公式HPは更新待ち」の注記を付ける（2026-10-23新設）。
+        // documentソースの行がhpソースに置き換わった時点で自動的にこの注記は消える
+        // （v0.2.160のhp確認後document重複自動削除により、次回照合でsourceType==='hp'に変わるため）。
+        const note = matchedDiscs.some(d => NG_TYPES.has(d.type) && d.status === 'known_change_ok')
+          ? '照合OKとしたが、公式HPは更新待ち'
+          : (status === 'ok' && official && official.sourceType === 'document')
+            ? '公式PDFでのみ確認、公式HPは更新待ち'
+            : '';
+        return { status, note };
+      })(),
     });
   }
   for (const d of discData) {
@@ -2475,6 +2489,12 @@ function renderSummary() {
   const merged = buildMerged();
   document.getElementById('cnt-all').textContent   = merged.length;
   document.getElementById('cnt-ok').textContent    = merged.filter(e => e.status === 'ok').length;
+  // 照合OKのうち、公式HPがまだ掲載しておらず協会配布資料(PDF)でのみ確認できた件数
+  // （2026-10-23新設。「公式PDFでの照合OKは問題ないが、公式HP更新の追跡状況も合わせて見たい」との要望）。
+  // 未来日程のみ（merged自体がupcomingCoach基点のためbuildMerged()の時点で既に今後の試合に限定済み）。
+  const okPdfCount = merged.filter(e => e.status === 'ok' && e.official && e.official.sourceType === 'document').length;
+  document.getElementById('cnt-ok-pdf-wrap').style.display = okPdfCount > 0 ? '' : 'none';
+  document.getElementById('cnt-ok-pdf').textContent = okPdfCount;
   document.getElementById('cnt-ng').textContent    = merged.filter(e => e.status === 'ng').length;
   document.getElementById('cnt-pending').textContent = merged.filter(e => e.status === 'pending').length;
   document.getElementById('cnt-line_pending').textContent = merged.filter(e => e.status === 'line_pending').length;
@@ -2648,7 +2668,13 @@ function renderSchedList() {
       // status:'known_change_ok'（公式HPと公式PDF等が食い違うが、独立ソース側とLINE
       // 報告が一致し照合OKとした試合）は、種別ラベルではなく注記そのものを表示する
       // （2026-09-24新設。「照合OKとしたが、公式HPは更新待ち」）。
-      diffHtml = `<div class="card-diff ok-note">✅ ${escHtml(e.note)}</div>`;
+      // 公式側がdocumentソース（協会配布資料のみ）の注記には、資料を直接開けるリンクを
+      // 添える（2026-10-23新設、既存のviewOfficialDocument()モーダルを再利用）。
+      const noteDocId = (offSourceType === 'document' && offEvidenceDocId) || '';
+      const noteLink = noteDocId
+        ? ` <a href="javascript:void(0)" onclick="viewOfficialDocument('${noteDocId}', this)" style="color:var(--gold);text-decoration:underline">資料確認</a>`
+        : '';
+      diffHtml = `<div class="card-diff ok-note">✅ ${escHtml(e.note)}${noteLink}</div>`;
     } else if (!e.discs || !e.discs.length) {
       diffHtml = `<div class="card-diff ok-match">差分無し</div>`;
     } else {
