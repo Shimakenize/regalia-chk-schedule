@@ -1598,7 +1598,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 184;
+const __UI_BUILD__  = 185;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1658,7 +1658,9 @@ const OFFICIAL_SOURCES = [
   // v0.2.151（2026-09-27）: 新規大会「GFL(U13)」追加。正式名称Growth Future League
   // Group B（U-13）。ページが「Coming Soon」で日程・結果とも未掲載のため、公式タブに
   // 枠（リンク付き・「未記録」表示）だけ用意。自動スクレイプはcategories.yaml側でdisabled。
-  { id: 'U-13_GFL',    label: 'Growth Future League(Group B)', shortLabel: 'GFL', url: 'https://growth-fl.com/muchresult-groupb-2026/', status: 'preparing' },
+  { id: 'U-13_GFL',    label: 'Growth Future League(Group B)', shortLabel: 'GFL', url: 'https://growth-fl.com/muchresult-groupb-2026/', status: 'preparing',
+    // コーチLINE報告での実際の表記ゆれ（GAS側_KNOWN_LEAGUE_LABELSと同じ目的、2026-10-23追加）
+    aliases: ['Growthリーグ'] },
   // ── 終了 ──
   { id: 'U-15_TKMD',   label: '高円宮杯',                 shortLabel: '高円宮杯',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/tkmd-2026', status: 'ended' },
   { id: 'U-14',        label: 'U-14リーグ',               shortLabel: 'U14L',       url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/', status: 'ended' },
@@ -1673,6 +1675,7 @@ function resolveOfficialSource(category, leagueName) {
   if (leagueName) {
     const hit = OFFICIAL_SOURCES.find(s =>
       leagueName.includes(s.shortLabel) || leagueName.includes(s.label) || s.label.includes(leagueName)
+      || (s.aliases || []).some(a => leagueName.includes(a) || a.includes(leagueName))
     );
     if (hit) return hit;
   }
@@ -1690,7 +1693,8 @@ function isKnownOfficialLeague(leagueName) {
   if (!s || s.toUpperCase() === 'TRG') return false;
   return OFFICIAL_SOURCES.some(o => {
     const lbl = _normLeagueStr(o.label), short = _normLeagueStr(o.shortLabel);
-    return s.includes(short) || s.includes(lbl) || lbl.includes(s) || short.includes(s);
+    if (s.includes(short) || s.includes(lbl) || lbl.includes(s) || short.includes(s)) return true;
+    return (o.aliases || []).some(a => { const na = _normLeagueStr(a); return s.includes(na) || na.includes(s); });
   });
 }
 
