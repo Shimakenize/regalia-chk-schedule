@@ -1598,7 +1598,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 185;
+const __UI_BUILD__  = 186;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -1654,13 +1654,14 @@ const OFFICIAL_SOURCES = [
   // 「全チーム」セレクトからREGALIAを選べば該当試合のみ絞り込める（categories.yaml側
   // site_type: new_small_cup、専用Playwrightスクレイパー実装済み）。
   { id: 'U-13',        label: 'S.M.A.L.L. CUP(後期)',    shortLabel: 'S.M.A.L.L後期', url: 'https://new-small-cup-u13.web.app/schedule', status: 'active' },
-  // ── 準備中 ──
-  // v0.2.151（2026-09-27）: 新規大会「GFL(U13)」追加。正式名称Growth Future League
-  // Group B（U-13）。ページが「Coming Soon」で日程・結果とも未掲載のため、公式タブに
-  // 枠（リンク付き・「未記録」表示）だけ用意。自動スクレイプはcategories.yaml側でdisabled。
-  { id: 'U-13_GFL',    label: 'Growth Future League(Group B)', shortLabel: 'GFL', url: 'https://growth-fl.com/muchresult-groupb-2026/', status: 'preparing',
+  // v0.2.151（2026-09-27）登録時はページが「Coming Soon」でstatus:'preparing'だった。
+  // 2026-11-02: サイトが稼働しているのを確認し有効化。順位表ページでREGALIAが
+  // 「2026 GroupA」所属と判明（登録時点のGroup B推定は誤り、当時は未定で判断不可だった）。
+  // categories.yaml側 site_type: growth_fl（requestsのみ、Playwright不要）。
+  { id: 'U-13_GFL',    label: 'Growth Future League(Group A)', shortLabel: 'GFL', url: 'https://growth-fl.com/muchresult-groupa-2026/', status: 'active',
     // コーチLINE報告での実際の表記ゆれ（GAS側_KNOWN_LEAGUE_LABELSと同じ目的、2026-10-23追加）
     aliases: ['Growthリーグ'] },
+  // ── 準備中 ──
   // ── 終了 ──
   { id: 'U-15_TKMD',   label: '高円宮杯',                 shortLabel: '高円宮杯',   url: 'https://www.kanagawa-fa.gr.jp/cms/u15/competition/tkmd-2026', status: 'ended' },
   { id: 'U-14',        label: 'U-14リーグ',               shortLabel: 'U14L',       url: 'https://www.kanagawa-fa.gr.jp/cms/club-u15/competition/kcjyu14league2026/', status: 'ended' },
