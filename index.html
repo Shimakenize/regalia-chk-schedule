@@ -883,6 +883,7 @@
     .hl-tl-seg--main.hl-kind-futsal { background:rgba(217,119,6,.30); color:#ffedd5; }
     .hl-tl-seg--main.hl-kind-trg    { background:rgba(14,165,233,.30); color:#e0f2fe; }
     .hl-tl-seg--main.hl-kind-tr     { background:rgba(16,185,129,.30); color:#d1fae5; }
+    .hl-tl-seg--main.hl-kind-adhoc  { background:rgba(100,116,139,.30); color:#f1f5f9; }
     .hl-tl-seg--departure { background:#6b8fc9; color:#f8fafc; }
     .hl-tl-seg--assembly { background:#3d5f8f; color:#f1f5f9; }
     .hl-tl-seg--postmark { background:#4a6fa0; color:#f1f5f9; text-align:right; }
@@ -1598,7 +1599,7 @@ document.querySelectorAll('.tab-new-badge').forEach(el => {
 });
 
 // ── 状態 ─────────────────────────────────────────────────────────────────────
-const __UI_BUILD__  = 186;
+const __UI_BUILD__  = 187;
 const BOOTSTRAP_LOCK_MS = 12000;
 let _localDataWriteGen = 0;
 let _pendingBootstrapRes = null;
@@ -3265,6 +3266,7 @@ function hlIsTrgEv(m) {
 }
 function hlEventKindClass(m) {
   if (m.event_kind === 'TR') return 'hl-kind-tr';
+  if (m.event_kind === 'adhoc') return 'hl-kind-adhoc';
   if (hlTlIsFutsalEv(m)) return 'hl-kind-futsal';
   if (hlIsTrgEv(m)) return 'hl-kind-trg';
   return 'hl-kind-match';
@@ -3287,11 +3289,12 @@ function hlRegisterEventDetail(ev) {
 
 function _hlEventDetailRowsHtml(ev) {
   const isTr = ev.event_kind === 'TR';
+  const isAdhoc = ev.event_kind === 'adhoc';
   const rows = [];
   rows.push(['日付', fmtDate(normDate(ev.event_date))]);
   rows.push(['カテゴリ', catBase(ev.category_code) || '—']);
-  rows.push(['種別', isTr ? '練習' : '試合']);
-  if (!isTr) rows.push(['対戦相手', ev.title || '未定']);
+  rows.push(['種別', isTr ? '練習' : (isAdhoc ? '観戦等' : '試合')]);
+  if (!isTr && !isAdhoc) rows.push(['対戦相手', ev.title || '未定']);
   if (ev.league_or_competition) rows.push(['大会名', ev.league_or_competition]);
   if (ev.pre_event_coach) rows.push(['集合', ev.pre_event_coach]);
   rows.push(['時刻', ev.event_time || '—']);
@@ -3682,7 +3685,11 @@ function hlTlCollapseTr(rows) {
 // TR（練習）には対戦相手が無いため「vs 練習」のような表示にはしない。タイトルは
 // hlTlMainSub()側（league・titleの行）で既に「練習」と表示されるため、ここでは空にして
 // 二重表示を避ける。
-function hlTlCardText(ev) { return (ev.event_kind === 'TR' || !ev.title) ? '' : ('vs ' + ev.title); }
+function hlTlCardText(ev) {
+  if (ev.event_kind === 'TR' || !ev.title) return '';
+  if (ev.event_kind === 'adhoc') return ev.title; // 観戦等は「vs」を付けずタイトルのみ表示
+  return 'vs ' + ev.title;
+}
 function hlTlCardTextGroup(ev) {
   if (!ev.groupEvents || ev.groupEvents.length < 2) return hlTlCardText(ev);
   return ev.groupEvents.map(sub => {
